@@ -115,54 +115,90 @@ def internal_error(error):
 
 def should_refresh_all_orders() -> bool:
     """
-    Returns True if all_orders.csv should be refreshed (cache expired or missing).
+    Returns True if all_orders.csv should be refreshed:
+    - file missing
+    - file empty
+    - cache timestamp missing/corrupt
+    - cache expired
     """
-    if not os.path.exists(ALL_ORDERS_CACHE_FILE):
+    csv_path = current_app.config["ALL_ORDERS_CSV"]
+    cache_file = current_app.config["ALL_ORDERS_CACHE_FILE"]
+
+    if not os.path.exists(csv_path):
+        current_app.logger.info("all_orders.csv missing; refresh required")
         return True
 
     try:
-        with open(ALL_ORDERS_CACHE_FILE, "r") as f:
-            last_ts = float(f.read().strip())
-    except Exception:
+        if os.path.getsize(csv_path) == 0:
+            current_app.logger.info("all_orders.csv is empty; refresh required")
+            return True
+    except OSError:
+        current_app.logger.info("Could not stat all_orders.csv; refresh required")
         return True
 
-    return (time.time() - last_ts) > CACHE_TTL_SECONDS
+    if not os.path.exists(cache_file):
+        current_app.logger.info("all_orders cache file missing; refresh required")
+        return True
+
+    try:
+        with open(cache_file, "r") as f:
+            last_ts = float(f.read().strip())
+    except Exception:
+        current_app.logger.info("all_orders cache timestamp invalid; refresh required")
+        return True
+
+    expired = (time.time() - last_ts) > CACHE_TTL_SECONDS
+    if expired:
+        current_app.logger.info("all_orders cache expired; refresh required")
+
+    return expired
 
 
 def touch_all_orders_cache():
     """
     Updates the cache timestamp file.
     """
-    os.makedirs("data", exist_ok=True)
-    with open(ALL_ORDERS_CACHE_FILE, "w") as f:
+    cache_file = current_app.config["ALL_ORDERS_CACHE_FILE"]
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+
+    with open(cache_file, "w") as f:
         f.write(str(time.time()))
 
 def refresh_all_orders_if_needed():
     """
-    Calls get_all_orders() only if cache expired.
+    Calls get_all_orders() only if cache expired or CSV is missing.
+    Raises FileNotFoundError if generation fails.
     """
+    csv_path = current_app.config["ALL_ORDERS_CSV"]
+
     if not should_refresh_all_orders():
-        current_app.logger.info("Using cached all_orders.csv (≤ 24h old)")
+        current_app.logger.info("Using cached all_orders.csv")
         return
 
     current_app.logger.info("Refreshing all_orders.csv from API")
 
-    # Fake POST request context so we can reuse the route logic
-    with current_app.test_request_context(
-        "/generate_all_orders",
-        method="POST"
-    ):
+    with current_app.test_request_context("/generate_all_orders", method="POST"):
         resp = get_all_orders()
 
-    # Only update cache if generation succeeded
     if isinstance(resp, tuple):
         resp = resp[0]
 
-    if hasattr(resp, "json") and resp.json.get("status") == "success":
+    success = False
+
+    try:
+        if hasattr(resp, "get_json"):
+            payload = resp.get_json(silent=True) or {}
+            success = payload.get("status") == "success"
+    except Exception:
+        success = False
+
+    if success and os.path.exists(csv_path) and os.path.getsize(csv_path) > 0:
         touch_all_orders_cache()
         current_app.logger.info("all_orders.csv refreshed and cached")
-    else:
-        current_app.logger.warning("Failed to refresh all_orders.csv")
+        return
+
+    current_app.logger.error("Failed to refresh all_orders.csv")
+    raise FileNotFoundError(f"Could not generate required file: {csv_path}")
 
 
 
@@ -170,12 +206,7 @@ def refresh_all_orders_if_needed():
 @main.route("/")
 @login_required
 def monthly_sales():
-    try:
-        refresh_all_orders_if_needed()
-    except Exception:
-        current_app.logger.exception("Failed refreshing all_orders cache")
-
-    all_orders = "data/all_orders.csv"
+    all_orders = current_app.config["ALL_ORDERS_CSV"]
 
     monthly_sales_trend = []
     forecast_data = []
@@ -186,7 +217,6 @@ def monthly_sales():
     other_channels_labels = []
     other_channels_pct = 0.0
 
-    # Total meta for bridge point
     forecast_includes_current_month_mtd = False
     projection_method = "weekday_weighted"
     current_month_label = None
@@ -198,8 +228,10 @@ def monthly_sales():
     error = None
 
     try:
+        refresh_all_orders_if_needed()
+
         if not os.path.exists(all_orders):
-            raise FileNotFoundError(f"{all_orders} not found. Please generate all orders first.")
+            raise FileNotFoundError(f"{all_orders} not found. Auto-generation failed.")
 
         # Total trend + forecast with weekday-weighted projection
         monthly_sales_trend, forecast_data, meta = get_monthly_sales_trend(
@@ -223,9 +255,6 @@ def monthly_sales():
         current_month_remaining_days = int(meta.get("current_month_remaining_days", 0) or 0)
         current_month_days_in_month = int(meta.get("current_month_days_in_month", 0) or 0)
 
-        # -------------------------
-        # Pie: total sales by utm_source (up to end of previous month)
-        # -------------------------
         import pandas as pd
 
         df = pd.read_csv(all_orders)
@@ -296,9 +325,6 @@ def monthly_sales():
         other_channels_labels = [x["key"] for x in excluded]
         other_channels_pct = float(sum(x["pct"] for x in excluded)) if excluded else 0.0
 
-        # -------------------------
-        # Channel charts with bridge point meta
-        # -------------------------
         for item in included:
             channel = item["key"]
             pct = item["pct"]
@@ -328,8 +354,6 @@ def monthly_sales():
                 "forecast": ch_forecast,
                 "pct": pct,
                 "count": int(item["count"]),
-
-                # Bridge meta for chart display
                 "forecast_includes_current_month_mtd": bool(ch_meta.get("forecast_includes_current_month_mtd", False)),
                 "projection_method": ch_meta.get("projection_method", "weekday_weighted"),
                 "current_month_label": ch_meta.get("current_month_label"),
@@ -341,7 +365,7 @@ def monthly_sales():
 
     except Exception as e:
         error = str(e)
-        current_app.logger.exception("monthly_sales_by_month view failed")
+        current_app.logger.exception("monthly_sales view failed")
 
     return render_template(
         "monthly_sales.html",
@@ -352,8 +376,6 @@ def monthly_sales():
         channel_charts=channel_charts,
         other_channels_labels=other_channels_labels,
         other_channels_pct=other_channels_pct,
-
-        # Total meta for bridge
         forecast_includes_current_month_mtd=forecast_includes_current_month_mtd,
         projection_method=projection_method,
         current_month_label=current_month_label,
@@ -361,7 +383,6 @@ def monthly_sales():
         current_month_projected_sales=current_month_projected_sales,
         current_month_remaining_days=current_month_remaining_days,
         current_month_days_in_month=current_month_days_in_month,
-
         error=error,
     )
 
@@ -3868,84 +3889,40 @@ logger = logging.getLogger(__name__)
 @main.route("/generate_all_orders", methods=["POST"])
 @login_required
 def get_all_orders():
-
-    option_api_key = Option.query.filter_by(meta_key="api_key").first()
-    option_orders_url = Option.query.filter_by(meta_key="orders_url").first()
-
-    api_key = option_api_key.meta_value
-    orders_url = option_orders_url.meta_value
-   
-    params = {}
-    params["start_date"] = "01/01/2022"
-
-    today = date.today()
-    # Format the date as dd/mm/yyyy
-    formatted_date = today.strftime('%d/%m/%Y')
-
-    params["end_date"] = formatted_date
-
-    logger.info(f"Sending request to API with params: {params}")
-
-    # Add authorization header
-    headers = {
-        "Authorization": f"Bearer {api_key}"
-    }
-
+    """
+    Generates data/all_orders.csv using the configured absolute path.
+    """
     try:
-        # Fetch data from Woo Gender Analytics
-        response = requests.get(orders_url, headers=headers, params=params)
-        logger.info(f"API response status: {response.status_code}")
-        response.raise_for_status()
-        json_data = response.json()
-        #logger.info(f"API response data: {json_data}")
+        output_csv = current_app.config["ALL_ORDERS_CSV"]
+        os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
-        if not json_data:
-            error_message = "No data returned from the API for the given parameters."
-            logger.error(error_message)
-            return jsonify({"status": "error", "message": error_message}), 400
+        current_app.logger.info("Generating all_orders.csv at %s", output_csv)
 
-        # Define output file paths
-        data_dir = os.path.join(os.getcwd(), "data")
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-            logger.info(f"Created data directory at {data_dir}")
+        fetch_json_and_create_csv(output_csv)
 
-        csv_path = os.path.join(data_dir, "all_orders.csv")
-        name_map_file = os.path.join(data_dir, "name_to_gender.csv")
+        if not os.path.exists(output_csv):
+            raise FileNotFoundError(f"CSV was not created: {output_csv}")
 
-        # Create CSV from JSON data
-        message = fetch_json_and_create_csv(
-            json_data=json_data,
-            output_file=csv_path,
-            name_to_gender_file=name_map_file,
-            include_address_1=include_address_1,
-        )
+        if os.path.getsize(output_csv) == 0:
+            raise ValueError(f"CSV was created but is empty: {output_csv}")
 
-        if "successfully" in message.lower():
-            success_message = "data/all_orders.csv created successfully!"
-            logger.info(success_message)
-            return jsonify({
-                "status": "success",
-                "message": success_message,
-                "csv_url": success_message
-            }), 200
-        else:
-            error_message = f"Error creating CSV: {message}"
-            logger.error(error_message)
-            return jsonify({"status": "error", "message": error_message}), 400
+        touch_all_orders_cache()
 
-    except requests.exceptions.HTTPError as http_err:
-        error_message = f"HTTP error occurred: {http_err}"
-        logger.error(error_message)
-        return jsonify({"status": "error", "message": error_message}), 500
-    except requests.exceptions.RequestException as req_err:
-        error_message = f"Request error occurred: {req_err}"
-        logger.error(error_message)
-        return jsonify({"status": "error", "message": error_message}), 500
+        current_app.logger.info("Successfully generated all_orders.csv")
+
+        return jsonify({
+            "status": "success",
+            "message": "all_orders.csv generated successfully",
+            "output": output_csv,
+        }), 200
+
     except Exception as e:
-        error_message = f"An unexpected error occurred: {e}"
-        logger.error(error_message)
-        return jsonify({"status": "error", "message": error_message}), 500
+        current_app.logger.exception("Failed to generate all_orders.csv")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+        }), 500
 
 from flask import request, jsonify
 from flask_login import login_required

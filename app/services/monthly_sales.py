@@ -273,7 +273,7 @@ def get_monthly_sales_trend(
 
     meta["current_month_label"] = start_current_month.strftime("%Y-%m")
 
-    output_dir = os.path.join(os.getcwd(), "data")
+    output_dir = os.path.dirname(os.path.abspath(orders_csv_path))
     os.makedirs(output_dir, exist_ok=True)
     csv_path = os.path.join(output_dir, output_file)
 

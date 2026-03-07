@@ -1,6 +1,142 @@
 **app/routes.py**
-```python
+#routes.py
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, current_app 
+import os
+import requests
+import csv  # Ensure the csv module is imported
+import traceback
 
+import time
+
+from .models import User, Option
+from . import db
+from .sqlite_db import get_db_connection
+
+from datetime import date
+from app.services.daily import ( 
+    get_daily_sales_trend,
+    get_future_daily_sales_projections  # <-- new import
+)
+from app.services.monthly import (
+    merge_tables_by_percentage, 
+    get_monthly_sales_repurchases_trend,
+    consolidate_monthly_sales, 
+    get_monthly_sales_undefined_trend, 
+    get_monthly_sales_forecast, 
+    get_consolidated_monthly_sales, 
+    recalculate_data, 
+    get_monthly_sales_trend, 
+    get_monthly_sales_paid_trend)
+
+from app.services.get_data import fetch_json_and_create_csv
+from app.services.ads import get_daily_conversions,get_daily_conversions_by_campaign,forecast_campaigns, get_wp_campaign_trend, forecast_ads
+import logging
+from datetime import datetime
+from app.services.repurchases import (
+    find_customers_with_multiple_purchases,
+    process_repeated_orders,
+    get_monthly_repurchases_trend,
+    print_customers_with_multiple_purchases,
+    get_daily_repurchases,
+    get_monthly_repurchases_forecast
+)
+from app.services.rankings import (
+    get_top_cities_by_gender,
+    get_top_hours_by_gender,
+    get_top_days_of_the_week,
+    get_top_days_of_month_by_gender,
+    get_top_10_months_by_sales,
+    get_top_twenty_days_by_sales,
+    get_top_ten_mondays_by_sales,
+    get_top_ten_tuesdays_by_sales,
+    get_top_ten_wednesdays_by_sales,
+    get_top_ten_thursdays_by_sales,
+    get_top_ten_fridays_by_sales,
+    get_top_ten_saturdays_by_sales,
+    get_top_ten_sundays_by_sales,
+    get_top_ten_utm_campaigns,
+    get_utm_answer_ranking,
+    get_top_twenty_days_by_undefined_campaign,
+    get_top_ten_utm_content_by_sales,
+    get_top_ten_utm_source_by_sales,
+    get_top_ten_utm_medium_by_sales,
+    get_top_ten_utm_term_by_sales,
+    get_utm_content_ranking_by_gender,
+    get_order_percentage_by_city
+)
+from flask_login import login_user, logout_user, login_required, current_user
+
+
+
+from app.services.performance import (
+    get_weekly_order_stats
+)
+
+from app.services.repurchases import (
+    find_customers_with_multiple_purchases,
+    process_repeated_orders,
+    print_customers_with_multiple_purchases,
+    get_daily_repurchases,
+    get_monthly_repurchases_forecast,
+)
+
+from app.services.top_cities import get_top_cities_daily_trend_with_forecast
+
+from app.services.monthly_sales import get_monthly_sales_trend  
+
+from app.services.monthly_repurchases import get_monthly_repurchases_trend
+
+from app.services.daily_sales import get_daily_sales_trend as get_daily_sales_trend_simple
+
+from app.services.daily_repurchases import get_daily_repurchases_trend
+
+import os
+from flask import current_app, render_template, request, send_from_directory, abort
+from werkzeug.utils import secure_filename
+
+
+CACHE_TTL_SECONDS = 60 * 60 * 24  # 1 day
+ALL_ORDERS_CACHE_FILE = "data/.all_orders_cache_ts"
+
+main = Blueprint(
+    "main",
+    __name__,
+    template_folder="templates",
+    static_folder="../static"  # Adjust path relative to routes.py
+)
+
+@main.app_errorhandler(500)
+def internal_error(error):
+    return render_template(
+        "error.html",
+        error=str(error),
+        traceback=traceback.format_exc()
+    ), 500
+
+
+def should_refresh_all_orders() -> bool:
+    """
+    Returns True if all_orders.csv should be refreshed (cache expired or missing).
+    """
+    if not os.path.exists(ALL_ORDERS_CACHE_FILE):
+        return True
+
+    try:
+        with open(ALL_ORDERS_CACHE_FILE, "r") as f:
+            last_ts = float(f.read().strip())
+    except Exception:
+        return True
+
+    return (time.time() - last_ts) > CACHE_TTL_SECONDS
+
+
+def touch_all_orders_cache():
+    """
+    Updates the cache timestamp file.
+    """
+    os.makedirs("data", exist_ok=True)
+    with open(ALL_ORDERS_CACHE_FILE, "w") as f:
+        f.write(str(time.time()))
 
 def refresh_all_orders_if_needed():
     """
@@ -28,6 +164,9 @@ def refresh_all_orders_if_needed():
         current_app.logger.info("all_orders.csv refreshed and cached")
     else:
         current_app.logger.warning("Failed to refresh all_orders.csv")
+
+
+
 
 @main.route("/")
 @login_required

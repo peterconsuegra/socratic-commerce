@@ -25,48 +25,44 @@ def create_app():
     app.config["ENV"] = "development"
 
     from .helpers import format_cop
-    app.jinja_env.filters['cop'] = format_cop
-    
+    app.jinja_env.filters["cop"] = format_cop
+
     from .helpers import get_value
-    app.jinja_env.filters['get_value'] = get_value
+    app.jinja_env.filters["get_value"] = get_value
 
+    app.static_folder = "static"
+    app.secret_key = os.getenv("FLASK_KEY", "default-secret-key")
 
-    # Ensure the static folder is correctly set
-    app.static_folder = 'static'
-    
-    # Set secret key
-    app.secret_key = os.getenv('FLASK_KEY', 'default-secret-key')
-    
-    # Define the base directory
     basedir = os.path.abspath(os.path.dirname(__file__))
-    
-    # Construct the absolute path to the database
-    db_path = os.path.join(basedir, '..', 'database.db')
-    
-    # Update the SQLALCHEMY_DATABASE_URI with the correct SQLite URI format
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    project_root = os.path.abspath(os.path.join(basedir, ".."))
+    data_dir = os.path.join(project_root, "data")
+    db_path = os.path.join(project_root, "database.db")
 
-    # Initialize extensions
+    app.config["PROJECT_ROOT"] = project_root
+    app.config["DATA_DIR"] = data_dir
+    app.config["ALL_ORDERS_CSV"] = os.path.join(data_dir, "all_orders.csv")
+    app.config["ALL_ORDERS_CACHE_FILE"] = os.path.join(data_dir, ".all_orders_cache_ts")
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_path
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    os.makedirs(data_dir, exist_ok=True)
+
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # Initialize Flask-Login
     login_manager.init_app(app)
-    login_manager.login_view = "main.login"  # The name of the login route
+    login_manager.login_view = "main.login"
 
-    # Import and register blueprints
     from .routes import main
     app.register_blueprint(main)
 
-    # Provide user loader function
     from .models import User
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
 
-    # Register CLI commands (import here to avoid circular import)
     from .cli import register_cli
     register_cli(app)
 
