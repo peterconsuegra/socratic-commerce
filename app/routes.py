@@ -24,10 +24,10 @@ from app.services.monthly import (
     get_monthly_sales_forecast, 
     get_consolidated_monthly_sales, 
     recalculate_data, 
-    get_monthly_sales_trend, 
-    get_monthly_sales_paid_trend)
+    get_monthly_sales_paid_trend,
+)
 
-from app.services.get_data import fetch_json_and_create_csv
+from app.services.get_data import fetch_orders_and_write_csv
 from app.services.ads import get_daily_conversions,get_daily_conversions_by_campaign,forecast_campaigns, get_wp_campaign_trend, forecast_ads
 import logging
 from datetime import datetime
@@ -113,6 +113,27 @@ def internal_error(error):
     ), 500
 
 
+@main.route("/generate_all_orders", methods=["POST"])
+@login_required
+def get_all_orders():
+    try:
+        output_csv = generate_all_orders_csv()
+
+        return jsonify({
+            "status": "success",
+            "message": "all_orders.csv generated successfully",
+            "output": output_csv,
+        }), 200
+
+    except Exception as e:
+        current_app.logger.exception("Failed to generate all_orders.csv")
+
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+        }), 500
+
+
 def should_refresh_all_orders() -> bool:
     """
     Returns True if all_orders.csv should be refreshed:
@@ -164,9 +185,80 @@ def touch_all_orders_cache():
     with open(cache_file, "w") as f:
         f.write(str(time.time()))
 
+def build_orders_csv(
+    *,
+    file_name: str,
+    send_date_params: bool = False,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> str:
+    """
+    Shared helper used by working data routes and all_orders generation.
+    Returns the absolute path to the generated CSV.
+    """
+    project_root = current_app.config["PROJECT_ROOT"]
+    output_csv = os.path.join(current_app.config["DATA_DIR"], file_name)
+
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+
+    orders_url = get_option_value("orders_url")
+    api_key = get_option_value("api_key")
+
+    if not orders_url:
+        raise ValueError("Missing 'orders_url' in options table")
+
+    if not api_key:
+        raise ValueError("Missing 'api_key' in options table")
+
+    current_app.logger.info("Generating %s at %s", file_name, output_csv)
+    current_app.logger.info("Using orders API: %s", orders_url)
+
+    kwargs = {
+        "orders_url": orders_url,
+        "api_key": api_key,
+        "file_name": file_name,
+        "cwd": project_root,
+        "timeout": 120,
+    }
+
+    if send_date_params and start_date and end_date:
+        kwargs["start_date"] = start_date
+        kwargs["end_date"] = end_date
+
+    ok, payload = fetch_orders_and_write_csv(**kwargs)
+
+    if not ok:
+        raise RuntimeError(payload.get("message", f"Unknown error generating {file_name}"))
+
+    if not os.path.exists(output_csv):
+        raise FileNotFoundError(f"CSV was not created: {output_csv}")
+
+    if os.path.getsize(output_csv) == 0:
+        raise ValueError(f"CSV was created but is empty: {output_csv}")
+
+    current_app.logger.info("Successfully generated %s", file_name)
+    return output_csv
+
+def get_option_value(meta_key: str, default=None):
+    row = Option.query.filter_by(meta_key=meta_key).first()
+    return row.meta_value if row and row.meta_value is not None else default
+
+
+def generate_all_orders_csv() -> str:
+    """
+    Generates all_orders.csv using the same API flow as the working /get_data route.
+    """
+    output_csv = build_orders_csv(
+        file_name="all_orders.csv",
+        send_date_params=False,
+    )
+
+    touch_all_orders_cache()
+    return output_csv
+
 def refresh_all_orders_if_needed():
     """
-    Calls get_all_orders() only if cache expired or CSV is missing.
+    Generates all_orders.csv only if cache is expired or file is missing.
     Raises FileNotFoundError if generation fails.
     """
     csv_path = current_app.config["ALL_ORDERS_CSV"]
@@ -177,29 +269,20 @@ def refresh_all_orders_if_needed():
 
     current_app.logger.info("Refreshing all_orders.csv from API")
 
-    with current_app.test_request_context("/generate_all_orders", method="POST"):
-        resp = get_all_orders()
-
-    if isinstance(resp, tuple):
-        resp = resp[0]
-
-    success = False
-
     try:
-        if hasattr(resp, "get_json"):
-            payload = resp.get_json(silent=True) or {}
-            success = payload.get("status") == "success"
-    except Exception:
-        success = False
+        generate_all_orders_csv()
+    except Exception as e:
+        current_app.logger.exception("Failed to refresh all_orders.csv")
+        raise FileNotFoundError(
+            f"Could not generate required file: {csv_path}. Reason: {e}"
+        ) from e
 
-    if success and os.path.exists(csv_path) and os.path.getsize(csv_path) > 0:
-        touch_all_orders_cache()
+    if os.path.exists(csv_path) and os.path.getsize(csv_path) > 0:
         current_app.logger.info("all_orders.csv refreshed and cached")
         return
 
     current_app.logger.error("Failed to refresh all_orders.csv")
     raise FileNotFoundError(f"Could not generate required file: {csv_path}")
-
 
 
 
@@ -3886,43 +3969,7 @@ def rankings():
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-@main.route("/generate_all_orders", methods=["POST"])
-@login_required
-def get_all_orders():
-    """
-    Generates data/all_orders.csv using the configured absolute path.
-    """
-    try:
-        output_csv = current_app.config["ALL_ORDERS_CSV"]
-        os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
-        current_app.logger.info("Generating all_orders.csv at %s", output_csv)
-
-        fetch_json_and_create_csv(output_csv)
-
-        if not os.path.exists(output_csv):
-            raise FileNotFoundError(f"CSV was not created: {output_csv}")
-
-        if os.path.getsize(output_csv) == 0:
-            raise ValueError(f"CSV was created but is empty: {output_csv}")
-
-        touch_all_orders_cache()
-
-        current_app.logger.info("Successfully generated all_orders.csv")
-
-        return jsonify({
-            "status": "success",
-            "message": "all_orders.csv generated successfully",
-            "output": output_csv,
-        }), 200
-
-    except Exception as e:
-        current_app.logger.exception("Failed to generate all_orders.csv")
-
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-        }), 500
 
 from flask import request, jsonify
 from flask_login import login_required

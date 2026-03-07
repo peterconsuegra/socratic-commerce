@@ -11,3 +11,5 @@ app/__pycache__/
 data/*
 /data
 /data/*
+prompt.txt
+prompt_helper.txt

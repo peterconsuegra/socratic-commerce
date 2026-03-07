@@ -11,12 +11,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
 
-# Load environment variables from .env if present
 load_dotenv()
-
-# Initialize SQLAlchemy
-db = SQLAlchemy()
-migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)

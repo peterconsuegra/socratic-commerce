@@ -188,32 +188,40 @@ def fetch_orders_and_write_csv(
     *,
     orders_url: str,
     api_key: str,
-    start_date: str,
-    end_date: str,
     file_name: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
     cwd: str | None = None,
     timeout: int = 60,
 ) -> tuple[bool, dict]:
     """
     Calls the Orders API and writes the daily sales CSV.
 
-    Before writing:
-      - Deletes /data/{file_name} if exists
-      - Deletes /data/{file_name_without_ext}_filtered.csv if exists
+    If start_date and end_date are provided, sends them as query params.
+    Otherwise, calls the endpoint without date params.
 
     Returns: (ok, payload)
       - ok=True: payload has message + csv_url
       - ok=False: payload has message
     """
     try:
-        params = {"start_date": start_date, "end_date": end_date}
-        headers = {"Authorization": f"Bearer {api_key}"}
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+        }
+
+        params = None
+        if start_date and end_date:
+            params = {
+                "start_date": start_date,
+                "end_date": end_date,
+            }
 
         response = requests.get(
             orders_url,
             headers=headers,
             params=params,
-            timeout=timeout
+            timeout=timeout,
         )
         response.raise_for_status()
 
@@ -225,14 +233,8 @@ def fetch_orders_and_write_csv(
         data_dir = os.path.join(base_dir, "data")
         os.makedirs(data_dir, exist_ok=True)
 
-        # ----------------------------
-        # Delete existing files first
-        # ----------------------------
-
-        # Main file
         csv_path = os.path.join(data_dir, file_name)
 
-        # Build filtered file name automatically
         name_without_ext = os.path.splitext(file_name)[0]
         filtered_file_name = f"{name_without_ext}_filtered.csv"
         filtered_csv_path = os.path.join(data_dir, filtered_file_name)
@@ -242,12 +244,7 @@ def fetch_orders_and_write_csv(
                 try:
                     os.remove(path)
                 except Exception:
-                    # Do not fail hard if deletion fails
                     pass
-
-        # ----------------------------
-        # Create new CSV
-        # ----------------------------
 
         name_map_file = os.path.join(data_dir, "name_to_gender.csv")
 
