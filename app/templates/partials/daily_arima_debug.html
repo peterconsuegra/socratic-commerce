@@ -1,0 +1,233 @@
+<div class="container mt-4">
+    <h2 class="text-center">Daily Sales Trend</h2>
+    {% if daily_sales_trend %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Total Orders</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in daily_sales_trend %}
+            <tr>
+              <td>{{ row['Day'] }}</td>
+              <td>{{ row['Total Orders'] }}</td>
+              <td>{{ row['Total Sales']|cop }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No daily sales data available.
+      </div>
+    {% endif %}
+  </div>
+
+
+  <div class="container mt-4">
+      <h2 class="text-center">Daily Paid Sales Trend</h2>
+      {% if daily_sales_paid_trend %}
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Total Orders</th>
+              <th>Total Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in daily_sales_paid_trend %}
+              <tr>
+                <td>{{ row['Day'] }}</td>
+                <td>{{ row['Total Orders'] }}</td>
+                <td>{{ row['Total Sales']|cop }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="alert alert-warning" role="alert">
+          No daily paid sales data available.
+        </div>
+      {% endif %}
+    </div>
+
+
+
+    <div class="container mt-4">
+      <h2 class="text-center">Daily Repurchase Sales Trend</h2>
+      {% if daily_repurchases_trend %}
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Repurchases</th>
+              <th>Total Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in daily_repurchases_trend %}
+              <tr>
+                <td>{{ row['Day'] }}</td>
+                <td>{{ row['Repurchases'] }}</td>
+                <td>{{ row['Total Sales']|cop }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="alert alert-warning" role="alert">
+          No daily repurchase sales data available.
+        </div>
+      {% endif %}
+    </div>
+
+
+    <div class="container mt-4">
+  <h2 class="text-center">Daily Undefined Sales Trend</h2>
+  {% if daily_sales_undefined_trend %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in daily_sales_undefined_trend %}
+          <tr>
+            <td>{{ row['Day'] }}</td>
+            <td>{{ row['Sales']|cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No daily undefined sales data available.
+    </div>
+  {% endif %}
+</div>
+
+
+
+<div class="container mt-4">
+  <h2 class="text-center">Organic Sales 40% of Undefined </h2>
+  {% if daily_sales_organic_trend %}
+    <table class="table table-bordered table-striped">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Total Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in daily_sales_organic_trend %}
+          <tr>
+            <td>{{ row['Day'] }}</td>
+            <td>{{ row['Sales'] |cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No monthly organic data available.
+    </div>
+  {% endif %}
+</div>
+
+
+<div class="container mt-4">
+  <h2 class="text-center">Daily Paid Sales Trend Plus</h2>
+  {% if daily_sales_paid_trend_plus %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Undefined Sales</th>
+          <th>Paid Sales</th>
+          <th>Final Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in daily_sales_paid_trend_plus %}
+          <tr>
+            <td>{{ row['Day'] }}</td>
+            <td>{{ row['Sales_undef']|cop }}</td>
+            <td>{{ row['Sales_paid']|cop }}</td>
+            <td>{{ row['Sales']|cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No daily paid trend plus data available.
+    </div>
+  {% endif %}
+</div>
+
+
+<div class="container mt-4">
+  <h2 class="text-center">Consolidated Daily Sales</h2>
+  {% if consolidated_daily_sales %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Repurchases Sales</th>
+          <th>Paid Channel Sales</th>
+          <th>Organic Sales</th>
+          <th>Total Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in consolidated_daily_sales %}
+          <tr>
+            <td>{{ row['Day'] }}</td>
+            <td>{{ row['repurchases sales']|cop }}</td>
+            <td>{{ row['paid channel sales']|cop }}</td>
+            <td>{{ row['organic sales']|cop }}</td>
+            <td>{{ row['total sales']|cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No consolidated daily sales data available.
+    </div>
+  {% endif %}
+</div>
+
+
+<!-- ARIMA Forecast Table -->
+<div class="container mt-4">
+  <h2 class="text-center">ARIMA Forecast (Next 10 Days)</h2>
+  {% if forecast_data_arima %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Total Sales (ARIMA)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in forecast_data_arima %}
+          <tr>
+            <td>{{ row['Day'] }}</td>
+            <td>{{ row['Total Sales']|cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No ARIMA forecast data available.
+    </div>
+  {% endif %}
+</div>

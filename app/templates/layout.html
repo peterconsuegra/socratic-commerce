@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}My Application{% endblock %}</title>
+
+  <!-- Material Icons -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <!-- jQuery Library -->
+  <script
+    src="https://code.jquery.com/jquery-3.6.0.min.js"
+    integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- jQuery UI CSS -->
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
+  <!-- jQuery UI JS -->
+  <script 
+    src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js" 
+    integrity="sha512-57oZ/vW8ANMjR/KQ6Be9v/+/h6bq9/l3f0Oc7vn6qMqyhvPd1cvKBRWWpzu0QoneImqr2SkmO4MSqU+RpHom3Q=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer">
+  </script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Existing Styles */
+
+    .flash-message {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+    }
+    .flash-message.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .flash-message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .nav-sidebar-links a.active {
+      text-decoration: underline; 
+      font-weight: bold;
+      /* Optional: Additional styles */
+    }
+
+    /* COLOR PALETTE VARIABLES */
+    :root {
+      /* Teals and Greens */
+      --color-primary-light: #8bc7b9;  /* e.g. for backgrounds/cards */
+      --color-primary-lighter: #afdbd0;
+      --color-primary-dark: #223b35;
+      --color-teal-medium: #4c8686;
+      --color-teal-muted: #6ca5a0;
+
+      /* Accent Colors */
+      --color-accent-peach: #fec3a6;   /* Good for "Female" sections or highlights */
+      --color-accent-blue: #668ac9;    /* Good for "Male" sections or highlights */
+
+      /* Common text or background color usage */
+      --color-text-dark: #223b35;
+      --color-text-light: #ffffff;
+    }
+
+    /* GLOBAL STYLES */
+    body {
+      font-family: "Helvetica Neue", "Roboto", sans-serif;
+      color: var(--color-text-dark);
+      background-color: #fff; /* or use var(--color-primary-lighter) if you want a light teal background */
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--color-text-dark);
+    }
+
+    a {
+      color: var(--color-text-dark);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    a:hover {
+      color: var(--color-accent-blue);
+      text-decoration: none;
+    }
+
+   /* Responsive header with logo */
+.app-header{
+  position: sticky;
+  top: 0;
+  z-index: 1200; /* above content, below sidebar toggle (1100) is fine too */
+  background: #fff;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(34, 59, 53, 0.12);
+  display: flex;
+  align-items: center;
+}
+
+/* Brand link */
+.brand{
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* Logo scales nicely */
+.brand-logo{
+  display: block;
+  height: 44px;     /* desktop default */
+  width: auto;
+  max-width: 65vw;  /* prevent overflow on small screens */
+  object-fit: contain;
+}
+
+/* Mobile tweaks */
+@media (max-width: 576px){
+  .app-header{
+    padding: 8px 12px;
+  }
+  .brand-logo{
+    height: 34px;
+    max-width: 70vw;
+  }
+}
+
+
+/* Header can stay high, but below toggle/sidebar */
+.app-header{
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+}
+
+/* Toggle must be above header */
+.nav-toggle-btn{
+  z-index: 1300;
+}
+
+/* Sidebar should also be above header */
+.nav-sidebar{
+  z-index: 1250;
+}
+
+
+/* Ensure toggle and sidebar are above the sticky header */
+.app-header { z-index: 1200; }
+
+.nav-toggle-btn {
+  z-index: 1400 !important;
+}
+
+.nav-sidebar {
+  z-index: 1350 !important;
+}
+
+
+    /* SIDEBAR STYLES */
+    .nav-sidebar {
+      position: fixed;
+      top: 0;
+      right: -250px; /* hidden by default on the right */
+      width: 250px;
+      height: 100%;
+      background-color: var(--color-primary-light);
+      border-left: 2px solid var(--color-primary-dark);
+      transition: right 0.3s ease-in-out;
+      z-index: 1050;
+      overflow-y: auto;
+      box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    }
+    .nav-sidebar.open {
+      right: 0; /* Slide in */
+    }
+
+    .nav-sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--color-primary-dark);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .nav-sidebar-links {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .nav-sidebar-links a {
+      display: block;
+      padding: 0.75rem 1rem;
+      color: var(--color-text-dark);
+      transition: background-color 0.3s ease;
+    }
+    .nav-sidebar-links a:hover {
+      background-color: var(--color-accent-blue);
+      color: var(--color-text-light);
+    }
+
+    /* Menu icon button */
+    .nav-toggle-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      font-size: 32px;
+      cursor: pointer;
+      z-index: 1100;
+      color: var(--color-text-dark);
+    }
+
+    /* Close icon */
+    .nav-close-btn {
+      cursor: pointer;
+      font-size: 32px;
+      color: var(--color-text-dark);
+    }
+
+    /* LOADER STYLES */
+    .loader-container {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.8);
+      z-index: 1050;
+      justify-content: center;
+      align-items: center;
+    }
+    .loader-container.show {
+      display: flex; /* Display as flex when .show is added */
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      /* Use accent color for loader */
+      border-top: 8px solid var(--color-accent-blue);
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* CARD HEADER COLOR OVERRIDES */
+    /* If you prefer to replace bg-primary and bg-danger usage: */
+    .bg-male {
+      background-color: var(--color-accent-blue) !important;
+      color: var(--color-text-light) !important;
+    }
+    .bg-female {
+      background-color: var(--color-accent-peach) !important;
+      color: var(--color-text-dark) !important;
+    }
+
+    /* Custom Styles for Date Range Selector */
+    .date-range-card {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .datepicker-input {
+      background-image: url('https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/images/calendar.gif');
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 20px 20px;
+      padding-right: 40px; /* Space for the calendar icon */
+    }
+
+    /* Custom full-screen container to override Bootstrap’s max-width */
+    .full-screen {
+      width: 100vw;
+      max-width: 100vw;
+      padding-left: 20px;
+      padding-right: 30px;
+      margin-left: 0px;
+      margin-right: 0px;
+    }
+  
+
+  </style>
+
+  {% block head_scripts %}{% endblock %}
+</head>
+<body>
+
+ <!-- Header / Brand -->
+<header class="app-header">
+  <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="Go to dashboard">
+    <img
+      src="{{ url_for('static', filename='LogoDashboard400px.png') }}"
+      alt="Save a Playa Logo"
+      class="brand-logo"
+    >
+  </a>
+</header>
+
+  <!-- Display Flashed Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="container mt-4">
+        <div class="row justify-content-center">
+          <div class="col-md-8">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Response Section -->
+  <div id="response" class="container mt-4"></div>
+
+  <!-- Loader -->
+  <div class="loader-container" id="loader" aria-live="polite" aria-label="Loading">
+    <div class="loader" role="status" aria-hidden="true"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <nav id="nav-sidebar" class="nav-sidebar">
+    <div class="nav-sidebar-header">
+      <img
+        src="{{ url_for('static', filename='saveaplaya_write_logo.svg') }}"
+        alt="Save a Playa Logo"
+        style="max-width: 150px; height: auto; margin: 0 auto;"
+      >
+      <span id="nav-close" class="material-icons nav-close-btn">close</span>
+    </div>
+    <ul class="nav-sidebar-links">
+
+      <li>
+        <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+          Monthly Sales
+        </a>
+      </li>
+
+      <li>
+        <a href="/daily_sales" class="{% if request.path == '/daily_sales' %}active{% endif %}">
+          Daily Sales
+        </a>
+      </li>
+
+       <li>
+        <a href="/monthly_repurchases" class="{% if request.path == '/monthly_repurchases' %}active{% endif %}">
+          Monthly Repurchases
+        </a>
+      </li>
+
+      <li>
+        <a href="/daily_repurchases" class="{% if request.path == '/daily_repurchases' %}active{% endif %}">
+          Daily Repurchases
+        </a>
+      </li>
+
+       <li class="nav-item">
+        <a href="/wati_insights" class="{% if request.path == '/wati_insights' %}active{% endif %}">WATI Insights</a>
+      </li>
+
+       <li class="nav-item">
+        <a href="/checkout_insights" class="{% if request.path == '/checkout_insights' %}active{% endif %}">Checkout Insights</a>
+      </li>
+
+        <li class="nav-item">
+        <a href="/facebook_insights" class="{% if request.path == '/facebook_insights' %}active{% endif %}">Facebook Insights</a>
+      </li>
+
+      <li class="nav-item">
+        <a href="/google_insights" class="{% if request.path == '/google_insights' %}active{% endif %}">Google Insights</a>
+      </li>
+
+      <li class="nav-item">
+        <a href="/bogota_insights" class="{% if request.path == '/bogota_insights' %}active{% endif %}">Bogota Insights</a>
+      </li>
+
+      <li class="nav-item">
+        <a href="/bogota_insights_female" class="{% if request.path == '/bogota_insights_female' %}active{% endif %}">Bogota Insights Female</a>
+      </li>
+
+      <li class="nav-item">
+        <a href="/bogota_insights_male" class="{% if request.path == '/bogota_insights_male' %}active{% endif %}">Bogota Insights Male</a>
+      </li>
+
+       <li>
+        <a href="/top_cities_female" class="{% if request.path == '/top_cities_female' %}active{% endif %}">
+          Top Cities Female
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_male" class="{% if request.path == '/top_cities_male' %}active{% endif %}">
+          Top Cities Male
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities" class="{% if request.path == '/top_cities' %}active{% endif %}">
+          Top Cities
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_wati" class="{% if request.path == '/top_cities_wati' %}active{% endif %}">
+          Top Cities (Wati)
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_facebook" class="{% if request.path == '/top_cities_facebook' %}active{% endif %}">
+          Top Cities (Facebook)
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_google" class="{% if request.path == '/top_cities_google' %}active{% endif %}">
+          Top Cities (Google)
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_ecostand" class="{% if request.path == '/top_cities_ecostand' %}active{% endif %}">
+          Top Cities (Ecostand)
+        </a>
+      </li>
+
+      <li>
+        <a href="/top_cities_ecohotel" class="{% if request.path == '/top_cities_ecohotel' %}active{% endif %}">
+          Top Cities (Ecohotel)
+        </a>
+      </li>
+
+     
+
+      <li>
+        <a href="/rankings" class="{% if request.path == '/rankings' %}active{% endif %}">
+          Sales Rankings
+        </a>
+      </li>
+      <li>
+        <a href="/ads_rankings" class="{% if request.path == '/ads_rankings' %}active{% endif %}">
+          Ads Rankings
+        </a>
+      </li>
+     
+       <li>
+        <a href="/performance" class="{% if request.path == '/performance' %}active{% endif %}">
+          Performance
+        </a>
+      </li>
+      <li>
+        <a href="/options" class="{% if request.path == '/options' %}active{% endif %}">
+          Settings
+        </a>
+      </li>
+
+      {% if current_user.is_authenticated and current_user.role == 'admin' %}
+        <a href="{{ url_for('main.admin_users_index') }}" class="{% if request.path == '/admin/users' %}active{% endif %}" >Users</a>
+      {% endif %}
+
+      <!-- Add the logout link here, shown only if user is authenticated -->
+    {% if current_user.is_authenticated %}
+    <li>
+      <a href="{{ url_for('main.logout') }}">
+        Logout
+      </a>
+    </li>
+    {% endif %}
+    </ul>
+  </nav>
+
+  <!-- Menu Toggle Button -->
+  <span id="nav-toggle" class="material-icons nav-toggle-btn">menu</span>
+
+  <!-- Main Content Block -->
+  <div class="full-screen my-4">
+    {% block content %}
+    <!-- Child pages will fill this section -->
+    {% endblock %}
+  </div>
+
+  <!-- Sidebar Toggling Functionality -->
+  <script>
+    const navSidebar = document.getElementById("nav-sidebar");
+    const navToggle = document.getElementById("nav-toggle");
+    const navClose = document.getElementById("nav-close");
+
+    // Open sidebar
+    navToggle.addEventListener("click", (event) => {
+      event.stopPropagation(); // Prevent event from bubbling up
+      navSidebar.classList.add("open");
+      navToggle.style.display = "none"; // Hide the menu button
+    });
+
+    // Close sidebar
+    navClose.addEventListener("click", () => {
+      navSidebar.classList.remove("open");
+      navToggle.style.display = "block"; // Show the menu button
+    });
+
+    // Optional: Close sidebar when clicking outside
+    document.addEventListener("click", (event) => {
+      const isClickInsideSidebar = navSidebar.contains(event.target);
+      const isClickOnToggle = navToggle.contains(event.target);
+
+      if (!isClickInsideSidebar && !isClickOnToggle) {
+        navSidebar.classList.remove("open");
+        navToggle.style.display = "block"; // Show the menu button
+      }
+    });
+  </script>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+  </script>
+
+  {% block page_scripts %}
+  <!-- Additional child-page scripts go here -->
+  {% endblock %}
+
+</body>
+</html>

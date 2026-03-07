@@ -1,0 +1,372 @@
+{% extends "layout.html" %}
+
+{% block title %}
+  Top Cities Daily Trend
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "top_cities.csv" %}
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-3">
+  <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+    <label for="topNumberSelect" class="form-label m-0 small text-muted">Show:</label>
+    <select id="topNumberSelect" class="form-select form-select-sm" style="width: 140px;">
+      <option value="10" {% if (top_number|default(10)) == 10 %}selected{% endif %}>Top 10</option>
+      <option value="20" {% if (top_number|default(10)) == 20 %}selected{% endif %}>Top 20</option>
+      <option value="30" {% if (top_number|default(10)) == 30 %}selected{% endif %}>Top 30</option>
+      <option value="50" {% if (top_number|default(10)) == 50 %}selected{% endif %}>Top 50</option>
+    </select>
+  </div>
+</div>
+
+<div class="container mt-4">
+  <h2 class="text-center">Top {{ top_number|default(10) }} Cities by Sales (Daily Trend)</h2>
+
+  {% if error %}
+    <div class="alert alert-danger mt-3">{{ error }}</div>
+  {% endif %}
+
+  {% if not top_cities or not cities_daily_trend %}
+    <div class="alert alert-warning mt-3">
+      No data available to display.
+    </div>
+  {% else %}
+
+    <!-- Currency switcher (same pattern as repurchases.html) -->
+    <div class="row g-3 mb-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-body d-flex justify-content-center align-items-center gap-2 flex-wrap">
+            <label for="exchangeRateTopCities" class="m-0">USD Exchange Rate (COP):</label>
+            <input
+              type="number"
+              id="exchangeRateTopCities"
+              value="4000"
+              step="50"
+              min="3000"
+              max="8000"
+              style="width: 140px;"
+              class="form-control form-control-sm"
+            >
+            <button onclick="toggleCurrencyTopCities()" class="btn btn-primary btn-sm">
+              Switch Currency
+            </button>
+            <span id="currencyBadgeTopCities" class="badge text-bg-secondary">COP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pie chart above the trends -->
+    <div class="row g-3 mb-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <strong>Sales share (Top {{ top_number|default(10) }} cities vs other cities)</strong>
+          </div>
+          <div class="card-body">
+            <div style="max-width: 520px; margin: 0 auto;">
+              <canvas id="citiesSharePie" style="max-height: 460px;"></canvas>
+            </div>
+            <div class="small text-muted mt-2 text-center">
+              Hover to see exact values and percentages.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column layout for trend charts -->
+    <div class="row g-3">
+      {% for city in top_cities %}
+        <div class="col-12 col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-header">
+              <strong>{{ city }}</strong>
+            </div>
+            <div class="card-body">
+
+              {# Date range per city (actuals) #}
+              {% set city_days = [] %}
+              {% for r in cities_daily_trend if r.City == city %}
+                {% set _ = city_days.append(r.Day) %}
+              {% endfor %}
+
+              {% if city_days %}
+                <div class="small text-muted mb-2">
+                  Range: {{ city_days | min }} to {{ city_days | max }}
+                </div>
+              {% endif %}
+
+              <div style="height: 260px;">
+                <canvas id="cityChart{{ loop.index }}"></canvas>
+              </div>
+
+              {% set fc_days = [] %}
+              {% if cities_forecast_trend %}
+                {% for r in cities_forecast_trend if r.City == city %}
+                  {% set _ = fc_days.append(r.Day) %}
+                {% endfor %}
+              {% endif %}
+
+              {% if fc_days %}
+                <div class="small text-muted mt-2">
+                  Forecast: {{ fc_days | min }} to {{ fc_days | max }}
+                </div>
+              {% endif %}
+
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- Chart.js is already loaded in layout.html -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+<script>
+  (function () {
+    const select = document.getElementById("topNumberSelect");
+    if (!select) return;
+
+    select.addEventListener("change", function () {
+      const topNumber = this.value || "10";
+      const url = new URL(window.location.href);
+      url.searchParams.set("top_number", topNumber);
+      window.location.href = url.toString();
+    });
+  })();
+</script>
+
+<script>
+  const topCities = {{ top_cities | tojson }};
+  const trendRows = {{ cities_daily_trend | tojson }};
+  const forecastRows = {{ cities_forecast_trend | default([]) | tojson }};
+  const pieLabels = {{ pie_labels | default([]) | tojson }};
+  const pieValues = {{ pie_values | default([]) | tojson }};
+
+  // --- Currency state (mirrors repurchases.html idea) ---
+  let useUSDTopCities = false;
+
+  function getExchangeRateTopCities() {
+    const el = document.getElementById("exchangeRateTopCities");
+    const v = el ? parseFloat(el.value) : 4000;
+    return Number.isFinite(v) && v > 0 ? v : 4000;
+  }
+
+  function formatCOP(value) {
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0
+    }).format(Number(value) || 0);
+  }
+
+  function formatUSDfromCOP(valueCOP) {
+    const rate = getExchangeRateTopCities();
+    const usd = (Number(valueCOP) || 0) / rate;
+    return "$" + usd.toFixed(2) + " USD";
+  }
+
+  function formatMoneyFromCOP(valueCOP) {
+    return useUSDTopCities ? formatUSDfromCOP(valueCOP) : formatCOP(valueCOP);
+  }
+
+  function updateCurrencyBadge() {
+    const badge = document.getElementById("currencyBadgeTopCities");
+    if (!badge) return;
+    badge.textContent = useUSDTopCities ? "USD" : "COP";
+    badge.className = useUSDTopCities ? "badge text-bg-primary" : "badge text-bg-secondary";
+  }
+
+  // Keep chart instances so we can update them (no page refresh)
+  let pieChartInstance = null;
+  const cityChartInstances = [];
+
+  // ---------- PIE CHART ----------
+  function renderPie() {
+    const canvas = document.getElementById("citiesSharePie");
+    if (!canvas) return;
+
+    const values = pieValues.map(v => Number(v) || 0);
+    const total = values.reduce((s, v) => s + v, 0);
+
+    if (!total) return;
+
+    if (pieChartInstance) {
+      pieChartInstance.destroy();
+      pieChartInstance = null;
+    }
+
+    pieChartInstance = new Chart(canvas.getContext("2d"), {
+      type: "pie",
+      data: {
+        labels: pieLabels,
+        datasets: [{
+          data: values
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const valueCOP = Number(ctx.parsed) || 0;
+                const pct = total ? ((valueCOP / total) * 100).toFixed(1) : "0.0";
+                return `${ctx.label}: ${formatMoneyFromCOP(valueCOP)} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ---------- LINE CHARTS ----------
+  function actualPointsForCity(city) {
+    return trendRows
+      .filter(r => r.City === city)
+      .map(r => ({ x: r.Day, y: Number(r["Total Sales"]) || 0 }))
+      .sort((a, b) => String(a.x).localeCompare(String(b.x)));
+  }
+
+  function forecastPointsForCity(city) {
+    return forecastRows
+      .filter(r => r.City === city)
+      .map(r => ({ x: r.Day, y: Number(r["Forecast Sales"]) || 0 }))
+      .sort((a, b) => String(a.x).localeCompare(String(b.x)));
+  }
+
+  function renderCityCharts() {
+    // destroy existing charts to avoid duplicates
+    while (cityChartInstances.length) {
+      const ch = cityChartInstances.pop();
+      try { ch.destroy(); } catch (e) {}
+    }
+
+    const globalMaxY = trendRows.reduce((max, r) => {
+      const v = Number(r["Total Sales"]) || 0;
+      return Math.max(max, v);
+    }, 0);
+
+    topCities.forEach((city, idx) => {
+      const canvas = document.getElementById(`cityChart${idx + 1}`);
+      if (!canvas) return;
+
+      const actual = actualPointsForCity(city);
+      const fc = forecastPointsForCity(city);
+
+      const maxActual = actual.reduce((m, p) => Math.max(m, p.y || 0), 0);
+      const maxFc = fc.reduce((m, p) => Math.max(m, p.y || 0), 0);
+      const localMax = Math.max(maxActual, maxFc, globalMaxY);
+
+      const chart = new Chart(canvas.getContext("2d"), {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: useUSDTopCities ? "Actual Sales (USD)" : "Actual Sales (COP)",
+              data: actual,
+              tension: 0.1
+            },
+            {
+              label: useUSDTopCities ? "Forecast (USD)" : "Forecast (COP)",
+              data: fc,
+              tension: 0.1,
+              borderDash: [6, 6],
+              pointRadius: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: { display: true, text: `Daily Sales Trend: ${city}` },
+            tooltip: {
+              callbacks: {
+                // ctx.parsed.y is always in COP units from data, so format accordingly
+                label: (ctx) => formatMoneyFromCOP(ctx.parsed.y || 0)
+              }
+            }
+          },
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            x: {
+              type: "time",
+              time: { unit: "day", tooltipFormat: "yyyy-MM-dd" },
+              title: { display: true, text: "Date" }
+            },
+            y: {
+              beginAtZero: true,
+              suggestedMax: localMax ? localMax * 1.1 : undefined,
+              ticks: {
+                callback: (value) => {
+                  // ticks are numeric COP values, convert in display only
+                  return formatMoneyFromCOP(value);
+                }
+              },
+              title: { display: true, text: useUSDTopCities ? "Total Sales (USD)" : "Total Sales (COP)" }
+            }
+          }
+        }
+      });
+
+      cityChartInstances.push(chart);
+    });
+  }
+
+  // ---------- Toggle handler (global so the button can call it) ----------
+  window.toggleCurrencyTopCities = function () {
+    // same behavior as repurchases: flip, then update
+    useUSDTopCities = !useUSDTopCities;
+    updateCurrencyBadge();
+
+    // re-render charts so all tick/tooltip formatting is updated
+    renderPie();
+    renderCityCharts();
+  };
+
+  // re-render charts when exchange rate changes while in USD mode
+  (function bindExchangeRateChange() {
+    const el = document.getElementById("exchangeRateTopCities");
+    if (!el) return;
+    el.addEventListener("change", () => {
+      if (!useUSDTopCities) return;
+      renderPie();
+      renderCityCharts();
+    });
+    el.addEventListener("keyup", () => {
+      if (!useUSDTopCities) return;
+      renderPie();
+      renderCityCharts();
+    });
+  })();
+
+  // ---------- Initial render ----------
+  updateCurrencyBadge();
+  renderPie();
+  renderCityCharts();
+</script>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+<div class="table-responsive">
+  <!-- Write your comments here 
+  <table class="table table-striped table-bordered">
+    <thead class="thead-dark">
+      <tr>
+        <th>Order Day</th>
+        <th>{{ campaignName }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set ns = namespace(total=0) %}
+      {% for row in campaign_df %}
+        <tr>
+          <td>{{ row.order_day }}</td>
+          <td>{{ row[campaignName] }}</td>
+          {% set ns.total = ns.total + (row[campaignName]|float) %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  -->
+  
+</div>
+
+<h3 class="text-center">Total Sales: {{ ns.total |cop}}</h3>
+
+

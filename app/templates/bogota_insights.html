@@ -1,0 +1,156 @@
+{# app/templates/bogota_insights.html #}
+{% extends "layout.html" %}
+
+{% block title %}
+Bogota Insights
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "bogota_sales_orders.csv" %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "last_quarter", "label": "Last quarter (90 days)"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-4">
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  {% if not total_daily_trend %}
+    <div class="alert alert-warning mt-3">
+      No data available to display for this selection.
+    </div>
+  {% else %}
+
+    <div class="text-center mb-2">
+      <h2 class="text-center">Bogota Insights</h2>
+      <p class="text-center text-muted mb-3">
+        Filter applied: <strong>city = BOGOTA (C/MARCA)</strong>. Values are cut off at end of yesterday (Bogota time).
+      </p>
+    </div>
+
+    <div class="text-center mb-3">
+      <label for="exchangeRateBogota">USD Exchange Rate (COP):</label>
+      <input type="number" id="exchangeRateBogota" value="4000" step="50" min="3000" max="6000">
+      <button onclick="toggleCurrencyBogota()" class="btn btn-primary">Switch Currency</button>
+    </div>
+
+    <h2 class="text-center">Daily Bogota Sales Trend and Forecast</h2>
+    <div style="height: 520px;">
+      <canvas id="bogotaTotalSalesChart"></canvas>
+    </div>
+
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  var exchangeRateEl = document.getElementById("exchangeRateBogota");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((v / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+  }
+
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: titlePrefix + " (COP)",
+            data: histCOP,
+            fill: true
+          },
+          {
+            label: "Forecasted " + titlePrefix.replace("Historical ", "") + " (COP)",
+            data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
+            borderDash: [5, 5],
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP;
+    chart._rawForecastCOP = fcstCOP;
+    chart._histLen = histCOP.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  var totalChart = buildLineChart(
+    "bogotaTotalSalesChart",
+    [
+      {% for r in total_daily_trend %}"{{ r['Date'] }}",{% endfor %}
+      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+    ],
+    [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+    [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
+    "Historical Bogota Total Sales"
+  );
+
+  window.toggleCurrencyBogota = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    if (!totalChart) return;
+
+    var hist = useUSD ? convertToUSD(totalChart._rawHistCOP) : totalChart._rawHistCOP;
+    var fcst = useUSD ? convertToUSD(totalChart._rawForecastCOP) : totalChart._rawForecastCOP;
+
+    totalChart.data.datasets[0].data = hist;
+    totalChart.data.datasets[1].data = [].concat(new Array(totalChart._histLen).fill(null), fcst);
+
+    totalChart.data.datasets[0].label = useUSD ? totalChart._titlePrefix + " (USD)" : totalChart._titlePrefix + " (COP)";
+    totalChart.data.datasets[1].label = useUSD
+      ? "Forecasted " + totalChart._titlePrefix.replace("Historical ", "") + " (USD)"
+      : "Forecasted " + totalChart._titlePrefix.replace("Historical ", "") + " (COP)";
+
+    totalChart.update();
+  };
+
+});
+</script>
+
+{% endblock %}

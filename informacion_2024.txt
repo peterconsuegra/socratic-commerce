@@ -1,0 +1,143 @@
+Dame la lista de meses que mas se vendieron en orden los 12 meses
+
+Mayo: 2,280 ventas
+Junio: 2,043 ventas
+Julio: 1,848 ventas
+Agosto: 1,634 ventas
+Septiembre: 1,595 ventas
+Febrero: 1,420 ventas
+Octubre: 1,455 ventas
+Abril: 1,359 ventas
+Marzo: 1,341 ventas
+Diciembre: 1,325 ventas
+Enero: 1,375 ventas
+Noviembre: 1,073 ventas
+
+¿Cuál es el total de recompras, teniendo en cuenta que el correo en cada orden identifica al comprador de manera unica?
+
+
+¿Qué día de la semana vendemos mas?
+
+Lunes: 3,441 ventas
+Martes: 3,007 ventas
+Miércoles: 2,657 ventas
+Jueves: 2,708 ventas
+Viernes: 2,553 ventas
+Sábado: 2,366 ventas
+Domingo: 2,016 ventas
+
+¿Qué día del mes vendemos más?
+
+Día 1: 768 ventas
+Día 2: 772 ventas
+Día 29: 739 ventas
+Día 16: 753 ventas
+
+¿Cuál es el porcentaje de ventas por genero?
+
+Femenino: 86.68%
+Masculino: 13.31%
+
+Cuál es el porcentaje de recompra para el genero female? y cuantas ordenes en totales fueron de recompra?
+
+Total de ordenes que repiten el email: 4311
+Total de órdenes de genero female: 16,250
+Porecntaje de recompra para el genero female: 26.5
+
+¿Cuál es el porcentaje de recompra para el genero male, teniendo en cuenta que el correo en cada orden identifica al comprador de manera unica?
+
+Total de órdenes de recompra: 916
+Total de ordenes de genero male: 2,495
+Porcentaje de recompra: 36.71
+
+¿En qué rango de horarios compran más los del genero male?
+
+10:00 AM: 277 compras
+11:00 AM: 240 compras
+9:00 AM: 226 compras
+2:00 PM: 216 compras
+
+¿En qué rango de horarios compran más los del genero female?
+
+10:00 AM: 1,785 compras
+11:00 AM: 1,519 compras
+9:00 AM: 1,505 compras
+12:00 PM: 1,126 compras
+8:00 AM: 796 compras
+
+¿Qué día de la semana compran más los del genero male?
+
+Lunes: 475 compras
+Martes: 411 compras
+Miércoles: 378 compras
+Viernes: 365 compras
+
+¿Qué día de la semana compran más los del genero female?
+
+Lunes: 2,965 compras
+Martes: 2,595 compras
+Jueves: 2,392 compras
+Miércoles: 2,279 compras
+
+El ticket de compra promedio por género es el siguiente:
+
+Femenino: $52,612.62
+Masculino: $62,816.70
+
+El top 10 de ciudades con mayores ventas es:
+
+Bogotá (Cundinamarca): 5,986 ventas
+Medellín (Antioquia): 2,062 ventas
+Cali (Valle del Cauca): 1,168 ventas
+Barranquilla (Atlántico): 771 ventas
+Bucaramanga (Santander): 348 ventas
+Cartagena (Bolívar): 340 ventas
+Envigado (Antioquia): 338 ventas
+Bello (Antioquia): 312 ventas
+Pereira (Risaralda): 271 ventas
+Ibagué (Tolima): 252 ventas
+
+
+El top 10 de ciudades con mayores ventas para el género masculino es:
+
+Bogotá (Cundinamarca): 786 ventas
+Medellín (Antioquia): 299 ventas
+Cali (Valle del Cauca): 153 ventas
+Barranquilla (Atlántico): 133 ventas
+Bucaramanga (Santander): 52 ventas
+Cartagena (Bolívar): 46 ventas
+Sabaneta (Antioquia): 43 ventas
+Bello (Antioquia): 38 ventas
+Envigado (Antioquia): 38 ventas
+Ibagué (Tolima): 36 ventas
+
+
+El top 10 de ciudades con mayores ventas para el género femenino es:
+
+Bogotá (Cundinamarca): 5,200 ventas
+Medellín (Antioquia): 1,762 ventas
+Cali (Valle del Cauca): 1,015 ventas
+Barranquilla (Atlántico): 637 ventas
+Envigado (Antioquia): 300 ventas
+Bucaramanga (Santander): 296 ventas
+Cartagena (Bolívar): 294 ventas
+Bello (Antioquia): 273 ventas
+Pereira (Risaralda): 235 ventas
+Ibagué (Tolima): 216 ventas
+
+Cual es el tiempo promedio entre pedidos por cliente?
+
+93 días, 14 horas y 42 minutos.
+
+Cual es el tiempo promedio entre pedidos por cliente de genero male?
+
+98 días, 10 horas y 18 minutos
+
+
+Analiza patrones estacionales, como picos en festividades o eventos específicos.
+
+Mayo: 2,280 ventas (el mes con más ventas, posiblemente relacionado con promociones o eventos específicos).
+Junio: 2,043 ventas (inicio de mitad de año, también puede coincidir con eventos).
+Julio: 1,848 ventas.
+Agosto y Septiembre: Una ligera disminución, con 1,634 y 1,595 ventas respectivamente.
+Noviembre: 1,073 ventas (el mes con menos ventas, a pesar de eventos como Black Friday o similares).

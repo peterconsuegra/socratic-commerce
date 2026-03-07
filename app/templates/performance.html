@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+
+{% block title %}
+  Dashboard
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "performance_orders.csv" %}
+  {% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+  ] %}
+
+{% include "partials/daterange_selector.html" %}
+
+{% if not weekly_stats %}
+    <div class="alert alert-info mt-4">
+      No weekly data available.
+    </div>
+  {% else %}
+    <h2>Weekly Performance Statistics</h2>
+    <table class="table table-striped mt-4">
+      <thead>
+        <tr>
+          <th>Week Start</th>
+          <th>Week End</th>
+          <th>Order Count</th>
+          <th>Avg Up To Week</th>
+          <th>Avg Daily</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in weekly_stats %}
+          <tr>
+            <td>{{ stat.week_start }}</td>
+            <td>{{ stat.week_end }}</td>
+            <td>{{ stat.order_count }}</td>
+            <td>{{ stat.avg_up_to_week | round(2) }}</td>
+            <td>{{ stat.avg_daily      | round(2) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+{% endblock %}

@@ -1,0 +1,27 @@
+<!-- Forecasted Sales Table -->
+<div class="container mt-4">
+    <h2 class="text-center">Sales Forecast (Next 12 Months)</h2>
+    
+    {% if forecast_data %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Forecasted Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in forecast_data %}
+            <tr>
+              <td>{{ row['Month'] }}</td>
+              <td>{{ row['Forecasted Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No forecast data available.
+      </div>
+    {% endif %}
+</div>

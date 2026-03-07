@@ -1,0 +1,199 @@
+<div class="container mt-4">
+    <h2 class="text-center">Total Sales</h2>
+
+    {% if monthly_sales_trend %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Total Orders</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in monthly_sales_trend %}
+            <tr>
+              <td>{{ row['Month'] }}</td>
+              <td>{{ row['Total Orders'] }}</td>
+              <td>{{ row['Total Sales'] |cop }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No monthly data available.
+      </div>
+    {% endif %}
+
+    <div class="row mt-5">
+      <div class="col-md-12">
+        <h2 class="text-center">Paid Channels Sales</h2>
+        {% if monthly_sales_paid_trend %}
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Total Orders</th>
+                <th>Total Sales</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in monthly_sales_paid_trend %}
+                <tr>
+                  <td>{{ row['Month'] }}</td>
+                  <td>{{ row['Total Orders'] }}</td>
+                  <td>{{ row['Total Sales'] |cop }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="alert alert-warning" role="alert">
+            No monthly paid data available.
+          </div>
+        {% endif %}
+      </div>
+    </div> 
+
+<div class="container mt-4">
+  <h2 class="text-center">Repurchases Sales</h2>
+  
+  {% if monthly_sales_repurchases_trend %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Total Orders</th>
+          <th>Repurchases #</th>
+          <th>Repurchase COP</th>
+          <th>Repurchases %</th>
+          <th>Total Sales COP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in monthly_sales_repurchases_trend %}
+          <tr>
+            <td>{{ row['Month'] }}</td>
+            <td>{{ row['Total Orders'] }}</td>
+            <td>{{ row['Repurchases'] }}</td>
+            <td>{{ row['Repurchase Total Value'] |cop }}</td>
+            <td>{{ row['Repurchase Sales Percentage (%)'] }}</td>
+            <td>{{ row['Total Sales'] |cop }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No monthly data available.
+    </div>
+  {% endif %}
+</div>
+
+    
+
+
+    <div class="row mt-5">
+      <div class="col-md-12">
+        <h2 class="text-center">Undefined Sales</h2>
+        {% if monthly_sales_undefined_trend %}
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Sales</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in monthly_sales_undefined_trend %}
+                <tr>
+                  <td>{{ row['Month'] |cop }}</td>
+                  <td>{{ row['Sales'] |cop }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="alert alert-warning" role="alert">
+            No monthly paid data available.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="container mt-4">
+      <h2 class="text-center">Paid Channels Sales + 60% Undefined</h2>
+      {% if monthly_sales_paid_trend_plus %}
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in monthly_sales_paid_trend_plus %}
+              <tr>
+                <td>{{ row['Month'] }}</td>
+                <td>{{ row['Sales'] | cop }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="alert alert-warning" role="alert">
+          No merged sales data available.
+        </div>
+      {% endif %}
+    </div>
+
+    
+    <div class="container mt-4">
+      <h2 class="text-center">Organic Sales 40% of Undefined </h2>
+      {% if monthly_sales_organic_trend %}
+        <table class="table table-bordered table-striped">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Total Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in monthly_sales_organic_trend %}
+              <tr>
+                <td>{{ row['Month'] }}</td>
+                <td>{{ row['Sales'] |cop }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="alert alert-warning" role="alert">
+          No monthly organic data available.
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="container mt-4">
+      <!-- Debugging: Print JSON data in the template -->
+      <h2 style="text-align:center;">Forecasted Sales Table</h2>
+      <table>
+          <thead>
+              <tr>
+                  <th>Month</th>
+                  <th>Forecasted Sales</th>
+              </tr>
+          </thead>
+          <tbody>
+              <!-- Loop over the list passed from Flask -->
+              {% for item in forecast_data %}
+              <tr>
+                  <td>{{ item['Month'] }}</td>
+                  <td>{{ item['Forecasted Sales'] |cop }}</td>
+              </tr>
+              {% endfor %}
+          </tbody>
+      </table>
+  </div>
+</div>

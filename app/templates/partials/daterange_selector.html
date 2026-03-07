@@ -1,0 +1,207 @@
+<!-- app/templates/partials/daterange_selector.html -->
+<div class="container date-range-card">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title text-center mb-4">Select Date Range</h5>
+
+      <!--
+        Only one button now: Fetch Data.
+        It will:
+          1) Call /get_data to refresh the CSV (your existing flow)
+          2) Then redirect to the current page with GET params so the view applies the selected range
+             - If preset selected: ?date_range=...
+             - If custom selected: ?start_date=DD/MM/YYYY&end_date=DD/MM/YYYY
+      -->
+      <form id="dataForm" onsubmit="return false;">
+        <div class="mb-3">
+          <label for="date_range" class="form-label">Select Predefined Date Range:</label>
+
+          {% set selected_range = (date_range | default('') | lower | trim) %}
+
+          <select name="date_range" id="date_range" class="form-select" aria-label="Select Date Range">
+            {% for option in custom_date_range_options %}
+              {% set opt_val = (option.value | default('') | lower | trim) %}
+              <option value="{{ option.value }}" {% if selected_range and selected_range == opt_val %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <p class="text-center my-3">Or enter a custom date range:</p>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="start_date" class="form-label">Start Date:</label>
+            <input
+              type="text"
+              id="start_date"
+              name="start_date"
+              placeholder="DD/MM/YYYY"
+              autocomplete="off"
+              class="form-control datepicker-input"
+              aria-label="Start Date"
+              value="{{ start_date }}"
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="end_date" class="form-label">End Date:</label>
+            <input
+              type="text"
+              id="end_date"
+              name="end_date"
+              placeholder="DD/MM/YYYY"
+              autocomplete="off"
+              class="form-control datepicker-input"
+              aria-label="End Date"
+              value="{{ end_date }}"
+            >
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <input
+            type="hidden"
+            id="file_name"
+            name="file_name"
+            autocomplete="off"
+            class="form-control"
+            value="{{ file_name if file_name is defined else 'orders.csv' }}"
+          >
+        </div>
+
+        <div class="mt-3">
+          <input
+            type="hidden"
+            id="file_name_filtered"
+            name="file_name_filtered"
+            autocomplete="off"
+            class="form-control"
+            value="{{ file_name_filtered if file_name is defined else 'orders.csv' }}"
+          >
+        </div>
+
+        <div class="text-center mt-4">
+          <button type="button" id="fetchData" class="btn btn-primary btn-lg">
+            Fetch Data
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+$(document).ready(function() {
+  // Datepicker
+  $("#start_date, #end_date").datepicker({
+    dateFormat: "dd/mm/yy",
+    changeMonth: true,
+    changeYear: true,
+    showButtonPanel: true
+  });
+
+  // If user selects a preset range, clear custom dates to avoid mixed filters
+  $("#date_range").on("change", function() {
+    var v = ($(this).val() || "").trim();
+    if (v) {
+      $("#start_date, #end_date").val("");
+    }
+  });
+
+  // If user sets custom dates, clear preset dropdown to "--Select--"
+  $("#start_date, #end_date").on("change", function() {
+    var s = ($("#start_date").val() || "").trim();
+    var e = ($("#end_date").val() || "").trim();
+    if (s || e) {
+      $("#date_range").val("");
+    }
+  });
+
+  function buildRedirectUrl() {
+    var basePath = window.location.pathname; // e.g. /checkout_insights
+    var dateRange = ($("#date_range").val() || "").trim();
+    var startDate = ($("#start_date").val() || "").trim();
+    var endDate = ($("#end_date").val() || "").trim();
+
+    if (dateRange) {
+      return basePath + "?date_range=" + encodeURIComponent(dateRange);
+    }
+    return basePath
+      + "?start_date=" + encodeURIComponent(startDate)
+      + "&end_date=" + encodeURIComponent(endDate);
+  }
+
+  $("#fetchData").click(function() {
+    $("#loader").addClass("show");
+    $("#response").html("");
+
+    $("#fetchData")
+      .prop("disabled", true)
+      .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Fetching...');
+
+    var dateRangeVal = $("#date_range").val();
+    var dateRange = dateRangeVal ? dateRangeVal.trim() : "";
+    var startDate = $("#start_date").val().trim();
+    var endDate = $("#end_date").val().trim();
+    var fileName = $("#file_name").val().trim();
+
+    // Require either preset OR both custom dates
+    if (!dateRange && (!startDate || !endDate)) {
+      $("#loader").removeClass("show");
+      $("#fetchData").prop("disabled", false).html("Fetch Data");
+      $("#response").html("<div class='alert alert-danger text-center'>Please select a date range or enter both start and end dates.</div>");
+      return;
+    }
+
+    // Validate custom date format
+    if (!dateRange) {
+      var dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        $("#loader").removeClass("show");
+        $("#fetchData").prop("disabled", false).html("Fetch Data");
+        $("#response").html("<div class='alert alert-danger text-center'>Invalid date format. Please use DD/MM/YYYY.</div>");
+        return;
+      }
+    }
+
+    // 1) refresh CSV via /get_data
+    $.ajax({
+      url: "/get_data",
+      method: "POST",
+      data: {
+        date_range: dateRange,
+        start_date: dateRange ? "" : startDate,
+        end_date: dateRange ? "" : endDate,
+        file_name: fileName
+      },
+      dataType: "json",
+      success: function(response) {
+        $("#loader").removeClass("show");
+        $("#fetchData").prop("disabled", false).html("Fetch Data");
+
+        if (response.status === "success") {
+          // 2) redirect to same page with GET params so the view applies the window
+          window.location.href = buildRedirectUrl();
+        } else {
+          $("#response").html(
+            `<div class="alert alert-danger text-center">${response.message}</div>`
+          );
+        }
+      },
+      error: function(jqXHR) {
+        let errorMessage;
+        if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+          errorMessage = jqXHR.responseJSON.message;
+        } else {
+          errorMessage = jqXHR.statusText || "An unknown error occurred.";
+        }
+        alert("AJAX request failed: " + errorMessage);
+        $("#loader").removeClass("show");
+        $("#fetchData").prop("disabled", false).html("Fetch Data");
+      }
+    });
+  });
+});
+</script>

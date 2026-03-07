@@ -1,0 +1,44 @@
+<div class="container my-4">
+    <h2 class="text-center">WPCampaign Sales by Day</h2>
+    {% if wp_campaign_trend %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in wp_campaign_trend %}
+            <tr>
+              <td>{{ record.date }}</td>
+              <td>{{ record.total_sales }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No WPCampaign sales data available.
+      </div>
+    {% endif %}
+  </div>
+  
+  {% if forecast_data %}
+    <table>
+      <tr>
+        <th>Date</th>
+        <th>Day of Week</th>
+        <th>Predicted Sales</th>
+      </tr>
+      {% for item in forecast_data %}
+      <tr>
+        <td>{{ item.date.strftime('%Y-%m-%d') }}</td>
+        <td>{{ item.day_of_week }}</td>
+        <td>{{ '{:,.2f}'.format(item.predicted_sales) }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+      <p>No forecast_data available.</p>
+    {% endif %}

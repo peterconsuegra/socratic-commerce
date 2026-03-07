@@ -1,0 +1,40 @@
+<!-- Daily Sales Conversions: One full-width table per day -->
+{% if daily_conversions %}
+<div class="full-screen my-4">
+  <h2 class="text-center">Daily Sales Data</h2>
+  <p class="text-muted text-center">Sales grouped by UTM campaign for each day</p>
+  {% for row in daily_conversions|reverse %}
+    <div class="my-4">
+      <!-- Header for each day -->
+      <h3 class="text-center">{{ row["order_day"] }} - {{ row["Day of Week"] }}</h3>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped w-100">
+          <thead class="thead-dark">
+            <tr>
+              {# Loop through keys (i.e. UTM campaigns) except metadata and only show if the value is not zero #}
+              {% for campaign in row.keys() if campaign not in ["order_day", "Day of Week", "Total Sales Value"] %}
+                {% if row[campaign] != 0.0 %}
+                  <th>{{ campaign }}</th>
+                {% endif %}
+              {% endfor %}
+              <th>Total Sales Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {% for campaign in row.keys() if campaign not in ["order_day", "Day of Week", "Total Sales Value"] %}
+                {% if row[campaign] != 0.0 %}
+                  <td>{{ row[campaign] }}</td>
+                {% endif %}
+              {% endfor %}
+              <td><strong>{{ row["Total Sales Value"] }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-center text-warning">No sales data available for the selected period.</p>
+{% endif %}

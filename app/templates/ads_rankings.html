@@ -1,0 +1,282 @@
+{% extends "layout.html" %}
+
+{% block title %}
+  Dashboard
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "ads_rankings.csv" %}
+  {% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+  ] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container my-4">
+  <h2 class="text-center">Top utm_answer</h2>
+  {% if top_utm_answers %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>UTM Answer</th>
+          <th>Number of Orders</th>
+          <th>Total Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in top_utm_answers %}
+          <tr>
+            <td>{{ row['utm_answer'] }}</td>
+            <td>{{ row['order_count'] }}</td>
+            <td>{{ row['total_sales'] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No UTM Answer ranking data available.
+    </div>
+  {% endif %}
+</div>
+
+<div class="container my-4">
+    <h2 class="text-center">Top utm_campaign</h2>
+    
+    {% if top_ten_utm_campaigns %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Campaign</th>
+            <th>Order Count</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_ten_utm_campaigns %}
+            <tr>
+              <td>{{ row['utm_campaign'] }}</td>
+              <td>{{ row['Order_Count'] }}</td>
+              <td>{{ row['Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No UTM Campaign data available.
+      </div>
+    {% endif %}
+  </div>
+
+<div class="container my-4">
+    <h2 class="text-center">Top 10 utm_content</h2>
+    {% if top_utm_content %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Content</th>
+            <th>Order Count</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_utm_content %}
+            <tr>
+              <td>{{ row['utm_content'] }}</td>
+              <td>{{ row['Order_Count'] }}</td>
+              <td>{{ row['Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No UTM Content data available.
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="container my-4">
+    <h2 class="text-center">UTM Content Ranking (Male)</h2>
+    {% if utm_content_ranking_by_gender_male %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Content</th>
+            <th>Number of Orders</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in utm_content_ranking_by_gender_male %}
+            <tr>
+              <td>{{ row['utm_content'] }}</td>
+              <td>{{ row['orders'] }}</td>
+              <td>{{ row['total_sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No ranking data available.
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="container my-4">
+    <h2 class="text-center">UTM Content Ranking (Female)</h2>
+    {% if utm_content_ranking_by_gender_female %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Content</th>
+            <th>Number of Orders</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in utm_content_ranking_by_gender_female %}
+            <tr>
+              <td>{{ row['utm_content'] }}</td>
+              <td>{{ row['orders'] }}</td>
+              <td>{{ row['total_sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No ranking data available.
+      </div>
+    {% endif %}
+  </div>
+
+
+  <div class="container my-4">
+    <h2 class="text-center">Top utm_source</h2>
+    {% if top_utm_source %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Source</th>
+            <th>Order Count</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_utm_source %}
+            <tr>
+              <td>{{ row['utm_source'] }}</td>
+              <td>{{ row['Order_Count'] }}</td>
+              <td>{{ row['Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No UTM Source data available.
+      </div>
+    {% endif %}
+  </div>
+
+  
+  <div class="container my-4">
+    <h2 class="text-center">Top utm_medium</h2>
+    {% if top_utm_medium %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Medium</th>
+            <th>Order Count</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_utm_medium %}
+            <tr>
+              <td>{{ row['utm_medium'] }}</td>
+              <td>{{ row['Order_Count'] }}</td>
+              <td>{{ row['Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No UTM Medium data available.
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="container my-4">
+    <h2 class="text-center">Top by UTM Term</h2>
+    {% if top_utm_term %}
+      <table class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>UTM Term</th>
+            <th>Order Count</th>
+            <th>Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in top_utm_term %}
+            <tr>
+              <td>{{ row['utm_term'] }}</td>
+              <td>{{ row['Order_Count'] }}</td>
+              <td>{{ row['Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No UTM Term data available.
+      </div>
+    {% endif %}
+  </div>
+
+
+<div class="container my-4">
+  <h2 class="text-center">Top 20 Days by utm_campaign: Undefined</h2>
+  {% if top_twenty_days_by_undefined_campaign %}
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Total Orders</th>
+          <th>Total Sales</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in top_twenty_days_by_undefined_campaign %}
+          <tr>
+            <td>{{ row['Date'] }}</td>
+            <td>{{ row['total_orders'] }}</td>
+            <td>{{ row['total_sales'] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-warning" role="alert">
+      No ranking data available.
+    </div>
+  {% endif %}
+</div>
+
+
+{% endblock %}

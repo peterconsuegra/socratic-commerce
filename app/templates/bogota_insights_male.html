@@ -1,0 +1,1632 @@
+{# app/templates/bogota_insights_male.html #}
+{% extends "layout.html" %}
+
+{% block title %}
+Bogota Insights Male
+{% endblock %}
+
+{% block content %}
+
+<a
+  class="btn btn-outline-success btn-sm"
+  href="{{ url_for('main.download_bogota_insights_file', filename='bogota_insights_male_filtered.csv') }}"
+>
+  Download filtered CSV
+</a>
+
+{% set file_name = "bogota_insights_male.csv" %}
+{% set file_name_filtered = "bogota_insights_male_filtered.csv" %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_14_days", "label": "Last 14 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "last_quarter", "label": "Last quarter (90 days)"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-4">
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      <strong>Something went wrong.</strong>
+      <div class="mt-1">{{ error }}</div>
+    </div>
+  {% endif %}
+
+  {% if not total_daily_trend %}
+    <div class="alert alert-warning mt-3">
+      No data available for the selected date range.
+    </div>
+  {% else %}
+
+    <div class="text-center mb-2">
+      <h2 class="text-center">Bogota Insights Male</h2>
+      <p class="text-center text-muted mb-2">
+        Showing <strong>male</strong> orders in <strong>Bogota (C/MARCA)</strong>.
+      </p>
+      <p class="text-center text-muted mb-3">
+        Data is shown up to the end of <strong>yesterday</strong> (Bogota time).
+      </p>
+    </div>
+
+    <div class="text-center mb-3">
+      <label for="exchangeRateBogota" class="form-label">
+        Exchange rate (COP per 1 USD)
+      </label>
+      <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+        <input
+          type="number"
+          id="exchangeRateBogota"
+          value="4000"
+          step="50"
+          min="3000"
+          max="6000"
+          class="form-control"
+          style="max-width: 180px;"
+        >
+        <button type="button" onclick="toggleCurrencyBogota()" class="btn btn-primary">
+          Toggle COP / USD
+        </button>
+      </div>
+      <small class="text-muted d-block mt-2">
+        When USD is selected, totals are converted using the exchange rate above.
+      </small>
+    </div>
+
+    <h3 class="text-center">Daily Total Sales Trend and Forecast</h3>
+    <p class="text-center text-muted mb-3">
+      Historical totals and the projected totals for the next 30 days.
+    </p>
+
+    <div style="height: 520px;">
+      <canvas id="bogotaTotalSalesChart"></canvas>
+    </div>
+
+    <hr class="my-4">
+
+    <h3 class="text-center">Sales Trend by Campaign</h3>
+    <p class="text-center text-muted mb-3">
+      Campaign charts grouped into: wati, Unknown, Google (numeric), Meta (alphanumeric).
+    </p>
+
+    {% if not campaign_groups %}
+      <div class="alert alert-warning">
+        No campaign data available (utm_campaign missing or empty).
+      </div>
+    {% else %}
+
+      <div class="accordion" id="campaignGroupsAccordion">
+
+        {% for g in campaign_groups %}
+          {% set group_index = loop.index0 %}
+          {% set heading_id = "headingGroup" ~ group_index %}
+          {% set collapse_id = "collapseGroup" ~ group_index %}
+
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="{{ heading_id }}">
+              <button
+                class="accordion-button {% if not g['open_by_default'] %}collapsed{% endif %}"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#{{ collapse_id }}"
+                aria-expanded="{{ 'true' if g['open_by_default'] else 'false' }}"
+                aria-controls="{{ collapse_id }}"
+              >
+                {{ g['title'] }}
+                &nbsp;
+                ({{ g['items']|length }})
+                &nbsp;·&nbsp;
+                <span class="fw-semibold">{{ (g['total_hist']|default(0))|cop }}</span>
+                &nbsp;·&nbsp;
+                <span class="text-muted">{{ g['percent']|default(0) }}%</span>
+              </button>
+            </h2>
+
+            <div
+              id="{{ collapse_id }}"
+              class="accordion-collapse collapse {% if g['open_by_default'] %}show{% endif %}"
+              aria-labelledby="{{ heading_id }}"
+              data-bs-parent="#campaignGroupsAccordion"
+            >
+              <div class="accordion-body">
+
+                {% if not g['items'] %}
+                  <div class="text-muted">
+                    No campaigns in this group.
+                  </div>
+                {% else %}
+
+                  {# NEW: Meta scoring summary block (JS fills this) #}
+                  {% if g['key'] == 'meta' %}
+                    <div class="card mb-4 border-0 shadow-sm">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                          <div>
+                            <h5 class="mb-1">Meta Campaign Scoring (Auto)</h5>
+                            <div class="text-muted">
+                              Scores are computed from order-attributed data (no Ads Manager metrics). Use it to prioritize audits and iteration.
+                            </div>
+                            <div class="text-muted small mt-2">
+                              Notes: The score uses signals like volume, dispersion across segments, time-of-day breadth, and creative diversity (utm_content). It does not mention estrato or localidades in copy recommendations.
+                            </div>
+                          </div>
+
+                          <div class="text-end">
+                            <div class="fw-semibold">Group overview</div>
+                            <div class="text-muted small" id="metaGroupScoringSummary">
+                              Calculating...
+                            </div>
+                          </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th style="min-width: 220px;">Campaign</th>
+                                <th class="text-nowrap">Score</th>
+                                <th class="text-nowrap">Tier</th>
+                                <th class="text-nowrap">Why (signals)</th>
+                              </tr>
+                            </thead>
+                            <tbody id="metaScoringTableBody">
+                              <tr>
+                                <td colspan="4" class="text-muted">Building scores...</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+
+                  {% for c in g['items'] %}
+                    <div class="card mb-4">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                          <div>
+                            <h5 class="mb-1">
+                              Campaign: <strong>{{ c['campaign'] }}</strong>
+                            </h5>
+
+                            {# NEW: Score badge container (Meta only, JS fills) #}
+                            {% if g['key'] == 'meta' %}
+                              <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                                <span
+                                  class="badge bg-secondary"
+                                  id="metaScoreBadge{{ c['chart_id'] }}"
+                                  title="Auto score based on sales attribution signals"
+                                >
+                                  Score: ...
+                                </span>
+                                <span class="text-muted small" id="metaScoreWhy{{ c['chart_id'] }}">
+                                  Calculating signals...
+                                </span>
+                              </div>
+                            {% endif %}
+                          </div>
+
+                          <div class="text-muted">
+                            Total: <span class="fw-semibold">{{ (c['total_hist']|default(0))|cop }}</span>
+                          </div>
+                        </div>
+
+                        <p class="text-muted mb-3 mt-2">
+                          Historical and forecasted daily totals for this campaign.
+                        </p>
+
+                        <div style="height: 420px;">
+                          <canvas id="campaignChart{{ c['chart_id'] }}"></canvas>
+                        </div>
+
+                        {% set has_localidad = c['localidad_breakdown'] and (c['localidad_breakdown']|length > 0) %}
+                        {% set has_estrato = c['estrato_breakdown'] and (c['estrato_breakdown']|length > 0) %}
+                        {% set has_nivel = c['nivel_socioeconomico_breakdown'] and (c['nivel_socioeconomico_breakdown']|length > 0) %}
+
+                        {% set is_meta_or_google = (g['key'] == 'meta') or (g['key'] == 'google') %}
+                        {% set has_time_chunks = c['time_of_day_breakdown'] and (c['time_of_day_breakdown']|length > 0) %}
+                        {% set show_fourth_col = is_meta_or_google and has_time_chunks %}
+
+                        {% if has_localidad or has_estrato or has_nivel or show_fourth_col %}
+                          <hr class="my-4">
+                          <div class="row g-3">
+
+                            {% if has_localidad %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Localidad</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by localidad.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="localidadPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if has_estrato %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Estrato</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by estrato.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="estratoPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if has_nivel %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Nivel Socioeconomico</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by nivel socioeconomico.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="nivelPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if show_fourth_col %}
+                              <div class="col-12 col-lg-3">
+                                <h6 class="text-center mb-2">Sales by Time of Day</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales by 3-hour chunks (Bogota time).
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="timeChunkPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                          </div>
+                        {% endif %}
+
+                        {% set has_utm_content_loc = c['utm_content_localidad']
+                          and c['utm_content_localidad']['labels']
+                          and (c['utm_content_localidad']['labels']|length > 0)
+                          and c['utm_content_localidad']['datasets']
+                          and (c['utm_content_localidad']['datasets']|length > 0)
+                        %}
+
+                        {% if is_meta_or_google and has_utm_content_loc %}
+                          <hr class="my-4">
+                          <div class="row g-3">
+                            <div class="col-12">
+                              <h6 class="text-center mb-2">UTM Content Total Sales by Localidad</h6>
+                              <p class="text-center text-muted mb-3">
+                                Stacked totals by <strong>utm_content</strong>, grouped by <strong>localidad</strong>.
+                              </p>
+                              <div style="height: 520px;">
+                                <canvas id="utmContentLocalidad{{ c['chart_id'] }}"></canvas>
+                              </div>
+
+                              {% if g['key'] == 'meta' %}
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">Prompts de Creatividad por Nivel Socioeconómico (ChatGPT 5.2)</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Un prompt por <strong>nivel socioeconómico</strong>. Cada prompt aplica principios de David Ogilvy, y usa estrato/localidad solo como insumo para ángulos sin mencionarlos explícitamente en el copy final.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-primary btn-sm"
+                                    onclick="copyAllPromptsForCampaign({{ c['chart_id'] }})"
+                                  >
+                                    Copiar todos los prompts
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    onclick="regenerateAllMetaPrompts({{ c['chart_id'] }})"
+                                  >
+                                    Regenerar todos
+                                  </button>
+                                </div>
+
+                                <div id="metaPromptsWrap{{ c['chart_id'] }}"></div>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">Prompt Estratégico para Optimización de Campaña Meta</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Analiza la campaña completa usando todos los datos disponibles y genera un plan de optimización avanzado.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-dark btn-sm"
+                                    onclick="copyCampaignStrategicPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt estratégico
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaStrategicPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="20"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">
+                                  Prompt para Redistribución Automática de Presupuesto (Meta)
+                                </h6>
+
+                                <p class="text-center text-muted mb-3">
+                                  Genera reglas automáticas de redistribución de presupuesto usando datos reales de esta campaña.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-success btn-sm"
+                                    onclick="copyBudgetPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt de presupuesto
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaBudgetPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="24"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">
+                                  Prompt para Predicción de Escalabilidad (Meta)
+                                </h6>
+
+                                <p class="text-center text-muted mb-3">
+                                  Estima si esta campaña puede escalar y con qué probabilidad, usando únicamente los datos disponibles.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-warning btn-sm"
+                                    onclick="copyScalabilityPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt de escalabilidad
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaScalabilityPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="26"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                              {% endif %}
+
+                            </div>
+                          </div>
+                        {% endif %}
+
+                      </div>
+                    </div>
+                  {% endfor %}
+
+                {% endif %}
+
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+
+      </div>
+
+    {% endif %}
+
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  function safeJsonStringify(obj) {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch (e) {
+      return String(obj || "");
+    }
+  }
+
+  /*
+    Prompts por nivel socioeconómico aplicando principios de David Ogilvy.
+    Nota cultural: NO mencionar estrato ni localidades en el copy final.
+  */
+  function buildMetaPromptForNivel(payload, nivelFocus) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarizeTop(list, n, labelName) {
+      var top = topN(list, n);
+      if (!top.length) return "No hay datos para " + labelName + ".";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    function pct(part, total) {
+      var p = Number(part) || 0;
+      var t = Number(total) || 0;
+      if (t <= 0) return 0;
+      return (p / t) * 100;
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var estrato = payload.estrato_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    var nivelLabel = (nivelFocus && nivelFocus.label) ? String(nivelFocus.label) : "Desconocido";
+    var nivelValue = (nivelFocus && nivelFocus.value) ? Number(nivelFocus.value) : 0;
+    var nivelRank = (nivelFocus && typeof nivelFocus.rank === "number") ? (nivelFocus.rank + 1) : null;
+    var nivelShare = pct(nivelValue, totalHist);
+
+    var prompt =
+      "Eres un estratega senior de creatividad y performance en Meta Ads.\n\n" +
+
+      "OBJETIVO\n" +
+      "Genera ideas NUEVAS de anuncios para esta campaña, enfocadas SOLO en el segmento de nivel socioeconómico indicado. Usa patrones de localidad y estrato solo como insumo para descubrir ángulos (rutinas, lenguaje, situaciones), pero NO los menciones explícitamente en el copy final.\n\n" +
+
+      "REGLA MUY IMPORTANTE (COPYS FINALES)\n" +
+      "- Evita mencionar el número o el nivel de estrato.\n" +
+      "- Evita mencionar localidades, barrios o zonas específicas.\n" +
+      "- Puedes usar esa información internamente para generar ángulos, pero el texto final debe sentirse inclusivo y no clasista.\n\n" +
+
+      "MARCO PUBLICITARIO: PRINCIPIOS DE DAVID OGILVY (debes aplicarlos y mencionarlos)\n" +
+      "Para cada idea, etiqueta explícitamente cuáles principios aplicaste, usando esta lista (elige los que correspondan):\n" +
+      "1) Gran idea (Big Idea)\n" +
+      "2) Beneficio claro y específico (The consumer isn't a moron)\n" +
+      "3) Titular fuerte: 80% del resultado\n" +
+      "4) Una promesa principal y consistente\n" +
+      "5) Prueba y credibilidad (evidencia, demostración, testimonios)\n" +
+      "6) Habla el lenguaje del consumidor\n" +
+      "7) Especificidad y detalles concretos\n" +
+      "8) Evitar la creatividad vacía: claridad sobre estilo\n" +
+      "9) Repetición estratégica y consistencia\n" +
+      "10) Enfoque en la marca y respuesta (CTA claro)\n\n" +
+
+      "SALIDA REQUERIDA (muy estricta)\n" +
+      "1) 5 ideas NUEVAS de REELS.\n" +
+      "2) 5 ideas NUEVAS de ANUNCIOS DE IMAGEN.\n\n" +
+
+      "FORMATO PARA CADA IDEA (OBLIGATORIO)\n" +
+      "- Principios Ogilvy aplicados: [menciona números y nombres]\n" +
+      "- Hook / Titular:\n" +
+      "- Guion 6-10s (solo para Reels):\n" +
+      "- Texto en pantalla:\n" +
+      "- Dirección visual:\n" +
+      "- Beneficio principal:\n" +
+      "- Prueba/credibilidad:\n" +
+      "- CTA:\n" +
+      "- A quién va dirigida (describe estilo de vida/contexto, sin estrato ni localidad):\n\n" +
+
+      "CONTEXTO DE CAMPAÑA\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Enfoque de género: HOMBRES\n" +
+      "- Mercado: Bogotá (C/MARCA)\n" +
+      "- Zona horaria: America/Bogota\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n" +
+      "- Datos hasta el final de ayer (hora Bogotá)\n\n" +
+
+      "SEGMENTO ENFOQUE (Nivel Socioeconómico)\n" +
+      "- Segmento: " + nivelLabel + "\n" +
+      (nivelRank !== null ? ("- Ranking dentro de segmentos (por ventas): #" + nivelRank + "\n") : "") +
+      "- Ventas (COP) atribuidas a este segmento: " + nivelValue + "\n" +
+      "- Porcentaje de las ventas de la campaña: " + nivelShare.toFixed(1) + "%\n\n" +
+
+      "SEÑALES (solo para inspirar ángulos, no para nombrarlas)\n" +
+      "Localidades con mayor venta (NO mencionar nombres en copys):\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
+      "Estratos con mayor venta (NO mencionar números en copys):\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
+      "Franjas de hora del día con mayor venta:\n" + summarizeTop(timeChunks, 6, "franjas horarias") + "\n\n" +
+
+      "DATOS EN CRUDO (referencia)\n" +
+      "Objeto del segmento enfoque:\n" + safeJsonStringify(nivelFocus || {}) + "\n\n" +
+      "Desglose por Localidad:\n" + safeJsonStringify(localidad) + "\n\n" +
+      "Desglose por Estrato:\n" + safeJsonStringify(estrato) + "\n\n" +
+      "Desglose por Hora del día:\n" + safeJsonStringify(timeChunks) + "\n\n" +
+      "UTM Content x Localidad (totales apilados):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+
+      "RESTRICCIONES CREATIVAS\n" +
+      "- Prioriza ideas fáciles de producir: estilo UGC (celular) y tomas simples en estudio.\n" +
+      "- Usa situaciones reales de Bogotá (clima, tráfico, transporte, oficina, universidad, casa) sin decir zonas.\n" +
+      "- Si domina una franja horaria, adapta la escena a ese momento (mañana, tarde, noche).\n\n" +
+
+      "ÁNGULOS DE PRODUCTO (elige los que encajen)\n" +
+      "- Olor / seguridad social\n" +
+      "- Sudoración / estrés\n" +
+      "- Confianza en pareja / vida social\n" +
+      "- Rutina diaria en Bogotá (transporte, oficina, universidad)\n" +
+      "- Prueba social: antes/después, testimonios, me funcionó\n\n" +
+
+      "RECORDATORIO\n" +
+      "No menciones estrato ni localidades en los copys finales. Sí puedes usar esos patrones internamente para proponer ángulos.\n";
+
+    return prompt;
+  }
+
+  function buildMetaStrategicPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Eres un consultor senior de Meta Ads especializado en optimización basada en datos reales.\n\n" +
+      "OBJETIVO\n" +
+      "Analiza esta campaña Meta usando los datos históricos y genera un plan avanzado de optimización.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Hombres\n" +
+      "- Ventas históricas totales: " + totalHist + " COP\n" +
+      "- Datos hasta ayer (hora Bogotá)\n\n" +
+      "ANÁLISIS (usa datos)\n" +
+      "Nivel socioeconómico:\n" + summarize(nivel, 6) + "\n\n" +
+      "Localidades:\n" + summarize(localidad, 6) + "\n\n" +
+      "Franja horaria:\n" + summarize(timeChunks, 6) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "ENTREGABLE\n" +
+      "- Diagnóstico\n" +
+      "- Quick wins\n" +
+      "- Riesgos\n" +
+      "- Plan de acción 7 días\n"
+    );
+  }
+
+  function buildMetaBudgetReallocationPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    var campaign = payload.campaign || "";
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Eres un experto senior en Meta Ads especializado en automatización de presupuesto.\n\n" +
+      "OBJETIVO\n" +
+      "Diseña una redistribución AUTOMÁTICA de presupuesto para esta campaña usando únicamente datos reales.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Hombres\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n\n" +
+      "DATOS\n" +
+      "Nivel socioeconómico:\n" + summarize(nivel, 6) + "\n\n" +
+      "Localidades:\n" + summarize(localidad, 6) + "\n\n" +
+      "Franja horaria:\n" + summarize(timeChunks, 6) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "ENTREGABLE\n" +
+      "1) Diagnóstico\n" +
+      "2) Redistribución en porcentajes (100 unidades)\n" +
+      "3) Reglas automáticas\n" +
+      "4) Controles de riesgo\n"
+    );
+  }
+
+  function buildMetaScalabilityPredictionPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    function safeNum(x) {
+      var v = Number(x);
+      return isFinite(v) ? v : 0;
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = safeNum(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Actúa como un director de growth especializado en Meta Ads y predicción de escalabilidad.\n\n" +
+      "OBJETIVO\n" +
+      "Con los datos disponibles de esta campaña, estima su POTENCIAL DE ESCALA (capacidad de aumentar presupuesto sin perder eficiencia) y entrega una predicción accionable.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Hombres\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n" +
+      "- Fuente de datos: órdenes atribuidas + UTM (no hay métricas de Ads Manager como CPM/CPA/ROAS)\n\n" +
+
+      "DATOS DISPONIBLES (usa esto para inferir señales de escala)\n" +
+      "1) Distribución por nivel socioeconómico:\n" + summarize(nivel, 10) + "\n\n" +
+      "2) Distribución por localidad (NO usar nombres en recomendaciones de copy, solo como señal de dispersión/densidad):\n" + summarize(localidad, 10) + "\n\n" +
+      "3) Distribución por franja horaria (3h):\n" + summarize(timeChunks, 8) + "\n\n" +
+      "4) UTM Content x Localidad (estructura de creativos y concentración):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+
+      "TAREAS (RESPUESTA ESTRUCTURADA)\n" +
+      "A) Señales de escalabilidad (basadas en datos):\n" +
+      "- Densidad vs dispersión (concentración en pocos segmentos o diversificación)\n" +
+      "- Dependencia de 1-2 creativos (concentración en pocos utm_content)\n" +
+      "- Dependencia de 1-2 franjas horarias\n" +
+      "- Robustez del mix (niveles + horarios + creativos)\n\n" +
+
+      "B) Predicción de escalabilidad (OBLIGATORIO)\n" +
+      "- Score 0-100\n" +
+      "- Probabilidad de escalar (Baja/Media/Alta) con % estimado\n" +
+      "- Nivel recomendado de incremento de presupuesto en 7 días: +X% (con rango mínimo/máximo)\n\n" +
+
+      "C) Plan de escalamiento en 3 fases\n" +
+      "Fase 1 (0-3 días): qué duplicar y qué proteger\n" +
+      "Fase 2 (4-7 días): cómo abrir nuevos bolsillos (segmentos/horarios/creativos)\n" +
+      "Fase 3 (8-14 días): cómo sostener y evitar saturación\n\n" +
+
+      "D) Reglas automáticas de escala (tipo checklist)\n" +
+      "- Si [condición basada en estos datos] entonces [acción]\n" +
+      "- Incluye límites de seguridad y frecuencia de evaluación\n\n" +
+
+      "E) Supuestos y limitaciones\n" +
+      "- Explica qué no puedes saber sin Ads Manager (CPM/CPA/ROAS) y cómo compensas con estas señales.\n\n" +
+
+      "REGLAS DE ESTILO\n" +
+      "- No seas genérico.\n" +
+      "- Justifica con los datos entregados.\n" +
+      "- No inventes métricas que no existen.\n"
+    );
+  }
+
+  function sortDescByValue(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    arr.sort(function(a, b) {
+      return (Number(b.value) || 0) - (Number(a.value) || 0);
+    });
+    return arr;
+  }
+
+  function filterValidNiveles(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    return arr.filter(function(n) {
+      var label = (n && n.label != null) ? String(n.label).trim() : "";
+      if (!label) return false;
+      var low = label.toLowerCase();
+      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
+      return true;
+    });
+  }
+
+  function buildMetaPromptsUI(chartId, payload) {
+    var wrap = document.getElementById("metaPromptsWrap" + chartId);
+    if (!wrap) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) {
+      wrap.innerHTML = '<div class="text-muted">No hay datos de nivel socioeconómico disponibles para generar prompts.</div>';
+      return;
+    }
+
+    var totalHist = Number(payload.total_hist || 0);
+
+    var html = "";
+    niveles.forEach(function(n, idx) {
+      var label = (n && n.label) ? String(n.label) : "Desconocido";
+      var value = Number(n && n.value ? n.value : 0);
+      var share = (totalHist > 0) ? ((value / totalHist) * 100) : 0;
+
+      var textareaId = "metaPrompt" + chartId + "_" + idx;
+
+      html += ""
+        + '<div class="card mb-3">'
+        + '  <div class="card-body">'
+        + '    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">'
+        + '      <div>'
+        + '        <h6 class="mb-1">Prompt para Segmento (Nivel Socioeconómico): <strong>' + escapeHtml(label) + '</strong></h6>'
+        + '        <div class="text-muted small">Ventas: ' + value + ' COP · Porcentaje: ' + share.toFixed(1) + '% · Ranking: #' + (idx + 1) + '</div>'
+        + '        <div class="text-muted small mt-1">Reglas: no mencionar estrato ni localidades. Aplicar y mencionar principios de Ogilvy en cada idea.</div>'
+        + '      </div>'
+        + '      <div class="d-flex gap-2 flex-wrap">'
+        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copiar</button>'
+        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">Regenerar</button>'
+        + '      </div>'
+        + '    </div>'
+        + '    <textarea'
+        + '      id="' + textareaId + '"'
+        + '      class="form-control mt-3"'
+        + '      rows="18"'
+        + '      readonly'
+        + '      style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"'
+        + '    ></textarea>'
+        + '  </div>'
+        + '</div>';
+    });
+
+    wrap.innerHTML = html;
+
+    niveles.forEach(function(n, idx) {
+      var textareaId = "metaPrompt" + chartId + "_" + idx;
+      var el = document.getElementById(textareaId);
+      if (!el) return;
+
+      var focus = {
+        label: n.label,
+        value: n.value,
+        rank: idx
+      };
+
+      el.value = buildMetaPromptForNivel(payload, focus);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  window.copyPromptToClipboard = async function(textareaId) {
+    var el = document.getElementById(textareaId);
+    if (!el) return;
+
+    try {
+      await navigator.clipboard.writeText(el.value || "");
+    } catch (e) {
+      el.select();
+      document.execCommand("copy");
+      el.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyAllPromptsForCampaign = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) return;
+
+    var allText = niveles.map(function(n, idx) {
+      var label = (n && n.label) ? String(n.label) : "Desconocido";
+      var focus = { label: n.label, value: n.value, rank: idx };
+      return "===== SEGMENTO (NIVEL SOCIOECONÓMICO): " + label + " =====\n\n" + buildMetaPromptForNivel(payload, focus);
+    }).join("\n\n\n");
+
+    try {
+      await navigator.clipboard.writeText(allText);
+    } catch (e) {
+      var tmp = document.createElement("textarea");
+      tmp.value = allText;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand("copy");
+      document.body.removeChild(tmp);
+    }
+  };
+
+  window._metaPromptPayloads = window._metaPromptPayloads || {};
+
+  window.regenerateMetaPrompt = function(chartId, nivelIndex) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) return;
+
+    var n = niveles[nivelIndex];
+    if (!n) return;
+
+    var textareaId = "metaPrompt" + chartId + "_" + nivelIndex;
+    var textarea = document.getElementById(textareaId);
+    if (!textarea) return;
+
+    var focus = { label: n.label, value: n.value, rank: nivelIndex };
+    textarea.value = buildMetaPromptForNivel(payload, focus);
+  };
+
+  window.regenerateAllMetaPrompts = function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    buildMetaPromptsUI(chartId, payload);
+  };
+
+  window.copyCampaignStrategicPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaStrategicPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyBudgetPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaBudgetPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyScalabilityPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaScalabilityPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  /*
+    Automatic scoring for Meta campaigns
+  */
+
+  function sumValues(list) {
+    var arr = Array.isArray(list) ? list : [];
+    return arr.reduce(function(acc, it) { return acc + (Number(it && it.value) || 0); }, 0);
+  }
+
+  function topShare(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    arr.sort(function(a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
+    var total = sumValues(arr);
+    if (total <= 0 || !arr.length) return 0;
+    return (Number(arr[0].value) || 0) / total;
+  }
+
+  function countMeaningfulBuckets(list, minShare) {
+    var arr = Array.isArray(list) ? list : [];
+    var total = sumValues(arr);
+    if (total <= 0) return 0;
+    var threshold = (typeof minShare === "number" ? minShare : 0.05);
+    return arr.filter(function(it) {
+      var v = Number(it && it.value) || 0;
+      var label = (it && it.label != null) ? String(it.label).trim() : "";
+      if (!label) return false;
+      var low = label.toLowerCase();
+      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
+      return (v / total) >= threshold;
+    }).length;
+  }
+
+  function countUtmContentDiversity(utmContentLoc) {
+    var ds = (utmContentLoc && utmContentLoc.datasets) ? utmContentLoc.datasets : [];
+    if (!Array.isArray(ds) || !ds.length) return 0;
+    var count = 0;
+    ds.forEach(function(d) {
+      var arr = Array.isArray(d && d.data) ? d.data : [];
+      var s = arr.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
+      if (s > 0) count += 1;
+    });
+    return count;
+  }
+
+  function scoreTier(score) {
+    var s = Number(score) || 0;
+    if (s >= 80) return "A";
+    if (s >= 65) return "B";
+    if (s >= 50) return "C";
+    return "D";
+  }
+
+  function badgeClassForTier(tier) {
+    if (tier === "A") return "bg-success";
+    if (tier === "B") return "bg-primary";
+    if (tier === "C") return "bg-warning text-dark";
+    return "bg-danger";
+  }
+
+  function computeMetaCampaignScore(payload, maxTotalHist) {
+    var totalHist = Number(payload && payload.total_hist) || 0;
+
+    var nivel = Array.isArray(payload && payload.nivel_socioeconomico_breakdown) ? payload.nivel_socioeconomico_breakdown : [];
+    var timeChunks = Array.isArray(payload && payload.time_of_day_breakdown) ? payload.time_of_day_breakdown : [];
+    var localidad = Array.isArray(payload && payload.localidad_breakdown) ? payload.localidad_breakdown : [];
+    var utmContentLoc = payload && payload.utm_content_localidad ? payload.utm_content_localidad : { labels: [], datasets: [] };
+
+    // 1) Volume (0..30) relative within Meta group
+    var maxT = Number(maxTotalHist) || 0;
+    var volumeScore = 0;
+    if (maxT > 0) {
+      volumeScore = Math.min(30, 30 * (totalHist / maxT));
+    } else {
+      volumeScore = 15;
+    }
+
+    // 2) Segment breadth (0..20) using meaningful nivel buckets
+    var meaningfulNiveles = countMeaningfulBuckets(nivel, 0.06);
+    var nivelScore = Math.min(20, meaningfulNiveles * 5); // 4 meaningful buckets gives 20
+
+    // 3) Time breadth (0..15) using meaningful time chunks
+    var meaningfulTimes = countMeaningfulBuckets(timeChunks, 0.06);
+    var timeScore = Math.min(15, meaningfulTimes * 3); // 5 chunks gives 15
+
+    // 4) Local dispersion (0..15) using meaningful localidades
+    var meaningfulLoc = countMeaningfulBuckets(localidad, 0.06);
+    var locScore = Math.min(15, meaningfulLoc * 2.5); // 6 buckets gives 15
+
+    // 5) Creative diversity via utm_content (0..20)
+    var utmDiv = countUtmContentDiversity(utmContentLoc);
+    var utmScore = Math.min(20, utmDiv * 4); // 5 contents gives 20
+
+    // Penalty for extreme concentration (0..10)
+    var penalty = 0;
+    var topNivel = topShare(nivel);
+    var topTime = topShare(timeChunks);
+    var topLoc = topShare(localidad);
+
+    if (topNivel > 0.75) penalty += 4;
+    if (topTime > 0.75) penalty += 3;
+    if (topLoc > 0.75) penalty += 3;
+    penalty = Math.min(10, penalty);
+
+    var raw = volumeScore + nivelScore + timeScore + locScore + utmScore - penalty;
+    var score = Math.max(0, Math.min(100, Math.round(raw)));
+
+    var reasons = [];
+    if (volumeScore >= 22) reasons.push("good volume");
+    else if (volumeScore <= 10) reasons.push("low volume");
+    if (utmDiv >= 4) reasons.push("diverse creatives");
+    else if (utmDiv <= 1) reasons.push("creative concentration");
+    if (meaningfulTimes >= 4) reasons.push("broad time coverage");
+    else if (meaningfulTimes <= 1) reasons.push("time concentration");
+    if (meaningfulNiveles >= 4) reasons.push("multi-segment traction");
+    else if (meaningfulNiveles <= 1) reasons.push("segment concentration");
+    if (penalty >= 7) reasons.push("fragile mix");
+
+    return {
+      score: score,
+      tier: scoreTier(score),
+      details: {
+        volumeScore: Math.round(volumeScore),
+        nivelScore: Math.round(nivelScore),
+        timeScore: Math.round(timeScore),
+        locScore: Math.round(locScore),
+        utmScore: Math.round(utmScore),
+        penalty: Math.round(penalty),
+        meaningfulNiveles: meaningfulNiveles,
+        meaningfulTimes: meaningfulTimes,
+        meaningfulLoc: meaningfulLoc,
+        utmDiversity: utmDiv
+      },
+      reasons: reasons
+    };
+  }
+
+  function renderMetaScoring() {
+    var payloads = window._metaPromptPayloads || {};
+    var entries = Object.keys(payloads).map(function(chartId) {
+      return { chartId: chartId, payload: payloads[chartId] };
+    });
+
+    if (!entries.length) {
+      var summaryEl = document.getElementById("metaGroupScoringSummary");
+      if (summaryEl) summaryEl.textContent = "No Meta payloads found for scoring.";
+      return;
+    }
+
+    var maxTotal = 0;
+    entries.forEach(function(e) {
+      var t = Number(e.payload && e.payload.total_hist) || 0;
+      if (t > maxTotal) maxTotal = t;
+    });
+
+    var scored = entries.map(function(e) {
+      var s = computeMetaCampaignScore(e.payload, maxTotal);
+      return {
+        chartId: e.chartId,
+        campaign: String(e.payload && e.payload.campaign || ""),
+        total: Number(e.payload && e.payload.total_hist) || 0,
+        score: s.score,
+        tier: s.tier,
+        reasons: s.reasons,
+        details: s.details
+      };
+    });
+
+    scored.sort(function(a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.total - a.total;
+    });
+
+    scored.forEach(function(x) {
+      var badge = document.getElementById("metaScoreBadge" + x.chartId);
+      var why = document.getElementById("metaScoreWhy" + x.chartId);
+
+      if (badge) {
+        badge.className = "badge " + badgeClassForTier(x.tier);
+        badge.textContent = "Score: " + x.score + " (" + x.tier + ")";
+
+        var tooltip =
+          "Breakdown\n" +
+          "- Volume: " + x.details.volumeScore + "/30\n" +
+          "- Segment breadth: " + x.details.nivelScore + "/20\n" +
+          "- Time breadth: " + x.details.timeScore + "/15\n" +
+          "- Dispersion: " + x.details.locScore + "/15\n" +
+          "- Creative diversity: " + x.details.utmScore + "/20\n" +
+          "- Penalty: -" + x.details.penalty + "\n" +
+          "Signals\n" +
+          "- Niveles (meaningful): " + x.details.meaningfulNiveles + "\n" +
+          "- Time chunks (meaningful): " + x.details.meaningfulTimes + "\n" +
+          "- Local buckets (meaningful): " + x.details.meaningfulLoc + "\n" +
+          "- UTM contents (active): " + x.details.utmDiversity;
+
+        badge.title = tooltip;
+      }
+
+      if (why) {
+        var txt = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        why.textContent = txt;
+      }
+    });
+
+    var tbody = document.getElementById("metaScoringTableBody");
+    if (tbody) {
+      var rows = scored.map(function(x) {
+        var reasons = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        var badge = '<span class="badge ' + badgeClassForTier(x.tier) + '"> ' + x.score + ' </span>';
+        var tier = '<span class="badge bg-light text-dark border"> ' + x.tier + ' </span>';
+
+        return ""
+          + "<tr>"
+          + "<td><strong>" + escapeHtml(x.campaign) + "</strong><div class='text-muted small'>Total: " + escapeHtml(String(x.total)) + " COP</div></td>"
+          + "<td class='text-nowrap'>" + badge + "</td>"
+          + "<td class='text-nowrap'>" + tier + "</td>"
+          + "<td class='text-muted small'>" + escapeHtml(reasons) + "</td>"
+          + "</tr>";
+      }).join("");
+
+      tbody.innerHTML = rows || "<tr><td colspan='4' class='text-muted'>No scored campaigns.</td></tr>";
+    }
+
+    var avg = scored.reduce(function(acc, x) { return acc + (Number(x.score) || 0); }, 0) / (scored.length || 1);
+    var top = scored[0];
+    var bottom = scored[scored.length - 1];
+
+    var summaryEl = document.getElementById("metaGroupScoringSummary");
+    if (summaryEl) {
+      summaryEl.textContent =
+        "Campaigns: " + scored.length +
+        " | Avg score: " + avg.toFixed(1) +
+        " | Top: " + (top ? (top.score + " (" + top.tier + ")") : "n/a") +
+        " | Lowest: " + (bottom ? (bottom.score + " (" + bottom.tier + ")") : "n/a");
+    }
+  }
+
+  /*
+    Existing charts and currency toggle
+  */
+
+  var exchangeRateEl = document.getElementById("exchangeRateBogota");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((v / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+  }
+
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: titlePrefix + " (COP)", data: histCOP, fill: true },
+          {
+            label: "Pronóstico " + titlePrefix.replace("Histórico ", "") + " (COP)",
+            data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
+            borderDash: [5, 5],
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top" },
+          datalabels: { display: false }
+        },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP;
+    chart._rawForecastCOP = fcstCOP;
+    chart._histLen = histCOP.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  function applyCurrencyToChart(chart) {
+    if (!chart) return;
+
+    var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
+    var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
+
+    chart.data.datasets[0].data = hist;
+    chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
+
+    chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+    chart.data.datasets[1].label = useUSD
+      ? "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (USD)"
+      : "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (COP)";
+
+    chart.update();
+  }
+
+  function buildPieChartWithPercentLabels(canvasId, labels, values, title) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+    var total = values.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
+
+    return new Chart(ctx, {
+      type: "pie",
+      plugins: [ChartDataLabels],
+      data: {
+        labels: labels,
+        datasets: [{ label: title, data: values }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: {
+            display: true,
+            formatter: function(value, context) {
+              var v = Number(value) || 0;
+              var pct = total > 0 ? (v / total) * 100 : 0;
+              var label = (context.chart.data.labels[context.dataIndex] || "").toString();
+              return label + "\n" + pct.toFixed(1) + "%";
+            },
+            anchor: "center",
+            align: "center",
+            clamp: true
+          }
+        }
+      }
+    });
+  }
+
+  function colorForIndex(i, alpha) {
+    var a = (typeof alpha === "number") ? alpha : 0.65;
+    var hue = (i * 47) % 360;
+    return "hsla(" + hue + ", 70%, 55%, " + a + ")";
+  }
+
+  function buildStackedBarChart(canvasId, labels, datasets, title) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var ds = (datasets || []).map(function(d, i) {
+      return {
+        label: d.label,
+        data: d.data,
+        backgroundColor: colorForIndex(i, 0.65),
+        borderColor: colorForIndex(i, 0.95),
+        borderWidth: 1
+      };
+    });
+
+    var chart = new Chart(ctx, {
+      type: "bar",
+      data: { labels: labels, datasets: ds },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: { display: false },
+          title: { display: false, text: title || "" }
+        },
+        scales: {
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            ticks: { callback: formatYTick }
+          }
+        }
+      }
+    });
+
+    chart._rawDatasetsCOP = (datasets || []).map(function(d) {
+      return { label: d.label, data: (d.data || []).slice() };
+    });
+
+    return chart;
+  }
+
+  function applyCurrencyToStackedBarChart(chart) {
+    if (!chart) return;
+    if (!chart._rawDatasetsCOP) return;
+
+    chart.data.datasets.forEach(function(ds, idx) {
+      var raw = chart._rawDatasetsCOP[idx];
+      if (!raw) return;
+
+      var data = useUSD ? convertToUSD(raw.data) : raw.data;
+      ds.data = data;
+    });
+
+    chart.update();
+  }
+
+  var totalChart = buildLineChart(
+    "bogotaTotalSalesChart",
+    [
+      {% for r in total_daily_trend %}"{{ r['Date'] }}",{% endfor %}
+      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+    ],
+    [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+    [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
+    "Historical Bogota Male Total Sales"
+  );
+
+  var campaignCharts = [];
+  var stackedBarCharts = [];
+
+  {% for g in campaign_groups %}
+    {% for c in g['items'] %}
+      (function() {
+        var chart = buildLineChart(
+          "campaignChart{{ c['chart_id'] }}",
+          [
+            {% for r in c['total_daily_trend'] %}"{{ r['Date'] }}",{% endfor %}
+            {% for r in c['forecast_data'] %}"{{ r['Date'] }}",{% endfor %}
+          ],
+          [{% for r in c['total_daily_trend'] %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+          [{% for r in c['forecast_data'] %}{{ r['Projected Total Sales'] }},{% endfor %}],
+          "Historical {{ c['campaign'] }} Total Sales"
+        );
+
+        if (chart) campaignCharts.push(chart);
+      })();
+    {% endfor %}
+  {% endfor %}
+
+  {% for g in campaign_groups %}
+    {% for c in g['items'] %}
+
+      {% if c['localidad_breakdown'] and (c['localidad_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['localidad_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['localidad_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "localidadPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Localidad"
+          );
+        })();
+      {% endif %}
+
+      {% if c['estrato_breakdown'] and (c['estrato_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['estrato_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['estrato_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "estratoPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Estrato"
+          );
+        })();
+      {% endif %}
+
+      {% if c['nivel_socioeconomico_breakdown'] and (c['nivel_socioeconomico_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['nivel_socioeconomico_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['nivel_socioeconomico_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "nivelPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Segmento (Nivel Socioeconómico)"
+          );
+        })();
+      {% endif %}
+
+      {% if (g['key'] == 'meta' or g['key'] == 'google') and c['time_of_day_breakdown'] and (c['time_of_day_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['time_of_day_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['time_of_day_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "timeChunkPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Hora del Día (3h)"
+          );
+        })();
+      {% endif %}
+
+      {% if (g['key'] == 'meta' or g['key'] == 'google')
+          and c['utm_content_localidad']
+          and c['utm_content_localidad']['labels']
+          and (c['utm_content_localidad']['labels']|length > 0)
+          and c['utm_content_localidad']['datasets']
+          and (c['utm_content_localidad']['datasets']|length > 0)
+      %}
+        (function() {
+          var labels = [
+            {% for l in c['utm_content_localidad']['labels'] %}
+              "{{ l }}",
+            {% endfor %}
+          ];
+
+          var datasets = [
+            {% for d in c['utm_content_localidad']['datasets'] %}
+              {
+                label: "{{ d['label'] }}",
+                data: [
+                  {% for v in d['data'] %}
+                    {{ v|default(0) }},
+                  {% endfor %}
+                ]
+              },
+            {% endfor %}
+          ];
+
+          var ch = buildStackedBarChart(
+            "utmContentLocalidad{{ c['chart_id'] }}",
+            labels,
+            datasets,
+            "UTM Content Ventas Totales por Localidad"
+          );
+
+          if (ch) stackedBarCharts.push(ch);
+        })();
+      {% endif %}
+
+      {% if g['key'] == 'meta' %}
+        (function() {
+          var payload = {
+            campaign: "{{ c['campaign']|e }}",
+            total_hist: {{ c['total_hist']|default(0) }},
+
+            localidad_breakdown: [
+              {% for it in (c['localidad_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            estrato_breakdown: [
+              {% for it in (c['estrato_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            nivel_socioeconomico_breakdown: [
+              {% for it in (c['nivel_socioeconomico_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            time_of_day_breakdown: [
+              {% for it in (c['time_of_day_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            utm_content_localidad: {
+              labels: [
+                {% for l in (c['utm_content_localidad']['labels'] or []) %}
+                  "{{ l|e }}",
+                {% endfor %}
+              ],
+              datasets: [
+                {% for d in (c['utm_content_localidad']['datasets'] or []) %}
+                  {
+                    label: "{{ d['label']|e }}",
+                    data: [
+                      {% for v in (d['data'] or []) %}
+                        {{ v|default(0) }},
+                      {% endfor %}
+                    ]
+                  },
+                {% endfor %}
+              ]
+            }
+          };
+
+          window._metaPromptPayloads = window._metaPromptPayloads || {};
+          window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
+
+          buildMetaPromptsUI({{ c['chart_id'] }}, payload);
+
+          var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
+          if (strategicTextarea) {
+            strategicTextarea.value = buildMetaStrategicPrompt(payload);
+          }
+
+          var budgetTextarea = document.getElementById("metaBudgetPrompt{{ c['chart_id'] }}");
+          if (budgetTextarea) {
+            budgetTextarea.value = buildMetaBudgetReallocationPrompt(payload);
+          }
+
+          var scalabilityTextarea = document.getElementById("metaScalabilityPrompt{{ c['chart_id'] }}");
+          if (scalabilityTextarea) {
+            scalabilityTextarea.value = buildMetaScalabilityPredictionPrompt(payload);
+          }
+        })();
+      {% endif %}
+
+    {% endfor %}
+  {% endfor %}
+
+  // After payloads are registered, compute and render Meta scoring
+  renderMetaScoring();
+
+  window.toggleCurrencyBogota = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    applyCurrencyToChart(totalChart);
+    campaignCharts.forEach(function(ch) { applyCurrencyToChart(ch); });
+    stackedBarCharts.forEach(function(ch) { applyCurrencyToStackedBarChart(ch); });
+  };
+
+});
+</script>
+
+{% endblock %}

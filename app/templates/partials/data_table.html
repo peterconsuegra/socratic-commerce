@@ -1,0 +1,27 @@
+{% if data %}
+  <div class="container mt-4">
+    <h2 class="text-center">{{ title }}</h2>
+    <table class="table table-striped table-bordered">
+      <thead>
+        <tr>
+          {% for key in data[0].keys() %}
+            <th>{{ key.replace("_", " ") }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+          <tr>
+            {% for value in row.values() %}
+              <td>{{ value }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-warning" role="alert">
+    No data available for {{ title }}.
+  </div>
+{% endif %}

@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="text-danger">Internal Server Error</h2>
+
+  <p><strong>Error:</strong></p>
+  <pre>{{ error }}</pre>
+
+  <p><strong>Traceback:</strong></p>
+  <pre style="white-space: pre-wrap;">{{ traceback }}</pre>
+</div>
+{% endblock %}

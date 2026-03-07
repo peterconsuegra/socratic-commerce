@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Monthly Data
+{% endblock %}
+
+{% block content %}
+  <!-- Fetch JSON and Create CSV -->
+<form id="fetch-form" method="post">
+    <div class="mb-3">
+        <label>Get WooCommerce order JSON <br /><i>http://saveaplaya.petetesting.com/wp-json/wc-last-orders-json/v1/orders</i></label>
+        <input type="url" class="form-control" id="json_url" name="json_url" 
+               placeholder="https://api.example.com/data" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Generate orders.csv</button>
+</form>
+
+<!-- Get Unknown Genders -->
+<form id="unknown-genders-form" method="post" class="mt-3">
+    <button type="submit" class="btn btn-secondary">Generate unknown_genders.csv</button>
+</form>
+
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  $(document).ready(function () {
+      const loader = $('#loader');
+
+      // Handle Fetch JSON and Create CSV
+      $('#fetch-form').on('submit', function (e) {
+          e.preventDefault();
+          const jsonUrl = $('#json_url').val();
+          if (!jsonUrl) {
+              displayAlert('danger', 'Please enter a valid JSON URL.');
+              return;
+          }
+          loader.show();
+          $.ajax({
+              url: '/get_data',
+              method: 'POST',
+              data: { json_url: jsonUrl },
+              success: function (response) {
+                  displayAlert(response.status === 'success' ? 'success' : 'danger', response.message);
+              },
+              error: function (xhr) {
+                  displayAlert('danger',
+                     xhr.responseJSON ? xhr.responseJSON.message : 'An unexpected error occurred.'
+                  );
+              },
+              complete: function () {
+                  loader.hide();
+              }
+          });
+      });
+
+      // Handle Get Unknown Genders
+      $('#unknown-genders-form').on('submit', function (e) {
+          e.preventDefault();
+          loader.show();
+          $.ajax({
+              url: '/get_unknown_genders',
+              method: 'POST',
+              success: function (response) {
+                  displayAlert(response.status === 'success' ? 'success' : 'danger', response.message);
+              },
+              error: function (xhr) {
+                  displayAlert('danger',
+                     xhr.responseJSON ? xhr.responseJSON.message : 'An unexpected error occurred.'
+                  );
+              },
+              complete: function () {
+                  loader.hide();
+              }
+          });
+      });
+
+      function displayAlert(type, message) {
+          $('#alert-container').html(
+              `<div class="alert alert-${type}" role="alert">${message}</div>`
+          );
+      }
+  });
+</script>
+{% endblock %}
+

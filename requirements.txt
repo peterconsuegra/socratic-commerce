@@ -1,0 +1,14 @@
+Flask
+pandas
+requests
+python-dotenv
+flask-login 
+flask-bcrypt
+gunicorn
+flask_sqlalchemy
+flask_migrate
+gender_guesser
+statsmodels
+Prophet
+scikit-learn
+shapely

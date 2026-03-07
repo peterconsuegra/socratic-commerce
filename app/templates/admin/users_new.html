@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 720px;">
+  <h2 class="mb-3">Create user</h2>
+
+  <form method="POST" action="{{ url_for('main.admin_users_new') }}">
+    <div class="mb-3">
+      <label class="form-label">Username (email)</label>
+      <input class="form-control" type="text" name="username" placeholder="email@domain.com" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+
+      <div class="input-group">
+        <input
+          class="form-control"
+          type="text"
+          name="password"
+          id="passwordField"
+          placeholder="Click Generate to create a secure password"
+          autocomplete="new-password"
+          required
+        >
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          onclick="generatePassword()"
+        >
+          Generate
+        </button>
+      </div>
+
+      <small class="text-muted">
+        Use the button to generate a strong password, or type one manually.
+      </small>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Role</label>
+      <select class="form-select" name="role">
+        <option value="user" selected>User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Create</button>
+      <a class="btn btn-light" href="{{ url_for('main.admin_users_index') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  // Put it on window so inline onclick can always find it.
+  window.generatePassword = function(length = 14) {
+    const lower = "abcdefghijklmnopqrstuvwxyz";
+    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const digits = "0123456789";
+    const symbols = "!@#$%^&*()-_=+";
+    const all = lower + upper + digits + symbols;
+
+    let password = "";
+    password += lower[Math.floor(Math.random() * lower.length)];
+    password += upper[Math.floor(Math.random() * upper.length)];
+    password += digits[Math.floor(Math.random() * digits.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+
+    for (let i = password.length; i < length; i++) {
+      password += all[Math.floor(Math.random() * all.length)];
+    }
+
+    password = password.split("").sort(() => 0.5 - Math.random()).join("");
+    document.getElementById("passwordField").value = password;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,906 @@
+**Context:** You are an experienced Python Flask full-stack developer. Below are the code files of a Flask application
+
+**.gitignore**
+```
+# Ignorar archivos .DS_Store
+.DS_Store
+database.db
+# Ignorar archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+data/orders.csv
+app/__pycache__
+app/__pycache__/
+data/*
+/data
+/data/*
+
+```
+
+========================================
+
+**app/__init__.py**
+```python
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_login import LoginManager
+import os
+from dotenv import load_dotenv
+
+
+
+db = SQLAlchemy()
+migrate = Migrate()
+login_manager = LoginManager()
+
+# Load environment variables from .env if present
+load_dotenv()
+
+# Initialize SQLAlchemy
+db = SQLAlchemy()
+migrate = Migrate()
+
+def create_app():
+    app = Flask(__name__)
+
+    app.config["DEBUG"] = True
+    app.config["ENV"] = "development"
+
+    from .helpers import format_cop
+    app.jinja_env.filters['cop'] = format_cop
+
+    from .helpers import get_value
+    app.jinja_env.filters['get_value'] = get_value
+
+
+    # Ensure the static folder is correctly set
+    app.static_folder = 'static'
+
+    # Set secret key
+    app.secret_key = os.getenv('FLASK_KEY', 'default-secret-key')
+
+    # Define the base directory
+    basedir = os.path.abspath(os.path.dirname(__file__))
+
+    # Construct the absolute path to the database
+    db_path = os.path.join(basedir, '..', 'database.db')
+
+    # Update the SQLALCHEMY_DATABASE_URI with the correct SQLite URI format
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Initialize extensions
+    db.init_app(app)
+    migrate.init_app(app, db)
+
+    # Initialize Flask-Login
+    login_manager.init_app(app)
+    login_manager.login_view = "main.login"  # The name of the login route
+
+    # Import and register blueprints
+    from .routes import main
+    app.register_blueprint(main)
+
+    # Provide user loader function
+    from .models import User
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    # Register CLI commands (import here to avoid circular import)
+    from .cli import register_cli
+    register_cli(app)
+
+    return app
+
+```
+
+========================================
+
+**app/services/monthly_sales.py**
+```python
+# app/services/monthly_sales.py
+import os
+import logging
+import pandas as pd
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+
+def _forecast_monthly_series(series: pd.Series, periods: int = 6) -> pd.Series:
+    series = series.astype(float)
+
+    if len(series) < 6:
+        last = float(series.iloc[-1]) if len(series) else 0.0
+        return pd.Series([last] * periods)
+
+    last = float(series.iloc[-1]) if len(series) else 0.0
+
+    def _fallback() -> pd.Series:
+        # Prefer recent average to reduce overreaction to last-point noise
+        tail = series.tail(min(6, len(series)))
+        base = float(tail.mean()) if len(tail) else last
+        if base < 0:
+            base = 0.0
+        return pd.Series([base] * periods)
+
+    def _looks_broken(fc: pd.Series) -> bool:
+        if fc is None or len(fc) == 0:
+            return True
+
+        f = pd.to_numeric(fc, errors="coerce").fillna(0.0).astype(float)
+
+        if last <= 0:
+            return False
+
+        # 1) Previous check: if everything is tiny vs last, it is broken
+        max_fc = float(f.max())
+        if max_fc < (0.10 * last):
+            return True
+
+        # 2) New check: if the first steps collapse to near-zero vs last, treat as broken
+        head_n = min(3, len(f))
+        head = f.iloc[:head_n]
+        head_med = float(head.median()) if head_n > 0 else 0.0
+
+        # If first 2-3 months are below 25% of last, it is almost always a model artifact
+        if head_med < (0.25 * last):
+            return True
+
+        # 3) New check: leading zeros (after clipping) often indicate negative forecasts
+        # Count initial zeros in the forecast
+        lead_zeros = 0
+        for v in f.tolist():
+            if float(v) <= 0.0:
+                lead_zeros += 1
+            else:
+                break
+
+        if lead_zeros >= 2 and last > 0:
+            return True
+
+        return False
+
+    # Try ETS
+    try:
+        seasonal_periods = 12
+        use_seasonal = len(series) >= (seasonal_periods * 2)
+
+        model = ExponentialSmoothing(
+            series,
+            trend="add",
+            seasonal="add" if use_seasonal else None,
+            seasonal_periods=seasonal_periods if use_seasonal else None,
+            initialization_method="estimated",
+        )
+        fit = model.fit(optimized=True)
+        fc = fit.forecast(periods).clip(lower=0.0)
+
+        if not _looks_broken(fc):
+            return fc
+
+    except Exception:
+        pass
+
+    # Try SARIMAX
+    try:
+        seasonal_periods = 12
+        seasonal_order = (1, 0, 1, seasonal_periods) if len(series) >= (seasonal_periods * 2) else (0, 0, 0, 0)
+
+        model = SARIMAX(
+            series,
+            order=(1, 1, 1),
+            seasonal_order=seasonal_order,
+            enforce_stationarity=False,
+            enforce_invertibility=False,
+        )
+        fit = model.fit(disp=False)
+        fc = fit.forecast(steps=periods).clip(lower=0.0)
+
+        if not _looks_broken(fc):
+            return fc
+
+    except Exception:
+        pass
+
+    return _fallback()
+
+
+def _build_daily_table(df: pd.DataFrame) -> pd.DataFrame:
+    tmp = df.copy()
+    tmp["date"] = tmp["order_date"].dt.normalize()
+    daily = tmp.groupby("date")["total_value"].sum().reset_index(name="sales")
+    daily["weekday"] = daily["date"].dt.weekday
+    return daily
+
+
+def _weekday_weighted_projection(
+    data_all: pd.DataFrame,
+    start_current_month: pd.Timestamp,
+    end_yesterday: pd.Timestamp,
+    history_months: int = 6,
+    logger: logging.Logger | None = None,
+) -> dict:
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    df = data_all[data_all["order_date"] <= end_yesterday].copy()
+
+    mtd = df[df["order_date"] >= start_current_month].copy()
+    mtd_sales = float(mtd["total_value"].sum()) if not mtd.empty else 0.0
+
+    days_in_month = int(start_current_month.days_in_month)
+
+    today = end_yesterday.normalize() + pd.Timedelta(days=1)
+    month_end = (start_current_month + pd.offsets.MonthEnd(0)).normalize()
+
+    if today > month_end:
+        return {
+            "mtd_sales": mtd_sales,
+            "projected_sales": mtd_sales,
+            "remaining_days": 0,
+            "days_in_month": days_in_month,
+        }
+
+    remaining_dates = pd.date_range(today, month_end, freq="D")
+    remaining_days = int(len(remaining_dates))
+
+    cur_weekday_avg = {}
+    if not mtd.empty:
+        daily_cur = _build_daily_table(mtd)
+        if not daily_cur.empty:
+            cur_weekday_avg = daily_cur.groupby("weekday")["sales"].mean().to_dict()
+
+    hist_weekday_avg = {}
+    if history_months and history_months > 0:
+        end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
+        hist_start = (start_current_month - pd.offsets.MonthBegin(history_months)).normalize()
+
+        hist = df[(df["order_date"] >= hist_start) & (df["order_date"] <= end_prev_month)].copy()
+        if not hist.empty:
+            daily_hist = _build_daily_table(hist)
+            if not daily_hist.empty:
+                hist_weekday_avg = daily_hist.groupby("weekday")["sales"].mean().to_dict()
+
+    global_daily_avg = 0.0
+    try:
+        pool = None
+        if hist_weekday_avg:
+            end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
+            hist_start = (start_current_month - pd.offsets.MonthBegin(history_months)).normalize()
+            pool = df[(df["order_date"] >= hist_start) & (df["order_date"] <= end_prev_month)].copy()
+        else:
+            pool = mtd.copy()
+
+        if pool is not None and not pool.empty:
+            daily_pool = _build_daily_table(pool)
+            if not daily_pool.empty:
+                global_daily_avg = float(daily_pool["sales"].mean())
+    except Exception:
+        global_daily_avg = 0.0
+
+    expected_remaining = 0.0
+    for d in remaining_dates:
+        wd = int(d.weekday())
+        if wd in cur_weekday_avg and pd.notna(cur_weekday_avg[wd]):
+            expected = float(cur_weekday_avg[wd])
+        elif wd in hist_weekday_avg and pd.notna(hist_weekday_avg[wd]):
+            expected = float(hist_weekday_avg[wd])
+        else:
+            expected = float(global_daily_avg)
+
+        if expected < 0:
+            expected = 0.0
+
+        expected_remaining += expected
+
+    projected_sales = max(0.0, float(mtd_sales + expected_remaining))
+
+    logger.info(
+        "Weekday projection: mtd=%s remaining_days=%s projected=%s",
+        mtd_sales, remaining_days, projected_sales
+    )
+
+    return {
+        "mtd_sales": mtd_sales,
+        "projected_sales": projected_sales,
+        "remaining_days": remaining_days,
+        "days_in_month": days_in_month,
+    }
+
+
+def get_monthly_sales_trend(
+    output_file: str = "monthly_sales_trend.csv",
+    forecast_periods: int = 6,
+    return_forecast: bool = True,
+    return_meta: bool = False,
+    include_current_month_for_forecast: bool = True,
+    projection_method: str = "weekday_weighted",
+    weekday_history_months: int = 6,
+    orders_csv_path: str = "data/all_orders.csv",
+    utm_source_filter: str | None = None,
+):
+    logger = logging.getLogger(__name__)
+    logger.info("Building monthly sales trend from %s", orders_csv_path)
+
+    meta = {
+        "forecast_includes_current_month_mtd": False,
+        "projection_method": projection_method,
+        "current_month_label": None,
+        "current_month_mtd_sales": 0.0,
+        "current_month_projected_sales": 0.0,
+        "current_month_remaining_days": 0,
+        "current_month_days_in_month": 0,
+    }
+
+    if not os.path.exists(orders_csv_path):
+        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
+
+    data = pd.read_csv(orders_csv_path)
+
+    required_cols = {"order_date", "total_value"}
+    missing = required_cols - set(data.columns)
+    if missing:
+        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
+
+    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
+    before = len(data)
+    data = data.dropna(subset=["order_date"]).copy()
+    after = len(data)
+    if after < before:
+        logger.warning("Dropped %s rows with invalid order_date", before - after)
+
+    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
+
+    if utm_source_filter:
+        if "utm_source" not in data.columns:
+            raise ValueError("Orders file is missing utm_source column (required for utm_source_filter).")
+
+        u = (
+            data["utm_source"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+        data = data[u == utm_source_filter.strip().lower()].copy()
+        logger.info("Applied utm_source filter: %s", utm_source_filter)
+
+    today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
+    start_current_month = today_bogota.replace(day=1)
+    end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
+
+    end_yesterday_bogota = today_bogota - pd.Timedelta(microseconds=1)
+
+    meta["current_month_label"] = start_current_month.strftime("%Y-%m")
+
+    output_dir = os.path.join(os.getcwd(), "data")
+    os.makedirs(output_dir, exist_ok=True)
+    csv_path = os.path.join(output_dir, output_file)
+
+    # History: complete months only
+    hist = data[data["order_date"] <= end_prev_month].copy()
+    logger.info("History uses orders up to %s (end of previous month, Bogota clock)", end_prev_month)
+
+    if hist.empty:
+        pd.DataFrame(columns=["Month", "Sales"]).to_csv(csv_path, index=False)
+        if return_forecast:
+            if return_meta:
+                return [], [], meta
+            return [], []
+        if return_meta:
+            return [], meta
+        return []
+
+    hist["month_year"] = hist["order_date"].dt.to_period("M")
+
+    total_sales_per_month = (
+        hist.groupby("month_year")["total_value"]
+        .sum()
+        .reset_index(name="Total_Sales_Num")
+        .sort_values("month_year")
+    )
+
+    total_sales_per_month["Month"] = total_sales_per_month["month_year"].apply(lambda x: x.strftime("%Y-%m"))
+    total_sales_per_month["Total Sales"] = total_sales_per_month["Total_Sales_Num"].apply(lambda x: str(int(round(x))))
+
+    summary_rows = total_sales_per_month[["Month", "Total Sales"]].to_dict(orient="records")
+
+    csv_summary = total_sales_per_month[["Month", "Total_Sales_Num"]].rename(columns={"Total_Sales_Num": "Sales"})
+    csv_summary.to_csv(csv_path, index=False)
+
+    # Forecast
+    forecast_rows = []
+    if return_forecast:
+        model_df = data[data["order_date"] <= end_yesterday_bogota].copy()
+        model_df["month_year"] = model_df["order_date"].dt.to_period("M")
+
+        model_monthly = (
+            model_df.groupby("month_year")["total_value"]
+            .sum()
+            .reset_index(name="Sales")
+            .sort_values("month_year")
+        )
+
+        if include_current_month_for_forecast and not model_monthly.empty:
+            cur_period = start_current_month.to_period("M")
+            cur_idx_list = model_monthly.index[model_monthly["month_year"] == cur_period].tolist()
+
+            if cur_idx_list:
+                idx = cur_idx_list[0]
+
+                proj = _weekday_weighted_projection(
+                    data_all=data,
+                    start_current_month=start_current_month,
+                    end_yesterday=end_yesterday_bogota,
+                    history_months=weekday_history_months,
+                    logger=logger,
+                )
+
+                model_monthly.loc[idx, "Sales"] = float(proj["projected_sales"])
+
+                meta["forecast_includes_current_month_mtd"] = True
+                meta["current_month_mtd_sales"] = float(proj["mtd_sales"])
+                meta["current_month_projected_sales"] = float(proj["projected_sales"])
+                meta["current_month_remaining_days"] = int(proj["remaining_days"])
+                meta["current_month_days_in_month"] = int(proj["days_in_month"])
+
+        model_monthly["Month"] = model_monthly["month_year"].apply(lambda x: x.strftime("%Y-%m"))
+        model_monthly["Month_dt"] = pd.to_datetime(model_monthly["Month"] + "-01", errors="coerce")
+        model_monthly = model_monthly.dropna(subset=["Month_dt"]).sort_values("Month_dt")
+
+        if not model_monthly.empty:
+            s = model_monthly.set_index("Month_dt")["Sales"].astype(float)
+            full_idx = pd.date_range(s.index.min(), s.index.max(), freq="MS")
+            s = s.reindex(full_idx, fill_value=0.0)
+
+            fc = _forecast_monthly_series(s, periods=forecast_periods)
+            fc_idx = pd.date_range(
+                s.index.max() + pd.offsets.MonthBegin(1),
+                periods=forecast_periods,
+                freq="MS",
+            )
+
+            for d, v in zip(fc_idx, fc):
+                forecast_rows.append({
+                    "Month": d.strftime("%Y-%m"),
+                    "Projected Total Sales": float(v),
+                })
+
+    if return_forecast:
+        if return_meta:
+            return summary_rows, forecast_rows, meta
+        return summary_rows, forecast_rows
+
+    if return_meta:
+        return summary_rows, meta
+
+    return summary_rows
+
+```
+
+========================================
+
+**app/templates/monthly_sales.html**
+```html
+{# app/templates/monthly_sales.html #}
+{% extends "layout.html" %}
+
+{% block title %}
+Monthly Sales
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% else %}
+
+    <div class="text-center mb-3">
+      <label for="exchangeRateSales">USD Exchange Rate (COP):</label>
+      <input type="number" id="exchangeRateSales" value="4000" step="50" min="3000" max="6000">
+      <button onclick="toggleCurrencySales()" class="btn btn-primary">Switch Currency</button>
+    </div>
+
+    <h2 class="text-center">Sales by UTM Source (Up to Previous Month)</h2>
+    <p class="text-center text-muted mb-3">
+      Includes all orders up to the last day of the previous month (Bogota time).
+    </p>
+
+    <div style="height: 420px;">
+      <canvas id="utmSourcePieChart"></canvas>
+    </div>
+
+    {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
+      <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
+        Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
+      </p>
+    {% endif %}
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Monthly Total Sales Trend & Forecast</h2>
+
+    {% if forecast_includes_current_month_mtd %}
+      <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
+        Forecast uses current month projection (method: {{ projection_method|default("weekday_weighted") }}).
+        MTD (through yesterday): {{ current_month_mtd_sales|cop }}.
+        Remaining days projected: {{ current_month_remaining_days }}.
+        Projected full month used for forecast: {{ current_month_projected_sales|cop }}.
+      </p>
+    {% endif %}
+
+    <div style="height: 520px;">
+      <canvas id="salesChart"></canvas>
+    </div>
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Monthly Sales Trend & Forecast by Channel</h2>
+
+    {% if not channel_charts %}
+      <div class="alert alert-warning mt-3">
+        No channel charts available for this selection.
+      </div>
+    {% else %}
+      {% for ch in channel_charts %}
+        <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+
+        <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
+          Ranked by total number of sales: {{ ch.count }}
+        </p>
+
+        {% if ch.forecast_includes_current_month_mtd %}
+          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
+            Forecast uses current month projection (method: {{ ch.projection_method|default("weekday_weighted") }}).
+            MTD (through yesterday): {{ ch.current_month_mtd_sales|cop }}.
+            Remaining days projected: {{ ch.current_month_remaining_days }}.
+            Projected full month used for forecast: {{ ch.current_month_projected_sales|cop }}.
+          </p>
+        {% else %}
+          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
+            Not enough current-month data yet to project this channel.
+          </p>
+        {% endif %}
+
+        <div style="height: 520px;">
+          <canvas id="{{ ch.canvas_id }}"></canvas>
+        </div>
+
+        {% if not loop.last %}
+          <hr class="my-5">
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  var exchangeRateEl = document.getElementById("exchangeRateSales");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((Number(v) / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+  }
+
+  function hexToRgba(hex, alpha) {
+    if (!hex || hex[0] !== "#" || (hex.length !== 7 && hex.length !== 4)) return null;
+
+    var r, g, b;
+    if (hex.length === 7) {
+      r = parseInt(hex.slice(1, 3), 16);
+      g = parseInt(hex.slice(3, 5), 16);
+      b = parseInt(hex.slice(5, 7), 16);
+    } else {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    }
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  var PALETTE = [
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+  ];
+
+  // PIE + color map
+  var pieCanvas = document.getElementById("utmSourcePieChart");
+  var pieChart = null;
+  var channelColorMap = {};
+
+  if (pieCanvas) {
+    var pieCtx = pieCanvas.getContext("2d");
+
+    var pieLabels = [
+      {% for l in pie_labels %}
+        "{{ l }}",
+      {% endfor %}
+    ];
+
+    var pieValuesCOP = [
+      {% for v in pie_values %}
+        {{ v }},
+      {% endfor %}
+    ];
+
+    var filteredLabels = [];
+    var filteredCOP = [];
+    for (var i = 0; i < pieLabels.length; i++) {
+      var val = Number(pieValuesCOP[i]) || 0;
+      if (val > 0) {
+        filteredLabels.push(pieLabels[i]);
+        filteredCOP.push(val);
+      }
+    }
+
+    var pieTotal = filteredCOP.reduce(function(acc, v) {
+      return acc + (Number(v) || 0);
+    }, 0);
+
+    var pieColors = [];
+    for (var j = 0; j < filteredLabels.length; j++) {
+      var color = PALETTE[j % PALETTE.length];
+      pieColors.push(color);
+      channelColorMap[String(filteredLabels[j]).toLowerCase()] = color;
+    }
+
+    pieChart = new Chart(pieCtx, {
+      type: "pie",
+      data: {
+        labels: filteredLabels,
+        datasets: [{
+          data: filteredCOP,
+          backgroundColor: pieColors,
+          borderColor: pieColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || "";
+                var value = Number(context.parsed || 0);
+                var percent = pieTotal > 0 ? (value / pieTotal) * 100 : 0;
+
+                var formattedValue = useUSD
+                  ? "$" + Number(value).toFixed(2) + " USD"
+                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+
+                return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
+              }
+            }
+          }
+        }
+      }
+    });
+
+    pieChart._rawCOP = filteredCOP;
+  }
+
+  // Line chart factory with optional bridge point for current month projection
+  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, titlePrefix, hexColor, bridgeLabel, bridgeValueCOP) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var hasBridge = !!bridgeLabel && bridgeValueCOP !== null && bridgeValueCOP !== undefined;
+
+    var labels = labelsHist.slice();
+    if (hasBridge) labels.push(bridgeLabel);
+    labels = labels.concat(labelsForecast);
+
+    var fillColor = hexToRgba(hexColor, 0.15) || undefined;
+    var lineColor = hexColor || undefined;
+
+    // Forecast padding is histLen (+1 if we insert bridge)
+    var padLen = histCOP.length + (hasBridge ? 1 : 0);
+
+    var forecastSeries = [].concat(
+      new Array(padLen).fill(null),
+      fcstCOP.map(function(v){ return Number(v) || 0; })
+    );
+
+    // Bridge point as a single dot
+    var bridgeSeries = null;
+    if (hasBridge) {
+      bridgeSeries = [].concat(
+        new Array(histCOP.length).fill(null),
+        [Number(bridgeValueCOP) || 0],
+        new Array(labelsForecast.length).fill(null)
+      );
+    }
+
+    var datasets = [
+      {
+        label: titlePrefix + " (COP)",
+        data: histCOP.map(function(v){ return Number(v) || 0; }),
+        fill: true,
+        borderColor: lineColor,
+        backgroundColor: fillColor
+      }
+    ];
+
+    if (hasBridge) {
+      datasets.push({
+        label: "Projected Current Month (COP)",
+        data: bridgeSeries,
+        showLine: false,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderColor: lineColor,
+        backgroundColor: lineColor
+      });
+    }
+
+    datasets.push({
+      label: "Forecasted " + titlePrefix + " (COP)",
+      data: forecastSeries,
+      borderDash: [5, 5],
+      fill: true,
+      borderColor: lineColor,
+      backgroundColor: fillColor
+    });
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP.map(function(v){ return Number(v) || 0; });
+    chart._rawForecastCOP = fcstCOP.map(function(v){ return Number(v) || 0; });
+    chart._histLen = histCOP.length;
+    chart._hasBridge = hasBridge;
+    chart._bridgeValueCOP = hasBridge ? (Number(bridgeValueCOP) || 0) : null;
+    chart._labelsForecastLen = labelsForecast.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  // Total chart with bridge
+  var totalHistLabels = [{% for r in monthly_sales_trend %}"{{ r['Month'] }}",{% endfor %}];
+  var totalForecastLabels = [{% for r in forecast_data %}"{{ r['Month'] }}",{% endfor %}];
+  var totalHist = [{% for r in monthly_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
+  var totalFcst = [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}];
+
+  var totalBridgeLabel = {% if forecast_includes_current_month_mtd and current_month_label %}"{{ current_month_label }}"{% else %}null{% endif %};
+  var totalBridgeValue = {% if forecast_includes_current_month_mtd %}{{ current_month_projected_sales }}{% else %}null{% endif %};
+
+  var totalChart = buildLineChart(
+    "salesChart",
+    totalHistLabels,
+    totalForecastLabels,
+    totalHist,
+    totalFcst,
+    "Historical Total Sales",
+    null,
+    totalBridgeLabel,
+    totalBridgeValue
+  );
+
+  // Channel charts with bridge
+  var channelCharts = [];
+
+  {% for ch in channel_charts %}
+    (function() {
+      var key = "{{ ch.key }}".toLowerCase();
+      var color = channelColorMap[key] || null;
+
+      var histLabels = [{% for r in ch.trend %}"{{ r['Month'] }}",{% endfor %}];
+      var forecastLabels = [{% for r in ch.forecast %}"{{ r['Month'] }}",{% endfor %}];
+
+      var hist = [{% for r in ch.trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
+      var fcst = [{% for r in ch.forecast %}{{ r['Projected Total Sales'] }},{% endfor %}];
+
+      var bridgeLabel = {% if ch.forecast_includes_current_month_mtd and ch.current_month_label %}"{{ ch.current_month_label }}"{% else %}null{% endif %};
+      var bridgeValue = {% if ch.forecast_includes_current_month_mtd %}{{ ch.current_month_projected_sales }}{% else %}null{% endif %};
+
+      var c = buildLineChart(
+        "{{ ch.canvas_id }}",
+        histLabels,
+        forecastLabels,
+        hist,
+        fcst,
+        "Historical {{ ch.label }} Sales",
+        color,
+        bridgeLabel,
+        bridgeValue
+      );
+
+      if (c) channelCharts.push(c);
+    })();
+  {% endfor %}
+
+  // Currency toggle
+  window.toggleCurrencySales = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    if (pieChart && pieChart._rawCOP) {
+      var pieVals = useUSD ? convertToUSD(pieChart._rawCOP) : pieChart._rawCOP;
+      pieChart.data.datasets[0].data = pieVals;
+      pieChart.update();
+    }
+
+    function apply(chart) {
+      if (!chart) return;
+
+      var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
+      var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
+
+      // dataset[0] is historical
+      chart.data.datasets[0].data = hist;
+
+      var dsIndexForecast = chart._hasBridge ? 2 : 1;
+
+      // bridge dataset if present
+      if (chart._hasBridge) {
+        var bridgeVal = useUSD ? (chart._bridgeValueCOP / exchangeRate) : chart._bridgeValueCOP;
+        var bridgeSeries = [].concat(
+          new Array(chart._histLen).fill(null),
+          [Number(bridgeVal) || 0],
+          new Array(chart._labelsForecastLen).fill(null)
+        );
+        chart.data.datasets[1].data = bridgeSeries;
+        chart.data.datasets[1].label = useUSD ? "Projected Current Month (USD)" : "Projected Current Month (COP)";
+      }
+
+      // forecast dataset
+      var padLen = chart._histLen + (chart._hasBridge ? 1 : 0);
+      chart.data.datasets[dsIndexForecast].data = [].concat(new Array(padLen).fill(null), fcst);
+
+      // labels
+      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+      chart.data.datasets[dsIndexForecast].label = useUSD
+        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
+        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+
+      chart.update();
+    }
+
+    apply(totalChart);
+    for (var i = 0; i < channelCharts.length; i++) {
+      apply(channelCharts[i]);
+    }
+  };
+
+});
+</script>
+
+{% endblock %}
+
+```
+

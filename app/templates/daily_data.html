@@ -1,0 +1,206 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Daily Sales Data
+{% endblock %}
+
+{% block head_scripts %}
+ 
+{% endblock %}
+
+{% block content %}
+
+ {% include "partials/daterange_selector.html" %}
+ {#% include "partials/monthly_sales_tables.html" %#}
+  
+
+ <!-- Daily Repurchases Table with Value Columns -->
+ <div class="full-screen my-4">
+  <div class="col-md-12">
+    <h2 class="text-center">Daily Sales Trend</h2>
+    {% if daily_sales_trend %}
+      <table class="table table-bordered table-striped">
+        <thead class="table-header-brand">
+          <tr>
+            <th>Day</th>
+            <th>Day Name</th>  <!-- New Column Header for the weekday name -->
+            <th>Total Orders</th>
+            <th>Repurchases #</th>
+            <th>Repurchases $</th>
+            <th>Repurchases %</th>
+            <th>Total Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in daily_sales_trend|reverse %}
+            <tr>
+              <td>{{ row['Day'] }}</td>
+              <td>{{ row['Day Name'] }}</td>  <!-- Display the weekday name -->
+              <td>{{ row['Total Orders'] }}</td>
+              <td>{{ row['Repetitions'] }}</td>
+              <td>{{ row['Repetitions Value'] }}</td>
+              <td>{{ row['Repeat Percentage (%)'] }}</td>
+              <td>{{ row['Total Value'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No daily repurchase data available.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Daily Sales Forecast Table -->
+{% if forecast_data %}
+<div class="full-screen my-4">
+  <h2 class="text-center">Daily Sales Forecast</h2>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <thead class="table-header-brand">
+         <tr>
+             <th>Day</th>
+             <th>Projected Sales</th>
+         </tr>
+      </thead>
+      <tbody>
+         {% for forecast in forecast_data %}
+         <tr>
+             <td>{{ forecast.Day }}</td>
+             <td>{{ forecast["Projected Sales"] }}</td>
+         </tr>
+         {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+  <div class="alert alert-warning text-center">
+    No forecast data available.
+  </div>
+{% endif %}
+
+<!-- Daily Sales Trend & Forecast Chart -->
+<div class="container mt-5">
+  <h2 class="text-center">Daily Sales Trend & Forecast</h2>
+  <div class="text-center">
+      <label for="dailyExchangeRate">USD Exchange Rate (COP):</label>
+      <input type="number" id="dailyExchangeRate" value="4000" step="50" min="3000" max="6000">
+      <button onclick="toggleDailyCurrency()" class="btn btn-primary">Switch Currency</button>
+  </div>
+  <canvas id="dailySalesChart"></canvas>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var ctx = document.getElementById("dailySalesChart").getContext("2d");
+    var dailyExchangeRate = parseFloat(document.getElementById("dailyExchangeRate").value);
+    var useUSD = false;
+    
+    // Extract labels from historical daily data and forecast data
+    var historicalLabels = [
+        {% for row in daily_sales_trend %}
+            "{{ row['Day'] }}",
+        {% endfor %}
+    ];
+    var forecastLabels = [
+        {% for row in forecast_data %}
+            "{{ row['Day'] }}",
+        {% endfor %}
+    ];
+    // Concatenate historical and forecast labels into one array
+    var labels = historicalLabels.concat(forecastLabels);
+    
+    // Extract historical sales values from daily_sales_trend (remove "COP ", "$" and commas)
+    var historicalSalesCOP = [
+        {% for row in daily_sales_trend %}
+            {{ row['Total Value']|replace('COP ', '')|replace('$', '')|replace(',', '') }},
+        {% endfor %}
+    ];
+    // Extract forecasted sales values from forecast_data (formatted as "COP $...")
+    var forecastedSalesCOP = [
+        {% for row in forecast_data %}
+            {{ row['Projected Sales']|replace('COP ', '')|replace('$', '')|replace(',', '') }},
+        {% endfor %}
+    ];
+    
+    // Helper function to convert COP numbers to USD (as strings with 2 decimals)
+    function convertToUSD(values) {
+        return values.map(function(value) {
+            return (value / dailyExchangeRate).toFixed(2);
+        });
+    }
+    
+    // Initially, use COP values
+    var historicalSales = historicalSalesCOP;
+    var forecastedSales = forecastedSalesCOP;
+    
+    var dailyChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "Historical Sales (COP)",
+                    data: historicalSales,
+                    borderColor: "blue",
+                    backgroundColor: "rgba(0, 0, 255, 0.2)",
+                    fill: true
+                },
+                {
+                    label: "Forecasted Sales (COP)",
+                    // Prepend historical period with nulls so that the forecast begins right after
+                    data: new Array(historicalSales.length).fill(null).concat(forecastedSales),
+                    borderColor: "red",
+                    backgroundColor: "rgba(255, 0, 0, 0.2)",
+                    borderDash: [5, 5],
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: "top"
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: function(value) {
+                            return useUSD 
+                                ? "$" + parseFloat(value).toFixed(2) + " USD" 
+                                : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Toggle between COP and USD
+    window.toggleDailyCurrency = function() {
+        dailyExchangeRate = parseFloat(document.getElementById("dailyExchangeRate").value);
+        useUSD = !useUSD;
+        
+        dailyChart.data.datasets[0].data = useUSD ? convertToUSD(historicalSalesCOP) : historicalSalesCOP;
+        dailyChart.data.datasets[1].data = useUSD 
+            ? new Array(historicalSalesCOP.length).fill(null).concat(convertToUSD(forecastedSalesCOP))
+            : new Array(historicalSalesCOP.length).fill(null).concat(forecastedSalesCOP);
+                                                    
+        dailyChart.data.datasets[0].label = useUSD ? "Historical Sales (USD)" : "Historical Sales (COP)";
+        dailyChart.data.datasets[1].label = useUSD ? "Forecasted Sales (USD)" : "Forecasted Sales (COP)";
+        
+        dailyChart.update();
+    };
+});
+</script>
+
+
+
+
+
+{% endblock %}

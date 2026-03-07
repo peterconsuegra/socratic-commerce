@@ -1,0 +1,415 @@
+{# app/templates/monthly_sales.html #}
+{% extends "layout.html" %}
+
+{% block title %}
+Monthly Sales
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% else %}
+
+    <div class="text-center mb-3">
+      <label for="exchangeRateSales">USD Exchange Rate (COP):</label>
+      <input type="number" id="exchangeRateSales" value="4000" step="50" min="3000" max="6000">
+      <button onclick="toggleCurrencySales()" class="btn btn-primary">Switch Currency</button>
+    </div>
+
+    <h2 class="text-center">Sales by UTM Source (Up to Previous Month)</h2>
+    <p class="text-center text-muted mb-3">
+      Includes all orders up to the last day of the previous month (Bogota time).
+    </p>
+
+    <div style="height: 420px;">
+      <canvas id="utmSourcePieChart"></canvas>
+    </div>
+
+    {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
+      <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
+        Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
+      </p>
+    {% endif %}
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Monthly Total Sales Trend & Forecast</h2>
+
+    {% if forecast_includes_current_month_mtd %}
+      <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
+        Forecast uses current month projection (method: {{ projection_method|default("weekday_weighted") }}).
+        MTD (through yesterday): {{ current_month_mtd_sales|cop }}.
+        Remaining days projected: {{ current_month_remaining_days }}.
+        Projected full month used for forecast: {{ current_month_projected_sales|cop }}.
+      </p>
+    {% endif %}
+
+    <div style="height: 520px;">
+      <canvas id="salesChart"></canvas>
+    </div>
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Monthly Sales Trend & Forecast by Channel</h2>
+
+    {% if not channel_charts %}
+      <div class="alert alert-warning mt-3">
+        No channel charts available for this selection.
+      </div>
+    {% else %}
+      {% for ch in channel_charts %}
+        <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+
+        <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
+          Ranked by total number of sales: {{ ch.count }}
+        </p>
+
+        {% if ch.forecast_includes_current_month_mtd %}
+          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
+            Forecast uses current month projection (method: {{ ch.projection_method|default("weekday_weighted") }}).
+            MTD (through yesterday): {{ ch.current_month_mtd_sales|cop }}.
+            Remaining days projected: {{ ch.current_month_remaining_days }}.
+            Projected full month used for forecast: {{ ch.current_month_projected_sales|cop }}.
+          </p>
+        {% else %}
+          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
+            Not enough current-month data yet to project this channel.
+          </p>
+        {% endif %}
+
+        <div style="height: 520px;">
+          <canvas id="{{ ch.canvas_id }}"></canvas>
+        </div>
+
+        {% if not loop.last %}
+          <hr class="my-5">
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  var exchangeRateEl = document.getElementById("exchangeRateSales");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((Number(v) / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+  }
+
+  function hexToRgba(hex, alpha) {
+    if (!hex || hex[0] !== "#" || (hex.length !== 7 && hex.length !== 4)) return null;
+
+    var r, g, b;
+    if (hex.length === 7) {
+      r = parseInt(hex.slice(1, 3), 16);
+      g = parseInt(hex.slice(3, 5), 16);
+      b = parseInt(hex.slice(5, 7), 16);
+    } else {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    }
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  var PALETTE = [
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+  ];
+
+  // PIE + color map
+  var pieCanvas = document.getElementById("utmSourcePieChart");
+  var pieChart = null;
+  var channelColorMap = {};
+
+  if (pieCanvas) {
+    var pieCtx = pieCanvas.getContext("2d");
+
+    var pieLabels = [
+      {% for l in pie_labels %}
+        "{{ l }}",
+      {% endfor %}
+    ];
+
+    var pieValuesCOP = [
+      {% for v in pie_values %}
+        {{ v }},
+      {% endfor %}
+    ];
+
+    var filteredLabels = [];
+    var filteredCOP = [];
+    for (var i = 0; i < pieLabels.length; i++) {
+      var val = Number(pieValuesCOP[i]) || 0;
+      if (val > 0) {
+        filteredLabels.push(pieLabels[i]);
+        filteredCOP.push(val);
+      }
+    }
+
+    var pieTotal = filteredCOP.reduce(function(acc, v) {
+      return acc + (Number(v) || 0);
+    }, 0);
+
+    var pieColors = [];
+    for (var j = 0; j < filteredLabels.length; j++) {
+      var color = PALETTE[j % PALETTE.length];
+      pieColors.push(color);
+      channelColorMap[String(filteredLabels[j]).toLowerCase()] = color;
+    }
+
+    pieChart = new Chart(pieCtx, {
+      type: "pie",
+      data: {
+        labels: filteredLabels,
+        datasets: [{
+          data: filteredCOP,
+          backgroundColor: pieColors,
+          borderColor: pieColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || "";
+                var value = Number(context.parsed || 0);
+                var percent = pieTotal > 0 ? (value / pieTotal) * 100 : 0;
+
+                var formattedValue = useUSD
+                  ? "$" + Number(value).toFixed(2) + " USD"
+                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+
+                return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
+              }
+            }
+          }
+        }
+      }
+    });
+
+    pieChart._rawCOP = filteredCOP;
+  }
+
+  // Line chart factory with optional bridge point for current month projection
+  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, titlePrefix, hexColor, bridgeLabel, bridgeValueCOP) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var hasBridge = !!bridgeLabel && bridgeValueCOP !== null && bridgeValueCOP !== undefined;
+
+    var labels = labelsHist.slice();
+    if (hasBridge) labels.push(bridgeLabel);
+    labels = labels.concat(labelsForecast);
+
+    var fillColor = hexToRgba(hexColor, 0.15) || undefined;
+    var lineColor = hexColor || undefined;
+
+    // Forecast padding is histLen (+1 if we insert bridge)
+    var padLen = histCOP.length + (hasBridge ? 1 : 0);
+
+    var forecastSeries = [].concat(
+      new Array(padLen).fill(null),
+      fcstCOP.map(function(v){ return Number(v) || 0; })
+    );
+
+    // Bridge point as a single dot
+    var bridgeSeries = null;
+    if (hasBridge) {
+      bridgeSeries = [].concat(
+        new Array(histCOP.length).fill(null),
+        [Number(bridgeValueCOP) || 0],
+        new Array(labelsForecast.length).fill(null)
+      );
+    }
+
+    var datasets = [
+      {
+        label: titlePrefix + " (COP)",
+        data: histCOP.map(function(v){ return Number(v) || 0; }),
+        fill: true,
+        borderColor: lineColor,
+        backgroundColor: fillColor
+      }
+    ];
+
+    if (hasBridge) {
+      datasets.push({
+        label: "Projected Current Month (COP)",
+        data: bridgeSeries,
+        showLine: false,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderColor: lineColor,
+        backgroundColor: lineColor
+      });
+    }
+
+    datasets.push({
+      label: "Forecasted " + titlePrefix + " (COP)",
+      data: forecastSeries,
+      borderDash: [5, 5],
+      fill: true,
+      borderColor: lineColor,
+      backgroundColor: fillColor
+    });
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP.map(function(v){ return Number(v) || 0; });
+    chart._rawForecastCOP = fcstCOP.map(function(v){ return Number(v) || 0; });
+    chart._histLen = histCOP.length;
+    chart._hasBridge = hasBridge;
+    chart._bridgeValueCOP = hasBridge ? (Number(bridgeValueCOP) || 0) : null;
+    chart._labelsForecastLen = labelsForecast.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  // Total chart with bridge
+  var totalHistLabels = [{% for r in monthly_sales_trend %}"{{ r['Month'] }}",{% endfor %}];
+  var totalForecastLabels = [{% for r in forecast_data %}"{{ r['Month'] }}",{% endfor %}];
+  var totalHist = [{% for r in monthly_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
+  var totalFcst = [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}];
+
+  var totalBridgeLabel = {% if forecast_includes_current_month_mtd and current_month_label %}"{{ current_month_label }}"{% else %}null{% endif %};
+  var totalBridgeValue = {% if forecast_includes_current_month_mtd %}{{ current_month_projected_sales }}{% else %}null{% endif %};
+
+  var totalChart = buildLineChart(
+    "salesChart",
+    totalHistLabels,
+    totalForecastLabels,
+    totalHist,
+    totalFcst,
+    "Historical Total Sales",
+    null,
+    totalBridgeLabel,
+    totalBridgeValue
+  );
+
+  // Channel charts with bridge
+  var channelCharts = [];
+
+  {% for ch in channel_charts %}
+    (function() {
+      var key = "{{ ch.key }}".toLowerCase();
+      var color = channelColorMap[key] || null;
+
+      var histLabels = [{% for r in ch.trend %}"{{ r['Month'] }}",{% endfor %}];
+      var forecastLabels = [{% for r in ch.forecast %}"{{ r['Month'] }}",{% endfor %}];
+
+      var hist = [{% for r in ch.trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
+      var fcst = [{% for r in ch.forecast %}{{ r['Projected Total Sales'] }},{% endfor %}];
+
+      var bridgeLabel = {% if ch.forecast_includes_current_month_mtd and ch.current_month_label %}"{{ ch.current_month_label }}"{% else %}null{% endif %};
+      var bridgeValue = {% if ch.forecast_includes_current_month_mtd %}{{ ch.current_month_projected_sales }}{% else %}null{% endif %};
+
+      var c = buildLineChart(
+        "{{ ch.canvas_id }}",
+        histLabels,
+        forecastLabels,
+        hist,
+        fcst,
+        "Historical {{ ch.label }} Sales",
+        color,
+        bridgeLabel,
+        bridgeValue
+      );
+
+      if (c) channelCharts.push(c);
+    })();
+  {% endfor %}
+
+  // Currency toggle
+  window.toggleCurrencySales = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    if (pieChart && pieChart._rawCOP) {
+      var pieVals = useUSD ? convertToUSD(pieChart._rawCOP) : pieChart._rawCOP;
+      pieChart.data.datasets[0].data = pieVals;
+      pieChart.update();
+    }
+
+    function apply(chart) {
+      if (!chart) return;
+
+      var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
+      var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
+
+      // dataset[0] is historical
+      chart.data.datasets[0].data = hist;
+
+      var dsIndexForecast = chart._hasBridge ? 2 : 1;
+
+      // bridge dataset if present
+      if (chart._hasBridge) {
+        var bridgeVal = useUSD ? (chart._bridgeValueCOP / exchangeRate) : chart._bridgeValueCOP;
+        var bridgeSeries = [].concat(
+          new Array(chart._histLen).fill(null),
+          [Number(bridgeVal) || 0],
+          new Array(chart._labelsForecastLen).fill(null)
+        );
+        chart.data.datasets[1].data = bridgeSeries;
+        chart.data.datasets[1].label = useUSD ? "Projected Current Month (USD)" : "Projected Current Month (COP)";
+      }
+
+      // forecast dataset
+      var padLen = chart._histLen + (chart._hasBridge ? 1 : 0);
+      chart.data.datasets[dsIndexForecast].data = [].concat(new Array(padLen).fill(null), fcst);
+
+      // labels
+      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+      chart.data.datasets[dsIndexForecast].label = useUSD
+        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
+        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+
+      chart.update();
+    }
+
+    apply(totalChart);
+    for (var i = 0; i < channelCharts.length; i++) {
+      apply(channelCharts[i]);
+    }
+  };
+
+});
+</script>
+
+{% endblock %}

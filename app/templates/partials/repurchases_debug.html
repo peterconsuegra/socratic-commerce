@@ -1,0 +1,68 @@
+<!-- Repurchases by Month Table -->
+<div class="row mt-5">
+  <div class="col-md-12">
+    <h2 class="text-center">Repurchases by Month</h2>
+    {% if error %}
+      <div class="alert alert-danger" role="alert">
+        {{ error }}
+      </div>
+    {% elif not monthly_repurchases_trend %}
+      <div class="alert alert-warning" role="alert">
+        No data available for repurchases.
+      </div>
+    {% else %}
+      <table class="table table-bordered table-striped">
+        <thead class="table-header-brand">
+          <tr>
+            <th>Month</th>
+            <th>Orders #</th>
+            <th>Repurchases #</th>
+            <th>Repurchases %</th>
+            <th>Repurchases Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in monthly_repurchases_trend %}
+            <tr>
+              <td>{{ row['Month'] }}</td>
+              <td>{{ row['Total Orders'] }}</td>
+              <td>{{ row['Repurchases'] }}</td>
+              <td>{{ row['Repurchase Sales Percentage (%)'] }}</td>
+              <td>{{ row['Repurchase_Total_Value'] | cop }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+</div>
+
+
+
+<div class="row mt-5">
+  <div class="col-md-12">
+    <h2 class="text-center">Monthly Repurchase Forecast</h2>
+    {% if forecast_data %}
+      <table class="table table-bordered table-striped">
+        <thead class="table-header-brand">
+          <tr>
+            <th>Month</th>
+            <th>Projected Repurchase Sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for forecast in forecast_data %}
+            <tr>
+              <td>{{ forecast['Month'] }}</td>
+              <td>{{ forecast['Projected Repurchase Sales'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="alert alert-warning" role="alert">
+        No forecast data available.
+      </div>
+    {% endif %}
+  </div>
+</div> 

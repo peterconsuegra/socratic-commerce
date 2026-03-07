@@ -1,0 +1,378 @@
+{% extends "layout.html" %}
+
+{% block title %}
+Wati Insights
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "wati_sales_orders.csv" %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-4">
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  {% if not wati_sales_trend %}
+    <div class="alert alert-warning mt-3">
+      No Wati data available to display for this selection.
+    </div>
+  {% else %}
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="text-muted" style="font-size: 0.95rem;">
+            MTD Sales (up to yesterday)
+          </div>
+          <div style="font-size: 1.4rem; font-weight: 700;">
+            {{ (kpis.mtd_sales or 0)|cop }}
+          </div>
+          <div class="text-muted" style="font-size: 0.85rem;">
+            Days counted: {{ kpis.days_elapsed_mtd or 0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="text-muted" style="font-size: 0.95rem;">
+            Avg per day (MTD)
+          </div>
+          <div style="font-size: 1.4rem; font-weight: 700;">
+            {{ (kpis.avg_per_day_mtd or 0)|cop }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="text-muted" style="font-size: 0.95rem;">
+            Last 7 days Sales
+          </div>
+          <div style="font-size: 1.4rem; font-weight: 700;">
+            {{ (kpis.last_7_days_sales or 0)|cop }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="text-center mb-3">Wati Sales by City</h5>
+          <div style="height: 320px;">
+            <canvas id="watiCityPie"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="text-center mb-3">Wati Orders by Purchase Time (3h buckets)</h5>
+          <div style="height: 320px;">
+            <canvas id="watiTimePie"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="text-center mb-3">Wati Sales by Product</h5>
+          <div style="height: 320px;">
+            <canvas id="watiProductPie"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="text-center mb-3">
+    <label for="exchangeRateWati">USD Exchange Rate (COP):</label>
+    <input type="number" id="exchangeRateWati" value="4000" step="50" min="3000" max="6000">
+    <button onclick="toggleCurrencyWati()" class="btn btn-primary">
+      Switch Currency
+    </button>
+  </div>
+
+  <h2 class="text-center">Wati Daily Total Sales Trend and Forecast</h2>
+  <p class="text-center text-muted mb-3">
+    Includes only orders where utm_source is wati and respects the selected date range above.
+  </p>
+
+  <div style="height: 520px;">
+    <canvas id="watiSalesChart"></canvas>
+  </div>
+
+  {% endif %}
+</div>
+
+<!-- Chart.js plugin: datalabels (used ONLY for pie charts) -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  // Register plugin globally (we will disable it for the line chart explicitly)
+  if (typeof Chart !== "undefined" && typeof ChartDataLabels !== "undefined") {
+    Chart.register(ChartDataLabels);
+  }
+
+  function formatCOP(value) {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value || 0);
+  }
+
+  // Minimum slice % to display label inside the pie
+  var MIN_SLICE_PCT = 4.0;
+
+  // mode:
+  //  - "currency_percent" => tooltip: COP + % , datalabel: % only
+  //  - "count_percent"    => tooltip: count + % , datalabel: % only
+  function buildPie(canvasId, labels, data, mode) {
+    var c = document.getElementById(canvasId);
+    if (!c) return;
+
+    var ctx = c.getContext("2d");
+
+    new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels: labels,
+        datasets: [{ data: data }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || "";
+                var value = Number(context.raw || 0);
+                var dataset = context.dataset && context.dataset.data ? context.dataset.data : [];
+                var total = dataset.reduce(function(acc, v) {
+                  return acc + Number(v || 0);
+                }, 0);
+
+                var pct = total > 0 ? (value / total) * 100 : 0;
+
+                if (mode === "count_percent") {
+                  return label + ": " + value + " (" + pct.toFixed(1) + "%)";
+                }
+
+                return label + ": " + formatCOP(value) + " (" + pct.toFixed(1) + "%)";
+              }
+            }
+          },
+
+          // ENABLE labels only in pie charts
+          datalabels: {
+            formatter: function(value, context) {
+              var dataset = context.dataset && context.dataset.data ? context.dataset.data : [];
+              var total = dataset.reduce(function(acc, v) {
+                return acc + Number(v || 0);
+              }, 0);
+
+              if (!total) return "";
+
+              var pct = (Number(value || 0) / total) * 100;
+              if (pct < MIN_SLICE_PCT) return "";
+
+              return pct.toFixed(0) + "%";
+            },
+            anchor: "center",
+            align: "center",
+            clamp: true
+          }
+        }
+      }
+    });
+  }
+
+  // ----------------------------
+  // Pie data from server
+  // ----------------------------
+  var cityLabels = [
+    {% for x in wati_city_labels %}"{{ x }}",{% endfor %}
+  ];
+  var cityValues = [
+    {% for v in wati_city_values %}{{ v }},{% endfor %}
+  ];
+
+  var timeLabels = [
+    {% for x in wati_time_labels %}"{{ x }}",{% endfor %}
+  ];
+  var timeValues = [
+    {% for v in wati_time_values %}{{ v }},{% endfor %}
+  ];
+
+  var productLabels = [
+    {% for x in wati_product_labels %}"{{ x }}",{% endfor %}
+  ];
+  var productValues = [
+    {% for v in wati_product_values %}{{ v }},{% endfor %}
+  ];
+
+  if (cityLabels.length && cityValues.length) {
+    buildPie("watiCityPie", cityLabels, cityValues, "currency_percent");
+  }
+  if (timeLabels.length && timeValues.length) {
+    buildPie("watiTimePie", timeLabels, timeValues, "count_percent");
+  }
+  if (productLabels.length && productValues.length) {
+    buildPie("watiProductPie", productLabels, productValues, "currency_percent");
+  }
+
+  // ----------------------------
+  // Line chart (NO datalabels)
+  // ----------------------------
+  var exchangeRateEl = document.getElementById("exchangeRateWati");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((v / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : formatCOP(value);
+  }
+
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: titlePrefix + " (COP)",
+            data: histCOP,
+            fill: true
+          },
+          {
+            label: "Forecasted " + titlePrefix + " (COP)",
+            data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
+            borderDash: [5, 5],
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        // IMPORTANT: disable datalabels for this chart
+        plugins: {
+          legend: { position: "top" },
+          datalabels: {
+            display: false
+          }
+        },
+
+        scales: {
+          y: {
+            ticks: { callback: formatYTick }
+          }
+        }
+      }
+    });
+
+    chart._rawHistCOP = histCOP;
+    chart._rawForecastCOP = fcstCOP;
+    chart._histLen = histCOP.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  var labels = [
+    {% for r in wati_sales_trend %}"{{ r['Date'] }}",{% endfor %}
+    {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+  ];
+
+  var hist = [
+    {% for r in wati_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}
+  ];
+
+  var fcst = [
+    {% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}
+  ];
+
+  var watiSalesChart = buildLineChart(
+    "watiSalesChart",
+    labels,
+    hist,
+    fcst,
+    "Historical Wati Total Sales"
+  );
+
+  window.toggleCurrencyWati = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    if (!watiSalesChart) return;
+
+    var newHist = useUSD ? convertToUSD(watiSalesChart._rawHistCOP) : watiSalesChart._rawHistCOP;
+    var newFcst = useUSD ? convertToUSD(watiSalesChart._rawForecastCOP) : watiSalesChart._rawForecastCOP;
+
+    watiSalesChart.data.datasets[0].data = newHist;
+    watiSalesChart.data.datasets[1].data =
+      [].concat(new Array(watiSalesChart._histLen).fill(null), newFcst);
+
+    watiSalesChart.data.datasets[0].label = useUSD
+      ? watiSalesChart._titlePrefix + " (USD)"
+      : watiSalesChart._titlePrefix + " (COP)";
+
+    watiSalesChart.data.datasets[1].label = useUSD
+      ? "Forecasted " + watiSalesChart._titlePrefix.replace("Historical ", "") + " (USD)"
+      : "Forecasted " + watiSalesChart._titlePrefix.replace("Historical ", "") + " (COP)";
+
+    watiSalesChart.update();
+  };
+
+});
+</script>
+
+{% endblock %}

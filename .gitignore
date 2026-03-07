@@ -1,0 +1,13 @@
+# Ignorar archivos .DS_Store
+.DS_Store
+database.db
+# Ignorar archivos de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+data/orders.csv
+app/__pycache__
+app/__pycache__/
+data/*
+/data
+/data/*

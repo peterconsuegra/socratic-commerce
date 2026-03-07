@@ -1,0 +1,233 @@
+**app/routes.py**
+```python
+
+
+def refresh_all_orders_if_needed():
+    """
+    Calls get_all_orders() only if cache expired.
+    """
+    if not should_refresh_all_orders():
+        current_app.logger.info("Using cached all_orders.csv (≤ 24h old)")
+        return
+
+    current_app.logger.info("Refreshing all_orders.csv from API")
+
+    # Fake POST request context so we can reuse the route logic
+    with current_app.test_request_context(
+        "/generate_all_orders",
+        method="POST"
+    ):
+        resp = get_all_orders()
+
+    # Only update cache if generation succeeded
+    if isinstance(resp, tuple):
+        resp = resp[0]
+
+    if hasattr(resp, "json") and resp.json.get("status") == "success":
+        touch_all_orders_cache()
+        current_app.logger.info("all_orders.csv refreshed and cached")
+    else:
+        current_app.logger.warning("Failed to refresh all_orders.csv")
+
+@main.route("/")
+@login_required
+def monthly_sales():
+    try:
+        refresh_all_orders_if_needed()
+    except Exception:
+        current_app.logger.exception("Failed refreshing all_orders cache")
+
+    all_orders = "data/all_orders.csv"
+
+    monthly_sales_trend = []
+    forecast_data = []
+
+    pie_labels = []
+    pie_values = []
+    channel_charts = []
+    other_channels_labels = []
+    other_channels_pct = 0.0
+
+    # Total meta for bridge point
+    forecast_includes_current_month_mtd = False
+    projection_method = "weekday_weighted"
+    current_month_label = None
+    current_month_mtd_sales = 0.0
+    current_month_projected_sales = 0.0
+    current_month_remaining_days = 0
+    current_month_days_in_month = 0
+
+    error = None
+
+    try:
+        if not os.path.exists(all_orders):
+            raise FileNotFoundError(f"{all_orders} not found. Please generate all orders first.")
+
+        # Total trend + forecast with weekday-weighted projection
+        monthly_sales_trend, forecast_data, meta = get_monthly_sales_trend(
+            output_file="monthly_sales_trend.csv",
+            forecast_periods=6,
+            return_forecast=True,
+            return_meta=True,
+            include_current_month_for_forecast=True,
+            projection_method="weekday_weighted",
+            weekday_history_months=6,
+            orders_csv_path=all_orders,
+            utm_source_filter=None,
+        )
+
+        forecast_includes_current_month_mtd = bool(meta.get("forecast_includes_current_month_mtd", False))
+        projection_method = meta.get("projection_method", "weekday_weighted")
+        current_month_label = meta.get("current_month_label")
+
+        current_month_mtd_sales = float(meta.get("current_month_mtd_sales", 0.0) or 0.0)
+        current_month_projected_sales = float(meta.get("current_month_projected_sales", 0.0) or 0.0)
+        current_month_remaining_days = int(meta.get("current_month_remaining_days", 0) or 0)
+        current_month_days_in_month = int(meta.get("current_month_days_in_month", 0) or 0)
+
+        # -------------------------
+        # Pie: total sales by utm_source (up to end of previous month)
+        # -------------------------
+        import pandas as pd
+
+        df = pd.read_csv(all_orders)
+        required_cols = {"order_date", "total_value", "utm_source", "order_id"}
+        missing = required_cols - set(df.columns)
+        if missing:
+            raise ValueError(f"Orders file is missing required columns for pie chart: {sorted(missing)}")
+
+        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
+        df = df.dropna(subset=["order_date"]).copy()
+        df["total_value"] = pd.to_numeric(df["total_value"], errors="coerce").fillna(0.0)
+
+        today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
+        start_current_month = today_bogota.replace(day=1)
+        end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
+        df = df[df["order_date"] <= end_prev_month].copy()
+
+        df["utm_source"] = (
+            df["utm_source"]
+            .fillna("unknown")
+            .astype(str)
+            .str.strip()
+            .str.lower()
+        )
+        df.loc[df["utm_source"] == "", "utm_source"] = "unknown"
+
+        grouped_value = (
+            df.groupby("utm_source")["total_value"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        pie_labels = [str(k) for k, v in grouped_value.items() if float(v) > 0]
+        pie_values = [float(v) for v in grouped_value.values if float(v) > 0]
+        total_sales_value = float(sum(pie_values)) if pie_values else 0.0
+
+        grouped_count = (
+            df.groupby("utm_source")["order_id"]
+            .count()
+            .sort_values(ascending=False)
+        )
+
+        MIN_SHARE_PERCENT = 2.0
+        included = []
+        excluded = []
+
+        if total_sales_value > 0:
+            for ch, val in grouped_value.items():
+                val = float(val)
+                if val <= 0:
+                    continue
+
+                pct = (val / total_sales_value) * 100.0
+                cnt = int(grouped_count.get(ch, 0))
+
+                if str(ch) == "unknown":
+                    continue
+
+                item = {"key": str(ch), "pct": pct, "value": val, "count": cnt}
+                if pct >= MIN_SHARE_PERCENT:
+                    included.append(item)
+                else:
+                    excluded.append(item)
+
+        included.sort(key=lambda x: x["count"], reverse=True)
+        excluded.sort(key=lambda x: x["pct"], reverse=True)
+
+        other_channels_labels = [x["key"] for x in excluded]
+        other_channels_pct = float(sum(x["pct"] for x in excluded)) if excluded else 0.0
+
+        # -------------------------
+        # Channel charts with bridge point meta
+        # -------------------------
+        for item in included:
+            channel = item["key"]
+            pct = item["pct"]
+
+            ch_trend, ch_forecast, ch_meta = get_monthly_sales_trend(
+                output_file=f"monthly_sales_trend_{channel}.csv",
+                forecast_periods=6,
+                return_forecast=True,
+                return_meta=True,
+                include_current_month_for_forecast=True,
+                projection_method="weekday_weighted",
+                weekday_history_months=6,
+                orders_csv_path=all_orders,
+                utm_source_filter=channel,
+            )
+
+            if not ch_trend:
+                continue
+
+            safe = "".join(c if c.isalnum() else "_" for c in channel)
+
+            channel_charts.append({
+                "key": channel,
+                "label": f"{channel.upper()} ({pct:.1f}%)",
+                "canvas_id": f"monthlySalesChart_{safe}",
+                "trend": ch_trend,
+                "forecast": ch_forecast,
+                "pct": pct,
+                "count": int(item["count"]),
+
+                # Bridge meta for chart display
+                "forecast_includes_current_month_mtd": bool(ch_meta.get("forecast_includes_current_month_mtd", False)),
+                "projection_method": ch_meta.get("projection_method", "weekday_weighted"),
+                "current_month_label": ch_meta.get("current_month_label"),
+                "current_month_mtd_sales": float(ch_meta.get("current_month_mtd_sales", 0.0) or 0.0),
+                "current_month_projected_sales": float(ch_meta.get("current_month_projected_sales", 0.0) or 0.0),
+                "current_month_remaining_days": int(ch_meta.get("current_month_remaining_days", 0) or 0),
+                "current_month_days_in_month": int(ch_meta.get("current_month_days_in_month", 0) or 0),
+            })
+
+    except Exception as e:
+        error = str(e)
+        current_app.logger.exception("monthly_sales_by_month view failed")
+
+    return render_template(
+        "monthly_sales.html",
+        monthly_sales_trend=monthly_sales_trend,
+        forecast_data=forecast_data,
+        pie_labels=pie_labels,
+        pie_values=pie_values,
+        channel_charts=channel_charts,
+        other_channels_labels=other_channels_labels,
+        other_channels_pct=other_channels_pct,
+
+        # Total meta for bridge
+        forecast_includes_current_month_mtd=forecast_includes_current_month_mtd,
+        projection_method=projection_method,
+        current_month_label=current_month_label,
+        current_month_mtd_sales=current_month_mtd_sales,
+        current_month_projected_sales=current_month_projected_sales,
+        current_month_remaining_days=current_month_remaining_days,
+        current_month_days_in_month=current_month_days_in_month,
+
+        error=error,
+    )
+
+
+========================================
+
+
