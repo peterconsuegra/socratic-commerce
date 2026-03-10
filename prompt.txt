@@ -70,498 +70,2133 @@ def create_app():
 
 ========================================
 
-**app/services/monthly_sales.py**
+**data/bogota_insights_female_filtered.csv**
+```csv
+order_id,order_date,name,email,city,state,order_lat,order_lng,total_value,product,utm_source,utm_medium,utm_campaign,utm_term,utm_content,utm_answer,address_1,gender,localidad,estrato,nivel_socioeconomico
+160539,2026-03-09 22:12:25,Diana,paocantor2222@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7534165,-74.0407187,25000.00,Desodorante natural 1 unidad,facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,LuisaMalOlor,Instagram,Calle 173 #18-60 Torre 3 Apt 202,female,USAQUEN,3 y 4,Medio
+160529,2026-03-09 20:47:00,Nathaly,nataplata30@gmail.com,BOGOTA (C/MARCA),N/A,4.7450487,-74.0392629,38000.00,Promoción Valentín (2 unidades),wati,wati,wati,N/A,N/A,N/A,"Carrera 16 C no. 146 -50, Torre 2, Apartamento 201. Toberin - Unicentro",female,USAQUEN,3 y 4,Medio
+160520,2026-03-09 20:33:09,Angely,angelyk9205@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6925887,-74.10713,25000.00,Desodorante natural 1 unidad,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,LuisaMalOlor,Instagram,Calle 70 n 84a 35,female,ENGATIVA,3,Medio
+160512,2026-03-09 19:19:08,Paola,paocriollo77@yahoo.es,BOGOTA (C/MARCA),Cundinamarca,4.7019482,-74.1193235,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,"Cra 101 #70-55. Torre 2, apto 304",female,ENGATIVA,3,Medio
+160507,2026-03-09 16:54:00,Adelaida,adelita9311@hotmail.com,BOGOTA (C/MARCA),N/A,4.7163046,-74.1292365,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,"Dirección: Calle 72F # 114A - 40, Torre 8 Apto 601, Conjunto Montecarlo VII",female,ENGATIVA,3,Medio
+160491,2026-03-09 16:52:15,Liliana,lilita020@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.601739,-74.151244,48000.00,Promoción 3X2,google,paid,22794060443,undefined,undefined,Instagram,Calle 48 b bis sur # 72i-19 casa 213,female,KENNEDY,2,Bajo
+160485,2026-03-09 16:16:00,Stephany,stephanyalvarezg16@gmail.com,BOGOTA (C/MARCA),N/A,4.6186287,-74.1212024,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,"Cra 56 a # 2 a 86 barrio galán, casa",female,PUENTE ARANDA,3,Medio
+160440,2026-03-09 14:10:47,Andrea,andrea.jimenez@samsa.co,BOGOTA (C/MARCA),Cundinamarca,4.6546972,-74.1296849,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Amigos,Carrera 77 # 18-51 torre 7 apto 101,female,FONTIBON,3,Medio
+160432,2026-03-09 12:39:28,Karen,karen_andrea02@hotmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6704744,-74.1545701,38000.00,Promoción Valentín (2 unidades),google,paid,23408022609,undefined,undefined,Instagram,DIAGONAL 15B # 104 - 46 COMPOSTELA 2 CASA 34,female,FONTIBON,3,Medio
+160417,2026-03-09 09:56:32,Johanna,johannaloaiza.c@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.766852,-74.050004,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,Centro Comercial San Pedro Local B07,female,SUBA,2 y 3,Bajo
+160411,2026-03-09 09:27:22,Jessica,jessforero.2017@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.591354,-74.1196911,48000.00,Promoción 3X2,google,paid,22532026047,saveaplaya,180377223498,Instagram,Carrera 34a#34-86 sur,female,ANTONIO NARIÑO,3,Medio
+160390,2026-03-09 06:57:23,Nathalia,nathaliams2013@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7304007,-74.1174946,38000.00,Promoción Valentín (2 unidades),facebook,paid,Advantage+CapitanNemoEVO8BogotaOnly,3XAdset,LuisaMalOlor,Instagram,Diagonal 89a #117-50 int 6 apto 504,female,ENGATIVA,3,Medio
+160389,2026-03-09 06:55:44,Laura,lau.galvan1745@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.699177,-74.119972,48000.00,Promoción 3X2,google,paid,22532026047,saveaplaya,180377223498,Instagram,Calle 69#99-77,female,ENGATIVA,3,Medio
+160386,2026-03-08 23:25:35,Daniela,danieladgarcia19@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6966089,-74.123714,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,Calle 64F #103-19,female,ENGATIVA,3,Medio
+160349,2026-03-08 21:08:09,Claudia,claudiamtel@yahoo.com,BOGOTA (C/MARCA),Cundinamarca,4.6926722,-74.0540174,38000.00,Promoción Valentín (2 unidades),facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,DepilacionLaser1,Instagram,Calle 105 21 32 Apt 203 Apt 203,female,USAQUEN,3 y 4,Medio
+160382,2026-03-08 20:54:00,Cindy,moster3023@hotmail.com,BOGOTA (C/MARCA),N/A,4.622857,-74.1043964,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Calle 12 a # 44-59 puente Aranda,female,PUENTE ARANDA,3,Medio
+160380,2026-03-08 20:01:00,Johana,jzpinto2006@gmail.com,BOGOTA (C/MARCA),N/A,4.7502025,-74.1018972,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Calle 146#138A-04 torre 4 apartamento 304. Conjunto .Reserva de Fontana (suba),female,SUBA,2 y 3,Bajo
+160334,2026-03-08 17:52:01,Carol,cjpalmao@unal.edu.co,BOGOTA (C/MARCA),Cundinamarca,5.026003,-74.0300122,48000.00,Promoción 3X2,google,paid,22532026047,desodorantenatural,180377223498,Google,Cl19A #120-09 Torre 1 Apart.1801,female,,,
+160325,2026-03-08 17:14:02,Sonia,sonimile@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.5694994,-74.0711129,48000.00,Promoción 3X2,facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,DepilacionLaser1,Amigos,Cl. 10 80f 40 torre 2 apto 801,female,SAN CRISTOBAL,1 y 2,Bajo
+...
+```
+
+========================================
+
+**app/services/bogota_insights.py**
 ```python
-# app/services/monthly_sales.py
+# app/services/bogota_insights.py
 import os
+import re
+import csv
 import logging
+import numpy as np
 import pandas as pd
+from typing import Optional, Dict, Any, Tuple, List
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
-def _forecast_monthly_series(series: pd.Series, periods: int = 6) -> pd.Series:
-    series = series.astype(float)
+def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
+    s = pd.Series(series).astype(float).copy()
+    s = s.replace([np.inf, -np.inf], np.nan).dropna()
 
-    if len(series) < 6:
-        last = float(series.iloc[-1]) if len(series) else 0.0
-        return pd.Series([last] * periods)
+    if periods <= 0:
+        return pd.Series([], dtype=float)
 
-    last = float(series.iloc[-1]) if len(series) else 0.0
+    if len(s) == 0:
+        return pd.Series([0.0] * periods, dtype=float)
 
-    def _fallback() -> pd.Series:
-        # Prefer recent average to reduce overreaction to last-point noise
-        tail = series.tail(min(6, len(series)))
-        base = float(tail.mean()) if len(tail) else last
-        if base < 0:
-            base = 0.0
-        return pd.Series([base] * periods)
+    s = s.clip(lower=0.0)
+    last = float(s.iloc[-1]) if len(s) else 0.0
+    last = 0.0 if np.isnan(last) else max(last, 0.0)
 
-    def _looks_broken(fc: pd.Series) -> bool:
-        if fc is None or len(fc) == 0:
-            return True
+    nonzero_days = int((s > 0).sum())
 
-        f = pd.to_numeric(fc, errors="coerce").fillna(0.0).astype(float)
+    if nonzero_days < 7:
+        decay = 0.90
+        return pd.Series([max(last * (decay ** i), 0.0) for i in range(1, periods + 1)], dtype=float)
 
-        if last <= 0:
-            return False
+    if nonzero_days < 14:
+        window = min(10, len(s))
+        recent = s.iloc[-window:].astype(float)
 
-        # 1) Previous check: if everything is tiny vs last, it is broken
-        max_fc = float(f.max())
-        if max_fc < (0.10 * last):
-            return True
+        recent_nz = recent[recent > 0]
+        if len(recent_nz) >= 3:
+            level_med = float(recent_nz.median())
+            level_mean = float(recent_nz.mean())
+            recent_max = float(recent_nz.max())
+        else:
+            level_med = float(recent.median())
+            level_mean = float(recent.mean())
+            recent_max = float(recent.max())
 
-        # 2) New check: if the first steps collapse to near-zero vs last, treat as broken
-        head_n = min(3, len(f))
-        head = f.iloc[:head_n]
-        head_med = float(head.median()) if head_n > 0 else 0.0
+        diffs = recent.diff().dropna()
+        slope = float(diffs.median()) if len(diffs) else 0.0
+        if np.isnan(slope):
+            slope = 0.0
 
-        # If first 2-3 months are below 25% of last, it is almost always a model artifact
-        if head_med < (0.25 * last):
-            return True
+        base_level = max(level_med, level_mean, 0.0)
 
-        # 3) New check: leading zeros (after clipping) often indicate negative forecasts
-        # Count initial zeros in the forecast
-        lead_zeros = 0
-        for v in f.tolist():
-            if float(v) <= 0.0:
-                lead_zeros += 1
-            else:
-                break
+        abs_cap = max(1000.0, base_level * 0.08)
+        slope = max(min(slope, abs_cap), -abs_cap)
 
-        if lead_zeros >= 2 and last > 0:
-            return True
+        spike_factor = 1.0
+        if base_level > 0 and last > 1.7 * base_level:
+            spike_factor = 0.25
+        slope *= spike_factor
 
-        return False
+        ceiling = max(recent_max * 1.15, base_level * 1.25, last * 1.10)
+        floor = 0.0
 
-    # Try ETS
+        forecasts = []
+        for i in range(1, periods + 1):
+            val = last + slope * i
+            val *= (0.90 ** i)
+            val = min(val, ceiling)
+            val = max(val, floor)
+            forecasts.append(float(val))
+
+        return pd.Series(forecasts, dtype=float)
+
     try:
-        seasonal_periods = 12
-        use_seasonal = len(series) >= (seasonal_periods * 2)
-
         model = ExponentialSmoothing(
-            series,
+            s,
             trend="add",
-            seasonal="add" if use_seasonal else None,
-            seasonal_periods=seasonal_periods if use_seasonal else None,
+            damped_trend=True,
+            seasonal="add",
+            seasonal_periods=7,
             initialization_method="estimated",
         )
         fit = model.fit(optimized=True)
-        fc = fit.forecast(periods).clip(lower=0.0)
+        fc = fit.forecast(periods)
+        return pd.Series(fc).astype(float).clip(lower=0.0)
+    except Exception:
+        return pd.Series([last] * periods, dtype=float)
 
-        if not _looks_broken(fc):
-            return fc
 
+def _normalize_str(val: str, fallback: str = "") -> str:
+    s = "" if val is None else str(val)
+    s = s.strip()
+    if not s or s.lower() in {"nan", "none"}:
+        return fallback
+    return s
+
+
+def _normalize_city(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip()
+    if not s or s.lower() in {"nan", "none", "n/a"}:
+        return ""
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def _normalize_gender(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip().lower()
+    if s in {"female", "f", "mujer", "mujeres"}:
+        return "female"
+    if s in {"male", "m", "hombre", "hombres"}:
+        return "male"
+    return ""
+
+
+def _normalize_campaign(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip()
+    if not s:
+        return "Unknown"
+
+    low = s.lower()
+    if low in {"nan", "none", "n/a", "undefined"}:
+        return "Unknown"
+
+    if low == "unknow":
+        return "Unknown"
+
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def _campaign_key(val: str) -> str:
+    label = _normalize_campaign(val)
+    if label == "Unknown":
+        return "unknown"
+
+    k = label.lower()
+    k = k.replace("+", "").replace(" ", "")
+    k = k.replace("%20", "").replace("%2b", "").replace("%2B", "")
+    k = re.sub(r"[^a-z0-9]", "", k)
+
+    return k or "unknown"
+
+
+def _is_numeric_campaign(name: str) -> bool:
+    if not name:
+        return False
+    return bool(re.fullmatch(r"\d+", name.strip()))
+
+
+def _choose_display_name(display_name_counts: Dict[str, int], fallback_key: str) -> str:
+    if not display_name_counts:
+        return fallback_key
+
+    best = sorted(
+        display_name_counts.items(),
+        key=lambda kv: (kv[1], len(kv[0]), kv[0]),
+        reverse=True,
+    )[0][0]
+    return best
+
+
+def _sum_trend_rows(trend_rows: List[Dict[str, Any]]) -> float:
+    total = 0.0
+    for r in trend_rows or []:
+        try:
+            total += float(r.get("Total Sales", "0") or 0)
+        except Exception:
+            continue
+    return total
+
+
+def _to_local(dt_series: pd.Series, tz: str) -> pd.Series:
+    s = pd.to_datetime(dt_series, errors="coerce")
+    if s.isna().all():
+        return s
+
+    try:
+        if getattr(s.dt, "tz", None) is not None:
+            return s.dt.tz_convert(tz)
     except Exception:
         pass
 
-    # Try SARIMAX
-    try:
-        seasonal_periods = 12
-        seasonal_order = (1, 0, 1, seasonal_periods) if len(series) >= (seasonal_periods * 2) else (0, 0, 0, 0)
-
-        model = SARIMAX(
-            series,
-            order=(1, 1, 1),
-            seasonal_order=seasonal_order,
-            enforce_stationarity=False,
-            enforce_invertibility=False,
-        )
-        fit = model.fit(disp=False)
-        fc = fit.forecast(steps=periods).clip(lower=0.0)
-
-        if not _looks_broken(fc):
-            return fc
-
-    except Exception:
-        pass
-
-    return _fallback()
+    # If naive timestamps, treat them as already in Bogota time and localize
+    return s.dt.tz_localize(tz)
 
 
-def _build_daily_table(df: pd.DataFrame) -> pd.DataFrame:
-    tmp = df.copy()
-    tmp["date"] = tmp["order_date"].dt.normalize()
-    daily = tmp.groupby("date")["total_value"].sum().reset_index(name="sales")
-    daily["weekday"] = daily["date"].dt.weekday
-    return daily
+def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    dfx = df.copy()
+
+    dfx["order_date"] = pd.to_datetime(dfx["order_date"], errors="coerce")
+    dfx = dfx.dropna(subset=["order_date"]).copy()
+
+    # order_date is already Bogota timezone (per your note), we still localize safely
+    dfx["order_date_local"] = _to_local(dfx["order_date"], tz=tz)
+    dfx = dfx.dropna(subset=["order_date_local"]).copy()
+
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    now_local = pd.Timestamp.now(tz=tz).normalize()
+    end_yesterday = now_local - pd.Timedelta(microseconds=1)
+
+    return dfx[dfx["order_date_local"] <= end_yesterday].copy()
 
 
-def _weekday_weighted_projection(
-    data_all: pd.DataFrame,
-    start_current_month: pd.Timestamp,
-    end_yesterday: pd.Timestamp,
-    history_months: int = 6,
-    logger: logging.Logger | None = None,
-) -> dict:
-    if logger is None:
-        logger = logging.getLogger(__name__)
+def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> Tuple[list[dict], list[dict]]:
+    if df.empty:
+        return [], []
 
-    df = data_all[data_all["order_date"] <= end_yesterday].copy()
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
 
-    mtd = df[df["order_date"] >= start_current_month].copy()
-    mtd_sales = float(mtd["total_value"].sum()) if not mtd.empty else 0.0
+    dfx["day"] = dfx["order_date_local"].dt.floor("D")
 
-    days_in_month = int(start_current_month.days_in_month)
-
-    today = end_yesterday.normalize() + pd.Timedelta(days=1)
-    month_end = (start_current_month + pd.offsets.MonthEnd(0)).normalize()
-
-    if today > month_end:
-        return {
-            "mtd_sales": mtd_sales,
-            "projected_sales": mtd_sales,
-            "remaining_days": 0,
-            "days_in_month": days_in_month,
-        }
-
-    remaining_dates = pd.date_range(today, month_end, freq="D")
-    remaining_days = int(len(remaining_dates))
-
-    cur_weekday_avg = {}
-    if not mtd.empty:
-        daily_cur = _build_daily_table(mtd)
-        if not daily_cur.empty:
-            cur_weekday_avg = daily_cur.groupby("weekday")["sales"].mean().to_dict()
-
-    hist_weekday_avg = {}
-    if history_months and history_months > 0:
-        end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
-        hist_start = (start_current_month - pd.offsets.MonthBegin(history_months)).normalize()
-
-        hist = df[(df["order_date"] >= hist_start) & (df["order_date"] <= end_prev_month)].copy()
-        if not hist.empty:
-            daily_hist = _build_daily_table(hist)
-            if not daily_hist.empty:
-                hist_weekday_avg = daily_hist.groupby("weekday")["sales"].mean().to_dict()
-
-    global_daily_avg = 0.0
-    try:
-        pool = None
-        if hist_weekday_avg:
-            end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
-            hist_start = (start_current_month - pd.offsets.MonthBegin(history_months)).normalize()
-            pool = df[(df["order_date"] >= hist_start) & (df["order_date"] <= end_prev_month)].copy()
-        else:
-            pool = mtd.copy()
-
-        if pool is not None and not pool.empty:
-            daily_pool = _build_daily_table(pool)
-            if not daily_pool.empty:
-                global_daily_avg = float(daily_pool["sales"].mean())
-    except Exception:
-        global_daily_avg = 0.0
-
-    expected_remaining = 0.0
-    for d in remaining_dates:
-        wd = int(d.weekday())
-        if wd in cur_weekday_avg and pd.notna(cur_weekday_avg[wd]):
-            expected = float(cur_weekday_avg[wd])
-        elif wd in hist_weekday_avg and pd.notna(hist_weekday_avg[wd]):
-            expected = float(hist_weekday_avg[wd])
-        else:
-            expected = float(global_daily_avg)
-
-        if expected < 0:
-            expected = 0.0
-
-        expected_remaining += expected
-
-    projected_sales = max(0.0, float(mtd_sales + expected_remaining))
-
-    logger.info(
-        "Weekday projection: mtd=%s remaining_days=%s projected=%s",
-        mtd_sales, remaining_days, projected_sales
+    daily = (
+        dfx.groupby("day")["total_value"]
+        .sum()
+        .reset_index(name="Sales")
+        .sort_values("day")
     )
 
-    return {
-        "mtd_sales": mtd_sales,
-        "projected_sales": projected_sales,
-        "remaining_days": remaining_days,
-        "days_in_month": days_in_month,
-    }
+    daily["Date"] = daily["day"].dt.strftime("%Y-%m-%d")
+    daily["Total Sales"] = daily["Sales"].apply(lambda x: str(int(round(float(x)))))
+
+    trend_rows = daily[["Date", "Total Sales"]].to_dict(orient="records")
+
+    if forecast_periods <= 0:
+        return trend_rows, []
+
+    ts = daily[["Date", "Sales"]].copy()
+    ts["Date_dt"] = pd.to_datetime(ts["Date"], errors="coerce")
+    ts = ts.dropna(subset=["Date_dt"]).sort_values("Date_dt")
+    if ts.empty:
+        return trend_rows, []
+
+    s = ts.set_index("Date_dt")["Sales"].astype(float)
+
+    full_idx = pd.date_range(s.index.min(), s.index.max(), freq="D")
+    s = s.reindex(full_idx)
+    s = s.interpolate(limit=2).fillna(0.0)
+
+    fc = _forecast_daily_series(s, periods=forecast_periods)
+    fc_idx = pd.date_range(s.index.max() + pd.Timedelta(days=1), periods=forecast_periods, freq="D")
+
+    forecast_rows = [{"Date": d.strftime("%Y-%m-%d"), "Projected Total Sales": float(v)} for d, v in zip(fc_idx, fc)]
+    return trend_rows, forecast_rows
 
 
-def get_monthly_sales_trend(
-    output_file: str = "monthly_sales_trend.csv",
-    forecast_periods: int = 6,
-    return_forecast: bool = True,
-    return_meta: bool = False,
-    include_current_month_for_forecast: bool = True,
-    projection_method: str = "weekday_weighted",
-    weekday_history_months: int = 6,
-    orders_csv_path: str = "data/all_orders.csv",
-    utm_source_filter: str | None = None,
-):
-    logger = logging.getLogger(__name__)
-    logger.info("Building monthly sales trend from %s", orders_csv_path)
-
-    meta = {
-        "forecast_includes_current_month_mtd": False,
-        "projection_method": projection_method,
-        "current_month_label": None,
-        "current_month_mtd_sales": 0.0,
-        "current_month_projected_sales": 0.0,
-        "current_month_remaining_days": 0,
-        "current_month_days_in_month": 0,
-    }
+def get_bogota_insights_daily(
+    orders_csv_path: str = "data/facebook_sales_orders.csv",
+    forecast_periods: int = 30,
+    city_value: str = "BOGOTA (C/MARCA)",
+    gender: Optional[str] = None,
+) -> dict:
+    tz = "America/Bogota"
 
     if not os.path.exists(orders_csv_path):
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
-    data = pd.read_csv(orders_csv_path)
+    df = pd.read_csv(orders_csv_path)
 
-    required_cols = {"order_date", "total_value"}
-    missing = required_cols - set(data.columns)
+    required_cols = {"order_date", "total_value", "city"}
+    missing = required_cols - set(df.columns)
     if missing:
         raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
 
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    before = len(data)
-    data = data.dropna(subset=["order_date"]).copy()
-    after = len(data)
-    if after < before:
-        logger.warning("Dropped %s rows with invalid order_date", before - after)
+    target_city = _normalize_city(city_value).strip().lower()
+    df["city_norm"] = df["city"].apply(_normalize_city).str.strip().str.lower()
+    df = df[df["city_norm"] == target_city].copy()
 
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
+    if gender:
+        gender_norm = _normalize_gender(gender)
+        if not gender_norm:
+            raise ValueError("Invalid gender. Use 'female' or 'male'.")
 
-    if utm_source_filter:
-        if "utm_source" not in data.columns:
-            raise ValueError("Orders file is missing utm_source column (required for utm_source_filter).")
+        if "gender" not in df.columns:
+            raise ValueError("Orders file is missing required column: gender")
 
-        u = (
-            data["utm_source"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .str.lower()
-        )
-        data = data[u == utm_source_filter.strip().lower()].copy()
-        logger.info("Applied utm_source filter: %s", utm_source_filter)
+        df["gender_norm"] = df["gender"].apply(_normalize_gender)
+        df = df[df["gender_norm"] == gender_norm].copy()
 
-    today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
-    start_current_month = today_bogota.replace(day=1)
-    end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
+    total_daily_trend, forecast_data = _build_daily_series(df=df, tz=tz, forecast_periods=forecast_periods)
 
-    end_yesterday_bogota = today_bogota - pd.Timedelta(microseconds=1)
+    return {
+        "total_daily_trend": total_daily_trend,
+        "forecast_data": forecast_data,
+    }
 
-    meta["current_month_label"] = start_current_month.strftime("%Y-%m")
 
-    output_dir = os.path.dirname(os.path.abspath(orders_csv_path))
-    os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, output_file)
+def read_saved_date_options(OptionModel, file_name: str, logger: Optional[logging.Logger] = None) -> Dict[str, Optional[str]]:
+    out = {"date_range": None, "start_date": None, "end_date": None}
 
-    # History: complete months only
-    hist = data[data["order_date"] <= end_prev_month].copy()
-    logger.info("History uses orders up to %s (end of previous month, Bogota clock)", end_prev_month)
+    try:
+        q = OptionModel.query
+        rec = q.filter_by(meta_key=f"date_range_{file_name}").first()
+        out["date_range"] = rec.meta_value if rec else None
 
-    if hist.empty:
-        pd.DataFrame(columns=["Month", "Sales"]).to_csv(csv_path, index=False)
-        if return_forecast:
-            if return_meta:
-                return [], [], meta
-            return [], []
-        if return_meta:
-            return [], meta
+        rec = q.filter_by(meta_key=f"start_date_{file_name}").first()
+        out["start_date"] = rec.meta_value if rec else None
+
+        rec = q.filter_by(meta_key=f"end_date_{file_name}").first()
+        out["end_date"] = rec.meta_value if rec else None
+
+    except Exception:
+        if logger:
+            logger.exception("Reading date range options failed (bogota_insights)")
+    return out
+
+
+def build_city_filtered_csv(
+    src_path: str,
+    dst_path: str,
+    target_city: str,
+    gender: Optional[str] = None,
+) -> Dict[str, Any]:
+    if not os.path.exists(src_path):
+        raise FileNotFoundError(f"Source CSV not found: {src_path}")
+
+    target_city_norm = _normalize_city(target_city).strip().lower()
+    if not target_city_norm:
+        raise ValueError("target_city is empty")
+
+    gender_norm = None
+    if gender:
+        gender_norm = _normalize_gender(gender)
+        if not gender_norm:
+            raise ValueError("Invalid gender. Use 'female' or 'male'.")
+
+    is_bogota = (target_city_norm == "bogota (c/marca)")
+
+    get_localidad_info = None
+    if is_bogota:
+        try:
+            from app.services.localidades import get_localidad_info as _get_localidad_info
+            get_localidad_info = _get_localidad_info
+        except Exception:
+            get_localidad_info = None
+
+    def _to_float(x):
+        try:
+            if x is None:
+                return None
+            s = str(x).strip()
+            if not s or s.lower() in {"nan", "none", "null", "undefined"}:
+                return None
+            return float(s)
+        except Exception:
+            return None
+
+    kept = 0
+    removed = 0
+    bad_rows = 0
+
+    os.makedirs(os.path.dirname(dst_path) or ".", exist_ok=True)
+
+    with open(src_path, "r", newline="", encoding="utf-8-sig", errors="replace") as src, open(
+        dst_path, "w", newline="", encoding="utf-8"
+    ) as dst:
+        reader = csv.DictReader(src)
+
+        if not reader.fieldnames:
+            raise ValueError("CSV has no header row")
+
+        base_fieldnames = [fn.lstrip("\ufeff") if isinstance(fn, str) else fn for fn in reader.fieldnames]
+
+        if "city" not in base_fieldnames:
+            raise ValueError(f"CSV is missing required column: city. Found columns: {base_fieldnames}")
+
+        if gender_norm and "gender" not in base_fieldnames:
+            raise ValueError(f"CSV is missing required column: gender. Found columns: {base_fieldnames}")
+
+        fieldnames = list(base_fieldnames)
+        if is_bogota:
+            if "order_lat" not in fieldnames:
+                fieldnames.append("order_lat")
+            if "order_lng" not in fieldnames:
+                fieldnames.append("order_lng")
+
+            for col in ["localidad", "estrato", "nivel_socioeconomico"]:
+                if col not in fieldnames:
+                    fieldnames.append(col)
+
+        writer = csv.DictWriter(dst, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+
+        for row in reader:
+            try:
+                if None in row:
+                    row.pop(None, None)
+
+                row_city = _normalize_city(row.get("city")).strip().lower()
+                if row_city != target_city_norm:
+                    removed += 1
+                    continue
+
+                if gender_norm:
+                    row_gender = _normalize_gender(row.get("gender"))
+                    if row_gender != gender_norm:
+                        removed += 1
+                        continue
+
+                if is_bogota:
+                    row.setdefault("order_lat", "")
+                    row.setdefault("order_lng", "")
+
+                    row["localidad"] = row.get("localidad") or ""
+                    row["estrato"] = row.get("estrato") or ""
+                    row["nivel_socioeconomico"] = row.get("nivel_socioeconomico") or ""
+
+                    if get_localidad_info:
+                        lat = _to_float(row.get("order_lat"))
+                        lng = _to_float(row.get("order_lng"))
+                        if lat is not None and lng is not None:
+                            try:
+                                info = get_localidad_info(lat, lng) or {}
+                                row["localidad"] = (info.get("localidad") or "").strip()
+                                row["estrato"] = (info.get("estrato") or "").strip()
+                                row["nivel_socioeconomico"] = (info.get("nivel_socioeconomico") or "").strip()
+                            except Exception:
+                                pass
+
+                writer.writerow(row)
+                kept += 1
+
+            except Exception:
+                bad_rows += 1
+                continue
+
+    return {
+        "kept": kept,
+        "removed": removed,
+        "bad_rows": bad_rows,
+        "output_file": dst_path,
+    }
+
+
+def _localidad_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
         return []
 
-    hist["month_year"] = hist["order_date"].dt.to_period("M")
+    if "localidad" not in df.columns or "total_value" not in df.columns:
+        return []
 
-    total_sales_per_month = (
-        hist.groupby("month_year")["total_value"]
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    loc = dfx["localidad"].fillna("").astype(str).str.strip()
+    loc = loc.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["localidad_norm"] = loc
+
+    totals = (
+        dfx.groupby("localidad_norm")["total_value"]
         .sum()
-        .reset_index(name="Total_Sales_Num")
-        .sort_values("month_year")
+        .sort_values(ascending=False)
     )
 
-    total_sales_per_month["Month"] = total_sales_per_month["month_year"].apply(lambda x: x.strftime("%Y-%m"))
-    total_sales_per_month["Total Sales"] = total_sales_per_month["Total_Sales_Num"].apply(lambda x: str(int(round(x))))
+    if totals.empty:
+        return []
 
-    summary_rows = total_sales_per_month[["Month", "Total Sales"]].to_dict(orient="records")
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
 
-    csv_summary = total_sales_per_month[["Month", "Total_Sales_Num"]].rename(columns={"Total_Sales_Num": "Sales"})
-    csv_summary.to_csv(csv_path, index=False)
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
 
-    # Forecast
-    forecast_rows = []
-    if return_forecast:
-        model_df = data[data["order_date"] <= end_yesterday_bogota].copy()
-        model_df["month_year"] = model_df["order_date"].dt.to_period("M")
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
 
-        model_monthly = (
-            model_df.groupby("month_year")["total_value"]
-            .sum()
-            .reset_index(name="Sales")
-            .sort_values("month_year")
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _estrato_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+
+    if "estrato" not in df.columns or "total_value" not in df.columns:
+        return []
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    estr = dfx["estrato"].fillna("").astype(str).str.strip()
+    estr = estr.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["estrato_norm"] = estr
+
+    totals = (
+        dfx.groupby("estrato_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
+
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
+
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
+
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _nivel_socioeconomico_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+
+    if "nivel_socioeconomico" not in df.columns or "total_value" not in df.columns:
+        return []
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    ns = dfx["nivel_socioeconomico"].fillna("").astype(str).str.strip()
+    ns = ns.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["nivel_norm"] = ns
+
+    totals = (
+        dfx.groupby("nivel_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
+
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
+
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
+
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _time_chunk_label(hour: int) -> str:
+    """
+    3-hour chunks:
+    00:00-02:59, 03:00-05:59, ..., 21:00-23:59
+    """
+    h = int(hour) if hour is not None else 0
+    start = (h // 3) * 3
+    end = start + 2
+    return f"{start:02d}:00-{end:02d}:59"
+
+
+def _time_of_day_3h_breakdown(df: pd.DataFrame, tz: str) -> List[Dict[str, Any]]:
+    """
+    Pie chart input:
+    [{label: "00:00-02:59", value: <sales>}, ...]
+    Uses order_date in Bogota time (already), via order_date_local.
+    """
+    if df is None or df.empty:
+        return []
+
+    needed = {"order_date", "total_value"}
+    if not needed.issubset(set(df.columns)):
+        return []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return []
+
+    # order_date_local is tz-aware Bogota time
+    dfx["hour"] = dfx["order_date_local"].dt.hour
+    dfx["chunk"] = dfx["hour"].apply(_time_chunk_label)
+
+    totals = (
+        dfx.groupby("chunk")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    # Keep natural chronological order for display
+    ordered_labels = [f"{h:02d}:00-{h+2:02d}:59" for h in range(0, 24, 3)]
+    totals = totals.reindex(ordered_labels).fillna(0.0)
+
+    out = []
+    for label, val in totals.items():
+        v = float(val) if val is not None else 0.0
+        if v <= 0:
+            continue
+        out.append({"label": str(label), "value": v})
+
+    return out
+
+
+def _utm_content_by_localidad_stacked(
+    df: pd.DataFrame,
+    *,
+    top_contents: int = 6,
+    top_localidades: int = 12,
+) -> Dict[str, Any]:
+    if df is None or df.empty:
+        return {"labels": [], "datasets": []}
+
+    needed = {"total_value", "localidad", "utm_content"}
+    if not needed.issubset(set(df.columns)):
+        return {"labels": [], "datasets": []}
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    loc = dfx["localidad"].fillna("").astype(str).str.strip()
+    loc = loc.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["localidad_norm"] = loc
+
+    cont = dfx["utm_content"].fillna("").astype(str).str.strip()
+    cont = cont.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown", "undefined": "Unknown"})
+    dfx["utm_content_norm"] = cont
+
+    loc_totals = (
+        dfx.groupby("localidad_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    if loc_totals.empty:
+        return {"labels": [], "datasets": []}
+
+    top_loc_labels = loc_totals.index.tolist()[:max(1, int(top_localidades))]
+    dfx = dfx[dfx["localidad_norm"].isin(top_loc_labels)].copy()
+    if dfx.empty:
+        return {"labels": [], "datasets": []}
+
+    content_totals = (
+        dfx.groupby("utm_content_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    top_contents_labels = content_totals.index.tolist()[:max(1, int(top_contents))]
+    dfx = dfx[dfx["utm_content_norm"].isin(top_contents_labels)].copy()
+    if dfx.empty:
+        return {"labels": [], "datasets": []}
+
+    pivot = (
+        dfx.pivot_table(
+            index="localidad_norm",
+            columns="utm_content_norm",
+            values="total_value",
+            aggfunc="sum",
+            fill_value=0.0,
+        )
+        .reindex(index=top_loc_labels, fill_value=0.0)
+    )
+
+    labels = [str(x) for x in pivot.index.tolist()]
+    datasets: List[Dict[str, Any]] = []
+
+    for content_label in top_contents_labels:
+        if content_label not in pivot.columns:
+            continue
+        datasets.append(
+            {
+                "label": str(content_label),
+                "data": [float(v) for v in pivot[content_label].tolist()],
+            }
         )
 
-        if include_current_month_for_forecast and not model_monthly.empty:
-            cur_period = start_current_month.to_period("M")
-            cur_idx_list = model_monthly.index[model_monthly["month_year"] == cur_period].tolist()
+    return {"labels": labels, "datasets": datasets}
 
-            if cur_idx_list:
-                idx = cur_idx_list[0]
 
-                proj = _weekday_weighted_projection(
-                    data_all=data,
-                    start_current_month=start_current_month,
-                    end_yesterday=end_yesterday_bogota,
-                    history_months=weekday_history_months,
-                    logger=logger,
-                )
+def _build_campaign_charts_from_csv(
+    filtered_file: str,
+    tz: str,
+    forecast_periods: int,
+    logger: Optional[logging.Logger] = None,
+) -> List[Dict[str, Any]]:
+    if not os.path.exists(filtered_file):
+        return []
 
-                model_monthly.loc[idx, "Sales"] = float(proj["projected_sales"])
+    try:
+        df = pd.read_csv(filtered_file)
+    except Exception:
+        if logger:
+            logger.exception("Failed to read filtered CSV for campaign charts: %s", filtered_file)
+        return []
 
-                meta["forecast_includes_current_month_mtd"] = True
-                meta["current_month_mtd_sales"] = float(proj["mtd_sales"])
-                meta["current_month_projected_sales"] = float(proj["projected_sales"])
-                meta["current_month_remaining_days"] = int(proj["remaining_days"])
-                meta["current_month_days_in_month"] = int(proj["days_in_month"])
+    required_cols = {"order_date", "total_value"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        if logger:
+            logger.warning("Campaign charts skipped. Missing columns: %s", sorted(missing))
+        return []
 
-        model_monthly["Month"] = model_monthly["month_year"].apply(lambda x: x.strftime("%Y-%m"))
-        model_monthly["Month_dt"] = pd.to_datetime(model_monthly["Month"] + "-01", errors="coerce")
-        model_monthly = model_monthly.dropna(subset=["Month_dt"]).sort_values("Month_dt")
+    if "utm_campaign" not in df.columns:
+        if logger:
+            logger.warning("Campaign charts skipped. utm_campaign column not found in %s", filtered_file)
+        return []
 
-        if not model_monthly.empty:
-            s = model_monthly.set_index("Month_dt")["Sales"].astype(float)
-            full_idx = pd.date_range(s.index.min(), s.index.max(), freq="MS")
-            s = s.reindex(full_idx, fill_value=0.0)
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return []
 
-            fc = _forecast_monthly_series(s, periods=forecast_periods)
-            fc_idx = pd.date_range(
-                s.index.max() + pd.offsets.MonthBegin(1),
-                periods=forecast_periods,
-                freq="MS",
-            )
+    dfx["utm_campaign_display"] = dfx["utm_campaign"].apply(_normalize_campaign)
+    dfx["utm_campaign_key"] = dfx["utm_campaign"].apply(_campaign_key)
 
-            for d, v in zip(fc_idx, fc):
-                forecast_rows.append({
-                    "Month": d.strftime("%Y-%m"),
-                    "Projected Total Sales": float(v),
-                })
+    charts: List[Dict[str, Any]] = []
 
-    if return_forecast:
-        if return_meta:
-            return summary_rows, forecast_rows, meta
-        return summary_rows, forecast_rows
+    for campaign_key, g in dfx.groupby("utm_campaign_key"):
+        counts = g["utm_campaign_display"].value_counts(dropna=False).to_dict()
+        display_name = _choose_display_name(counts, fallback_key=campaign_key)
 
-    if return_meta:
-        return summary_rows, meta
+        trend_rows, forecast_rows = _build_daily_series(g, tz=tz, forecast_periods=forecast_periods)
+        if not trend_rows and not forecast_rows:
+            continue
 
-    return summary_rows
+        total_hist = _sum_trend_rows(trend_rows)
+
+        loc_breakdown = _localidad_breakdown(g, top_n=10)
+        estr_breakdown = _estrato_breakdown(g, top_n=10)
+        nivel_breakdown = _nivel_socioeconomico_breakdown(g, top_n=10)
+
+        # NEW: time-of-day breakdown (3-hour chunks)
+        time_of_day_breakdown = _time_of_day_3h_breakdown(g, tz=tz)
+
+        # Existing: utm_content totals by localidad (stacked bar data)
+        utm_content_localidad = _utm_content_by_localidad_stacked(
+            g,
+            top_contents=6,
+            top_localidades=12,
+        )
+
+        charts.append(
+            {
+                "campaign": display_name,
+                "campaign_key": campaign_key,
+                "total_daily_trend": trend_rows,
+                "forecast_data": forecast_rows,
+                "total_hist": float(total_hist),
+                "localidad_breakdown": loc_breakdown,
+                "estrato_breakdown": estr_breakdown,
+                "nivel_socioeconomico_breakdown": nivel_breakdown,
+                # NEW
+                "time_of_day_breakdown": time_of_day_breakdown,
+                # Existing
+                "utm_content_localidad": utm_content_localidad,
+            }
+        )
+
+    charts.sort(key=lambda x: float(x.get("total_hist", 0.0)), reverse=True)
+    return charts
+
+
+def _group_campaign_charts(charts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    wati_items: List[Dict[str, Any]] = []
+    unknown_items: List[Dict[str, Any]] = []
+    google_items: List[Dict[str, Any]] = []
+    meta_items: List[Dict[str, Any]] = []
+
+    for c in charts:
+        key = (c.get("campaign_key") or "").strip().lower()
+        display = (c.get("campaign") or "").strip()
+
+        if key == "wati" or display.lower() == "wati":
+            wati_items.append(c)
+            continue
+
+        if key in {"unknown", "unknow"} or display.lower() in {"unknown", "unknow"}:
+            unknown_items.append(c)
+            continue
+
+        if _is_numeric_campaign(display):
+            google_items.append(c)
+            continue
+
+        meta_items.append(c)
+
+    chart_id = 0
+    for bucket in (wati_items, unknown_items, google_items, meta_items):
+        for c in bucket:
+            c["chart_id"] = chart_id
+            chart_id += 1
+
+    groups = [
+        {"key": "wati", "title": "wati", "items": wati_items, "open_by_default": True},
+        {"key": "unknown", "title": "Unknown", "items": unknown_items, "open_by_default": False},
+        {"key": "google", "title": "Google", "items": google_items, "open_by_default": False},
+        {"key": "meta", "title": "Meta", "items": meta_items, "open_by_default": False},
+    ]
+
+    for g in groups:
+        g["total_hist"] = float(sum(float(x.get("total_hist", 0.0) or 0.0) for x in (g.get("items") or [])))
+
+    grand_total = float(sum(float(g.get("total_hist", 0.0) or 0.0) for g in groups))
+    for g in groups:
+        if grand_total > 0:
+            g["percent"] = round((float(g.get("total_hist", 0.0) or 0.0) / grand_total) * 100.0, 1)
+        else:
+            g["percent"] = 0.0
+
+    return groups
+
+
+def get_bogota_insights_view_data(
+    *,
+    OptionModel,
+    source_file: str,
+    filtered_file: str,
+    city_value: str,
+    forecast_periods: int = 30,
+    gender: Optional[str] = None,
+    logger: Optional[logging.Logger] = None,
+) -> Dict[str, Any]:
+    tz = "America/Bogota"
+    file_name = os.path.basename(source_file)
+
+    opts = read_saved_date_options(OptionModel, file_name=file_name, logger=logger)
+
+    payload: Dict[str, Any] = {
+        "error": None,
+        "date_range": opts["date_range"],
+        "start_date": opts["start_date"],
+        "end_date": opts["end_date"],
+        "total_daily_trend": [],
+        "forecast_data": [],
+        "campaign_groups": [],
+        "gender": _normalize_gender(gender) if gender else None,
+    }
+
+    if not os.path.exists(source_file):
+        payload["error"] = f"{source_file} not found. Use the date selector above to fetch data first."
+        return payload
+
+    if not os.path.exists(filtered_file):
+        payload["error"] = f"{filtered_file} not found. Could not build filtered data."
+        return payload
+
+    result = get_bogota_insights_daily(
+        orders_csv_path=filtered_file,
+        forecast_periods=forecast_periods,
+        city_value=city_value,
+        gender=gender,
+    )
+
+    payload["total_daily_trend"] = result.get("total_daily_trend", [])
+    payload["forecast_data"] = result.get("forecast_data", [])
+
+    charts = _build_campaign_charts_from_csv(
+        filtered_file=filtered_file,
+        tz=tz,
+        forecast_periods=forecast_periods,
+        logger=logger,
+    )
+
+    payload["campaign_groups"] = _group_campaign_charts(charts)
+
+    if logger:
+        counts = {g["key"]: len(g.get("items") or []) for g in payload["campaign_groups"]}
+        logger.info("Campaign groups built: %s", counts)
+
+    return payload
 
 ```
 
 ========================================
 
-**app/templates/monthly_sales.html**
+**app/templates/bogota_insights_female.html**
 ```html
-{# app/templates/monthly_sales.html #}
+{# app/templates/bogota_insights_female.html #}
 {% extends "layout.html" %}
 
 {% block title %}
-Monthly Sales
+Bogota Insights Female
 {% endblock %}
 
 {% block content %}
 
+<a
+  class="btn btn-outline-success btn-sm"
+  href="{{ url_for('main.download_bogota_insights_file', filename='bogota_insights_female_filtered.csv') }}"
+>
+  Download filtered CSV
+</a>
+
+{% set file_name = "bogota_insights_female.csv" %}
+{% set file_name_filtered = "bogota_insights_female_filtered.csv" %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_14_days", "label": "Last 14 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "last_quarter", "label": "Last quarter (90 days)"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
 <div class="container mt-4">
+
   {% if error %}
     <div class="alert alert-danger" role="alert">
-      {{ error }}
+      <strong>Something went wrong.</strong>
+      <div class="mt-1">{{ error }}</div>
+    </div>
+  {% endif %}
+
+  {% if not total_daily_trend %}
+    <div class="alert alert-warning mt-3">
+      No data available for the selected date range.
     </div>
   {% else %}
 
-    <div class="text-center mb-3">
-      <label for="exchangeRateSales">USD Exchange Rate (COP):</label>
-      <input type="number" id="exchangeRateSales" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleCurrencySales()" class="btn btn-primary">Switch Currency</button>
+    <div class="text-center mb-2">
+      <h2 class="text-center">Bogota Insights Female</h2>
+      <p class="text-center text-muted mb-2">
+        Showing <strong>female</strong> orders in <strong>Bogota (C/MARCA)</strong>.
+      </p>
+      <p class="text-center text-muted mb-3">
+        Data is shown up to the end of <strong>yesterday</strong> (Bogota time).
+      </p>
     </div>
 
-    <h2 class="text-center">Sales by UTM Source (Up to Previous Month)</h2>
+    <div class="text-center mb-3">
+      <label for="exchangeRateBogota" class="form-label">
+        Exchange rate (COP per 1 USD)
+      </label>
+      <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+        <input
+          type="number"
+          id="exchangeRateBogota"
+          value="4000"
+          step="50"
+          min="3000"
+          max="6000"
+          class="form-control"
+          style="max-width: 180px;"
+        >
+        <button type="button" onclick="toggleCurrencyBogota()" class="btn btn-primary">
+          Toggle COP / USD
+        </button>
+      </div>
+      <small class="text-muted d-block mt-2">
+        When USD is selected, totals are converted using the exchange rate above.
+      </small>
+    </div>
+
+    <h3 class="text-center">Daily Total Sales Trend and Forecast</h3>
     <p class="text-center text-muted mb-3">
-      Includes all orders up to the last day of the previous month (Bogota time).
+      Historical totals and the projected totals for the next 30 days.
     </p>
 
-    <div style="height: 420px;">
-      <canvas id="utmSourcePieChart"></canvas>
-    </div>
-
-    {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
-      <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
-        Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
-      </p>
-    {% endif %}
-
-    <hr class="my-5">
-
-    <h2 class="text-center">Monthly Total Sales Trend & Forecast</h2>
-
-    {% if forecast_includes_current_month_mtd %}
-      <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
-        Forecast uses current month projection (method: {{ projection_method|default("weekday_weighted") }}).
-        MTD (through yesterday): {{ current_month_mtd_sales|cop }}.
-        Remaining days projected: {{ current_month_remaining_days }}.
-        Projected full month used for forecast: {{ current_month_projected_sales|cop }}.
-      </p>
-    {% endif %}
-
     <div style="height: 520px;">
-      <canvas id="salesChart"></canvas>
+      <canvas id="bogotaTotalSalesChart"></canvas>
     </div>
 
-    <hr class="my-5">
+    <hr class="my-4">
 
-    <h2 class="text-center">Monthly Sales Trend & Forecast by Channel</h2>
+    <h3 class="text-center">Sales Trend by Campaign</h3>
+    <p class="text-center text-muted mb-3">
+      Campaign charts grouped into: wati, Unknown, Google (numeric), Meta (alphanumeric).
+    </p>
 
-    {% if not channel_charts %}
-      <div class="alert alert-warning mt-3">
-        No channel charts available for this selection.
+    {% if not campaign_groups %}
+      <div class="alert alert-warning">
+        No campaign data available (utm_campaign missing or empty).
       </div>
     {% else %}
-      {% for ch in channel_charts %}
-        <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
 
-        <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
-          Ranked by total number of sales: {{ ch.count }}
-        </p>
+      <div class="accordion" id="campaignGroupsAccordion">
 
-        {% if ch.forecast_includes_current_month_mtd %}
-          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-            Forecast uses current month projection (method: {{ ch.projection_method|default("weekday_weighted") }}).
-            MTD (through yesterday): {{ ch.current_month_mtd_sales|cop }}.
-            Remaining days projected: {{ ch.current_month_remaining_days }}.
-            Projected full month used for forecast: {{ ch.current_month_projected_sales|cop }}.
-          </p>
-        {% else %}
-          <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-            Not enough current-month data yet to project this channel.
-          </p>
-        {% endif %}
+        {% for g in campaign_groups %}
+          {% set group_index = loop.index0 %}
+          {% set heading_id = "headingGroup" ~ group_index %}
+          {% set collapse_id = "collapseGroup" ~ group_index %}
 
-        <div style="height: 520px;">
-          <canvas id="{{ ch.canvas_id }}"></canvas>
-        </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="{{ heading_id }}">
+              <button
+                class="accordion-button {% if not g['open_by_default'] %}collapsed{% endif %}"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#{{ collapse_id }}"
+                aria-expanded="{{ 'true' if g['open_by_default'] else 'false' }}"
+                aria-controls="{{ collapse_id }}"
+              >
+                {{ g['title'] }}
+                &nbsp;
+                ({{ g['items']|length }})
+                &nbsp;·&nbsp;
+                <span class="fw-semibold">{{ (g['total_hist']|default(0))|cop }}</span>
+                &nbsp;·&nbsp;
+                <span class="text-muted">{{ g['percent']|default(0) }}%</span>
+              </button>
+            </h2>
 
-        {% if not loop.last %}
-          <hr class="my-5">
-        {% endif %}
-      {% endfor %}
+            <div
+              id="{{ collapse_id }}"
+              class="accordion-collapse collapse {% if g['open_by_default'] %}show{% endif %}"
+              aria-labelledby="{{ heading_id }}"
+              data-bs-parent="#campaignGroupsAccordion"
+            >
+              <div class="accordion-body">
+
+                {% if not g['items'] %}
+                  <div class="text-muted">
+                    No campaigns in this group.
+                  </div>
+                {% else %}
+
+                  {# NEW: Meta scoring summary block (JS fills this) #}
+                  {% if g['key'] == 'meta' %}
+                    <div class="card mb-4 border-0 shadow-sm">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                          <div>
+                            <h5 class="mb-1">Meta Campaign Scoring (Auto)</h5>
+                            <div class="text-muted">
+                              Scores are computed from order-attributed data (no Ads Manager metrics). Use it to prioritize audits and iteration.
+                            </div>
+                            <div class="text-muted small mt-2">
+                              Notes: The score uses signals like volume, dispersion across segments, time-of-day breadth, and creative diversity (utm_content). It does not mention estrato or localidades in copy recommendations.
+                            </div>
+                          </div>
+
+                          <div class="text-end">
+                            <div class="fw-semibold">Group overview</div>
+                            <div class="text-muted small" id="metaGroupScoringSummary">
+                              Calculating...
+                            </div>
+                          </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <div class="table-responsive">
+                          <table class="table table-sm align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th style="min-width: 220px;">Campaign</th>
+                                <th class="text-nowrap">Score</th>
+                                <th class="text-nowrap">Tier</th>
+                                <th class="text-nowrap">Why (signals)</th>
+                              </tr>
+                            </thead>
+                            <tbody id="metaScoringTableBody">
+                              <tr>
+                                <td colspan="4" class="text-muted">Building scores...</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+
+                  {% for c in g['items'] %}
+                    <div class="card mb-4">
+                      <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                          <div>
+                            <h5 class="mb-1">
+                              Campaign: <strong>{{ c['campaign'] }}</strong>
+                            </h5>
+
+                            {# NEW: Score badge container (Meta only, JS fills) #}
+                            {% if g['key'] == 'meta' %}
+                              <div class="d-flex align-items-center gap-2 flex-wrap mt-1">
+                                <span
+                                  class="badge bg-secondary"
+                                  id="metaScoreBadge{{ c['chart_id'] }}"
+                                  title="Auto score based on sales attribution signals"
+                                >
+                                  Score: ...
+                                </span>
+                                <span class="text-muted small" id="metaScoreWhy{{ c['chart_id'] }}">
+                                  Calculating signals...
+                                </span>
+                              </div>
+                            {% endif %}
+                          </div>
+
+                          <div class="text-muted">
+                            Total: <span class="fw-semibold">{{ (c['total_hist']|default(0))|cop }}</span>
+                          </div>
+                        </div>
+
+                        <p class="text-muted mb-3 mt-2">
+                          Historical and forecasted daily totals for this campaign.
+                        </p>
+
+                        <div style="height: 420px;">
+                          <canvas id="campaignChart{{ c['chart_id'] }}"></canvas>
+                        </div>
+
+                        {% set has_localidad = c['localidad_breakdown'] and (c['localidad_breakdown']|length > 0) %}
+                        {% set has_estrato = c['estrato_breakdown'] and (c['estrato_breakdown']|length > 0) %}
+                        {% set has_nivel = c['nivel_socioeconomico_breakdown'] and (c['nivel_socioeconomico_breakdown']|length > 0) %}
+
+                        {% set is_meta_or_google = (g['key'] == 'meta') or (g['key'] == 'google') %}
+                        {% set has_time_chunks = c['time_of_day_breakdown'] and (c['time_of_day_breakdown']|length > 0) %}
+                        {% set show_fourth_col = is_meta_or_google and has_time_chunks %}
+
+                        {% if has_localidad or has_estrato or has_nivel or show_fourth_col %}
+                          <hr class="my-4">
+                          <div class="row g-3">
+
+                            {% if has_localidad %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Localidad</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by localidad.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="localidadPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if has_estrato %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Estrato</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by estrato.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="estratoPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if has_nivel %}
+                              <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
+                                <h6 class="text-center mb-2">Sales by Nivel Socioeconomico</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales for this campaign, grouped by nivel socioeconomico.
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="nivelPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                            {% if show_fourth_col %}
+                              <div class="col-12 col-lg-3">
+                                <h6 class="text-center mb-2">Sales by Time of Day</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Share of total sales by 3-hour chunks (Bogota time).
+                                </p>
+                                <div style="height: 420px;">
+                                  <canvas id="timeChunkPie{{ c['chart_id'] }}"></canvas>
+                                </div>
+                              </div>
+                            {% endif %}
+
+                          </div>
+                        {% endif %}
+
+                        {% set has_utm_content_loc = c['utm_content_localidad']
+                          and c['utm_content_localidad']['labels']
+                          and (c['utm_content_localidad']['labels']|length > 0)
+                          and c['utm_content_localidad']['datasets']
+                          and (c['utm_content_localidad']['datasets']|length > 0)
+                        %}
+
+                        {% if is_meta_or_google and has_utm_content_loc %}
+                          <hr class="my-4">
+                          <div class="row g-3">
+                            <div class="col-12">
+                              <h6 class="text-center mb-2">UTM Content Total Sales by Localidad</h6>
+                              <p class="text-center text-muted mb-3">
+                                Stacked totals by <strong>utm_content</strong>, grouped by <strong>localidad</strong>.
+                              </p>
+                              <div style="height: 520px;">
+                                <canvas id="utmContentLocalidad{{ c['chart_id'] }}"></canvas>
+                              </div>
+
+                              {% if g['key'] == 'meta' %}
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">Prompts de Creatividad por Nivel Socioeconómico (ChatGPT 5.2)</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Un prompt por <strong>nivel socioeconómico</strong>. Cada prompt aplica principios de David Ogilvy, y usa estrato/localidad solo como insumo para ángulos sin mencionarlos explícitamente en el copy final.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-primary btn-sm"
+                                    onclick="copyAllPromptsForCampaign({{ c['chart_id'] }})"
+                                  >
+                                    Copiar todos los prompts
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    onclick="regenerateAllMetaPrompts({{ c['chart_id'] }})"
+                                  >
+                                    Regenerar todos
+                                  </button>
+                                </div>
+
+                                <div id="metaPromptsWrap{{ c['chart_id'] }}"></div>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">Prompt Estratégico para Optimización de Campaña Meta</h6>
+                                <p class="text-center text-muted mb-3">
+                                  Analiza la campaña completa usando todos los datos disponibles y genera un plan de optimización avanzado.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-dark btn-sm"
+                                    onclick="copyCampaignStrategicPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt estratégico
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaStrategicPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="20"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">
+                                  Prompt para Redistribución Automática de Presupuesto (Meta)
+                                </h6>
+
+                                <p class="text-center text-muted mb-3">
+                                  Genera reglas automáticas de redistribución de presupuesto usando datos reales de esta campaña.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-success btn-sm"
+                                    onclick="copyBudgetPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt de presupuesto
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaBudgetPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="24"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                                <hr class="my-4">
+
+                                <h6 class="text-center mb-2">
+                                  Prompt para Predicción de Escalabilidad (Meta)
+                                </h6>
+
+                                <p class="text-center text-muted mb-3">
+                                  Estima si esta campaña puede escalar y con qué probabilidad, usando únicamente los datos disponibles.
+                                </p>
+
+                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-outline-warning btn-sm"
+                                    onclick="copyScalabilityPrompt({{ c['chart_id'] }})"
+                                  >
+                                    Copiar prompt de escalabilidad
+                                  </button>
+                                </div>
+
+                                <textarea
+                                  id="metaScalabilityPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="26"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
+
+                              {% endif %}
+
+                            </div>
+                          </div>
+                        {% endif %}
+
+                      </div>
+                    </div>
+                  {% endfor %}
+
+                {% endif %}
+
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+
+      </div>
+
     {% endif %}
 
   {% endif %}
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
 
-  var exchangeRateEl = document.getElementById("exchangeRateSales");
+  function safeJsonStringify(obj) {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch (e) {
+      return String(obj || "");
+    }
+  }
+
+  /*
+    ACTUALIZADO:
+    Prompts por nivel socioeconómico aplicando principios de David Ogilvy.
+    Nota cultural: NO mencionar estrato ni localidades en el copy final.
+  */
+  function buildMetaPromptForNivel(payload, nivelFocus) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarizeTop(list, n, labelName) {
+      var top = topN(list, n);
+      if (!top.length) return "No hay datos para " + labelName + ".";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    function pct(part, total) {
+      var p = Number(part) || 0;
+      var t = Number(total) || 0;
+      if (t <= 0) return 0;
+      return (p / t) * 100;
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var estrato = payload.estrato_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    var nivelLabel = (nivelFocus && nivelFocus.label) ? String(nivelFocus.label) : "Desconocido";
+    var nivelValue = (nivelFocus && nivelFocus.value) ? Number(nivelFocus.value) : 0;
+    var nivelRank = (nivelFocus && typeof nivelFocus.rank === "number") ? (nivelFocus.rank + 1) : null;
+    var nivelShare = pct(nivelValue, totalHist);
+
+    var prompt =
+      "Eres un estratega senior de creatividad y performance en Meta Ads.\n\n" +
+
+      "OBJETIVO\n" +
+      "Genera ideas NUEVAS de anuncios para esta campaña, enfocadas SOLO en el segmento de nivel socioeconómico indicado. Usa patrones de localidad y estrato solo como insumo para descubrir ángulos (rutinas, lenguaje, situaciones), pero NO los menciones explícitamente en el copy final.\n\n" +
+
+      "REGLA MUY IMPORTANTE (COPYS FINALES)\n" +
+      "- Evita mencionar el número o el nivel de estrato.\n" +
+      "- Evita mencionar localidades, barrios o zonas específicas.\n" +
+      "- Puedes usar esa información internamente para generar ángulos, pero el texto final debe sentirse inclusivo y no clasista.\n\n" +
+
+      "MARCO PUBLICITARIO: PRINCIPIOS DE DAVID OGILVY (debes aplicarlos y mencionarlos)\n" +
+      "Para cada idea, etiqueta explícitamente cuáles principios aplicaste, usando esta lista (elige los que correspondan):\n" +
+      "1) Gran idea (Big Idea)\n" +
+      "2) Beneficio claro y específico (The consumer isn't a moron)\n" +
+      "3) Titular fuerte: 80% del resultado\n" +
+      "4) Una promesa principal y consistente\n" +
+      "5) Prueba y credibilidad (evidencia, demostración, testimonios)\n" +
+      "6) Habla el lenguaje del consumidor\n" +
+      "7) Especificidad y detalles concretos\n" +
+      "8) Evitar la creatividad vacía: claridad sobre estilo\n" +
+      "9) Repetición estratégica y consistencia\n" +
+      "10) Enfoque en la marca y respuesta (CTA claro)\n\n" +
+
+      "SALIDA REQUERIDA (muy estricta)\n" +
+      "1) 5 ideas NUEVAS de REELS.\n" +
+      "2) 5 ideas NUEVAS de ANUNCIOS DE IMAGEN.\n\n" +
+
+      "FORMATO PARA CADA IDEA (OBLIGATORIO)\n" +
+      "- Principios Ogilvy aplicados: [menciona números y nombres]\n" +
+      "- Hook / Titular:\n" +
+      "- Guion 6-10s (solo para Reels):\n" +
+      "- Texto en pantalla:\n" +
+      "- Dirección visual:\n" +
+      "- Beneficio principal:\n" +
+      "- Prueba/credibilidad:\n" +
+      "- CTA:\n" +
+      "- A quién va dirigida (describe estilo de vida/contexto, sin estrato ni localidad):\n\n" +
+
+      "CONTEXTO DE CAMPAÑA\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Enfoque de género: MUJERES\n" +
+      "- Mercado: Bogotá (C/MARCA)\n" +
+      "- Zona horaria: America/Bogota\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n" +
+      "- Datos hasta el final de ayer (hora Bogotá)\n\n" +
+
+      "SEGMENTO ENFOQUE (Nivel Socioeconómico)\n" +
+      "- Segmento: " + nivelLabel + "\n" +
+      (nivelRank !== null ? ("- Ranking dentro de segmentos (por ventas): #" + nivelRank + "\n") : "") +
+      "- Ventas (COP) atribuidas a este segmento: " + nivelValue + "\n" +
+      "- Porcentaje de las ventas de la campaña: " + nivelShare.toFixed(1) + "%\n\n" +
+
+      "SEÑALES (solo para inspirar ángulos, no para nombrarlas)\n" +
+      "Localidades con mayor venta (NO mencionar nombres en copys):\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
+      "Estratos con mayor venta (NO mencionar números en copys):\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
+      "Franjas de hora del día con mayor venta:\n" + summarizeTop(timeChunks, 6, "franjas horarias") + "\n\n" +
+
+      "DATOS EN CRUDO (referencia)\n" +
+      "Objeto del segmento enfoque:\n" + safeJsonStringify(nivelFocus || {}) + "\n\n" +
+      "Desglose por Localidad:\n" + safeJsonStringify(localidad) + "\n\n" +
+      "Desglose por Estrato:\n" + safeJsonStringify(estrato) + "\n\n" +
+      "Desglose por Hora del día:\n" + safeJsonStringify(timeChunks) + "\n\n" +
+      "UTM Content x Localidad (totales apilados):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+
+      "RESTRICCIONES CREATIVAS\n" +
+      "- Prioriza ideas fáciles de producir: estilo UGC (celular) y tomas simples en estudio.\n" +
+      "- Usa situaciones reales de Bogotá (clima, tráfico, transporte, oficina, universidad, casa) sin decir zonas.\n" +
+      "- Si domina una franja horaria, adapta la escena a ese momento (mañana, tarde, noche).\n\n" +
+
+      "ÁNGULOS DE PRODUCTO (elige los que encajen)\n" +
+      "- Olor / seguridad social\n" +
+      "- Sudoración / estrés\n" +
+      "- Confianza en pareja / vida social\n" +
+      "- Rutina diaria en Bogotá (transporte, oficina, universidad)\n" +
+      "- Prueba social: antes/después, testimonios, me funcionó\n\n" +
+
+      "RECORDATORIO\n" +
+      "No menciones estrato ni localidades en los copys finales. Sí puedes usar esos patrones internamente para proponer ángulos.\n";
+
+    return prompt;
+  }
+
+  function buildMetaStrategicPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Eres un consultor senior de Meta Ads especializado en optimización basada en datos reales.\n\n" +
+      "OBJETIVO\n" +
+      "Analiza esta campaña Meta usando los datos históricos y genera un plan avanzado de optimización.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Mujeres\n" +
+      "- Ventas históricas totales: " + totalHist + " COP\n" +
+      "- Datos hasta ayer (hora Bogotá)\n\n" +
+      "ANÁLISIS (usa datos)\n" +
+      "Nivel socioeconómico:\n" + summarize(nivel, 6) + "\n\n" +
+      "Localidades:\n" + summarize(localidad, 6) + "\n\n" +
+      "Franja horaria:\n" + summarize(timeChunks, 6) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "ENTREGABLE\n" +
+      "- Diagnóstico\n" +
+      "- Quick wins\n" +
+      "- Riesgos\n" +
+      "- Plan de acción 7 días\n"
+    );
+  }
+
+  function buildMetaBudgetReallocationPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    var campaign = payload.campaign || "";
+    var totalHist = Number(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Eres un experto senior en Meta Ads especializado en automatización de presupuesto.\n\n" +
+      "OBJETIVO\n" +
+      "Diseña una redistribución AUTOMÁTICA de presupuesto para esta campaña usando únicamente datos reales.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Mujeres\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n\n" +
+      "DATOS\n" +
+      "Nivel socioeconómico:\n" + summarize(nivel, 6) + "\n\n" +
+      "Localidades:\n" + summarize(localidad, 6) + "\n\n" +
+      "Franja horaria:\n" + summarize(timeChunks, 6) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "ENTREGABLE\n" +
+      "1) Diagnóstico\n" +
+      "2) Redistribución en porcentajes (100 unidades)\n" +
+      "3) Reglas automáticas\n" +
+      "4) Controles de riesgo\n"
+    );
+  }
+
+  function buildMetaScalabilityPredictionPrompt(payload) {
+    function topN(list, n) {
+      var arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort(function(a, b) {
+        return (Number(b.value) || 0) - (Number(a.value) || 0);
+      });
+      return arr.slice(0, n);
+    }
+
+    function summarize(list, n) {
+      var top = topN(list, n);
+      if (!top.length) return "Sin datos.";
+      return top.map(function(it) {
+        return "- " + (it.label || "Desconocido") + ": " + (Number(it.value) || 0);
+      }).join("\n");
+    }
+
+    function safeNum(x) {
+      var v = Number(x);
+      return isFinite(v) ? v : 0;
+    }
+
+    var campaign = (payload.campaign || "").toString();
+    var totalHist = safeNum(payload.total_hist || 0);
+
+    var localidad = payload.localidad_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
+    var timeChunks = payload.time_of_day_breakdown || [];
+    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
+
+    return (
+      "Actúa como un director de growth especializado en Meta Ads y predicción de escalabilidad.\n\n" +
+      "OBJETIVO\n" +
+      "Con los datos disponibles de esta campaña, estima su POTENCIAL DE ESCALA (capacidad de aumentar presupuesto sin perder eficiencia) y entrega una predicción accionable.\n\n" +
+      "CONTEXTO\n" +
+      "- Campaña: " + campaign + "\n" +
+      "- Mercado: Bogotá\n" +
+      "- Género: Mujeres\n" +
+      "- Ventas históricas totales (COP): " + totalHist + "\n" +
+      "- Fuente de datos: órdenes atribuidas + UTM (no hay métricas de Ads Manager como CPM/CPA)\n\n" +
+
+      "DATOS DISPONIBLES (usa esto para inferir señales de escala)\n" +
+      "1) Distribución por nivel socioeconómico:\n" + summarize(nivel, 10) + "\n\n" +
+      "2) Distribución por localidad (NO usar nombres en recomendaciones de copy, solo como señal de dispersión/densidad):\n" + summarize(localidad, 10) + "\n\n" +
+      "3) Distribución por franja horaria (3h):\n" + summarize(timeChunks, 8) + "\n\n" +
+      "4) UTM Content x Localidad (estructura de creativos y concentración):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+
+      "TAREAS (RESPUESTA ESTRUCTURADA)\n" +
+      "A) Señales de escalabilidad (basadas en datos):\n" +
+      "- Densidad vs dispersión (concentración en pocos segmentos o diversificación)\n" +
+      "- Dependencia de 1-2 creativos (concentración en pocos utm_content)\n" +
+      "- Dependencia de 1-2 franjas horarias\n" +
+      "- Robustez del mix (niveles + horarios + creativos)\n\n" +
+
+      "B) Predicción de escalabilidad (OBLIGATORIO)\n" +
+      "- Score 0-100\n" +
+      "- Probabilidad de escalar (Baja/Media/Alta) con % estimado\n" +
+      "- Nivel recomendado de incremento de presupuesto en 7 días: +X% (con rango mínimo/máximo)\n\n" +
+
+      "C) Plan de escalamiento en 3 fases\n" +
+      "Fase 1 (0-3 días): qué duplicar y qué proteger\n" +
+      "Fase 2 (4-7 días): cómo abrir nuevos bolsillos (segmentos/horarios/creativos)\n" +
+      "Fase 3 (8-14 días): cómo sostener y evitar saturación\n\n" +
+
+      "D) Reglas automáticas de escala (tipo checklist)\n" +
+      "- Si [condición basada en estos datos] entonces [acción]\n" +
+      "- Incluye límites de seguridad y frecuencia de evaluación\n\n" +
+
+      "E) Supuestos y limitaciones\n" +
+      "- Explica qué no puedes saber sin Ads Manager (CPM/CPA/ROAS) y cómo compensas con estas señales.\n\n" +
+
+      "REGLAS DE ESTILO\n" +
+      "- No seas genérico.\n" +
+      "- Justifica con los datos entregados.\n" +
+      "- No inventes métricas que no existen.\n"
+    );
+  }
+
+  function sortDescByValue(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    arr.sort(function(a, b) {
+      return (Number(b.value) || 0) - (Number(a.value) || 0);
+    });
+    return arr;
+  }
+
+  function filterValidNiveles(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    return arr.filter(function(n) {
+      var label = (n && n.label != null) ? String(n.label).trim() : "";
+      if (!label) return false;
+      var low = label.toLowerCase();
+      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
+      return true;
+    });
+  }
+
+  function buildMetaPromptsUI(chartId, payload) {
+    var wrap = document.getElementById("metaPromptsWrap" + chartId);
+    if (!wrap) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) {
+      wrap.innerHTML = '<div class="text-muted">No hay datos de nivel socioeconómico disponibles para generar prompts.</div>';
+      return;
+    }
+
+    var totalHist = Number(payload.total_hist || 0);
+
+    var html = "";
+    niveles.forEach(function(n, idx) {
+      var label = (n && n.label) ? String(n.label) : "Desconocido";
+      var value = Number(n && n.value ? n.value : 0);
+      var share = (totalHist > 0) ? ((value / totalHist) * 100) : 0;
+
+      var textareaId = "metaPrompt" + chartId + "_" + idx;
+
+      html += ""
+        + '<div class="card mb-3">'
+        + '  <div class="card-body">'
+        + '    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">'
+        + '      <div>'
+        + '        <h6 class="mb-1">Prompt para Segmento (Nivel Socioeconómico): <strong>' + escapeHtml(label) + '</strong></h6>'
+        + '        <div class="text-muted small">Ventas: ' + value + ' COP · Porcentaje: ' + share.toFixed(1) + '% · Ranking: #' + (idx + 1) + '</div>'
+        + '        <div class="text-muted small mt-1">Reglas: no mencionar estrato ni localidades. Aplicar y mencionar principios de Ogilvy en cada idea.</div>'
+        + '      </div>'
+        + '      <div class="d-flex gap-2 flex-wrap">'
+        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copiar</button>'
+        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">Regenerar</button>'
+        + '      </div>'
+        + '    </div>'
+        + '    <textarea'
+        + '      id="' + textareaId + '"'
+        + '      class="form-control mt-3"'
+        + '      rows="18"'
+        + '      readonly'
+        + '      style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"'
+        + '    ></textarea>'
+        + '  </div>'
+        + '</div>';
+    });
+
+    wrap.innerHTML = html;
+
+    niveles.forEach(function(n, idx) {
+      var textareaId = "metaPrompt" + chartId + "_" + idx;
+      var el = document.getElementById(textareaId);
+      if (!el) return;
+
+      var focus = {
+        label: n.label,
+        value: n.value,
+        rank: idx
+      };
+
+      el.value = buildMetaPromptForNivel(payload, focus);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  window.copyPromptToClipboard = async function(textareaId) {
+    var el = document.getElementById(textareaId);
+    if (!el) return;
+
+    try {
+      await navigator.clipboard.writeText(el.value || "");
+    } catch (e) {
+      el.select();
+      document.execCommand("copy");
+      el.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyAllPromptsForCampaign = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) return;
+
+    var allText = niveles.map(function(n, idx) {
+      var label = (n && n.label) ? String(n.label) : "Desconocido";
+      var focus = { label: n.label, value: n.value, rank: idx };
+      return "===== SEGMENTO (NIVEL SOCIOECONÓMICO): " + label + " =====\n\n" + buildMetaPromptForNivel(payload, focus);
+    }).join("\n\n\n");
+
+    try {
+      await navigator.clipboard.writeText(allText);
+    } catch (e) {
+      var tmp = document.createElement("textarea");
+      tmp.value = allText;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand("copy");
+      document.body.removeChild(tmp);
+    }
+  };
+
+  window._metaPromptPayloads = window._metaPromptPayloads || {};
+
+  window.regenerateMetaPrompt = function(chartId, nivelIndex) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
+    if (!niveles.length) return;
+
+    var n = niveles[nivelIndex];
+    if (!n) return;
+
+    var textareaId = "metaPrompt" + chartId + "_" + nivelIndex;
+    var textarea = document.getElementById(textareaId);
+    if (!textarea) return;
+
+    var focus = { label: n.label, value: n.value, rank: nivelIndex };
+    textarea.value = buildMetaPromptForNivel(payload, focus);
+  };
+
+  window.regenerateAllMetaPrompts = function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    buildMetaPromptsUI(chartId, payload);
+  };
+
+  window.copyCampaignStrategicPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaStrategicPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyBudgetPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaBudgetPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyScalabilityPrompt = async function(chartId) {
+    var payload = (window._metaPromptPayloads || {})[chartId];
+    if (!payload) return;
+
+    var textarea = document.getElementById("metaScalabilityPrompt" + chartId);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  {# ---------------------------
+     NEW: Automatic scoring for Meta campaigns
+     --------------------------- #}
+
+  function sumValues(list) {
+    var arr = Array.isArray(list) ? list : [];
+    return arr.reduce(function(acc, it) { return acc + (Number(it && it.value) || 0); }, 0);
+  }
+
+  function topShare(list) {
+    var arr = Array.isArray(list) ? list.slice() : [];
+    arr.sort(function(a, b) { return (Number(b.value) || 0) - (Number(a.value) || 0); });
+    var total = sumValues(arr);
+    if (total <= 0 || !arr.length) return 0;
+    return (Number(arr[0].value) || 0) / total;
+  }
+
+  function countMeaningfulBuckets(list, minShare) {
+    var arr = Array.isArray(list) ? list : [];
+    var total = sumValues(arr);
+    if (total <= 0) return 0;
+    var threshold = (typeof minShare === "number" ? minShare : 0.05);
+    return arr.filter(function(it) {
+      var v = Number(it && it.value) || 0;
+      var label = (it && it.label != null) ? String(it.label).trim() : "";
+      if (!label) return false;
+      var low = label.toLowerCase();
+      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
+      return (v / total) >= threshold;
+    }).length;
+  }
+
+  function countUtmContentDiversity(utmContentLoc) {
+    var ds = (utmContentLoc && utmContentLoc.datasets) ? utmContentLoc.datasets : [];
+    if (!Array.isArray(ds) || !ds.length) return 0;
+    var count = 0;
+    ds.forEach(function(d) {
+      var arr = Array.isArray(d && d.data) ? d.data : [];
+      var s = arr.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
+      if (s > 0) count += 1;
+    });
+    return count;
+  }
+
+  function scoreTier(score) {
+    var s = Number(score) || 0;
+    if (s >= 80) return "A";
+    if (s >= 65) return "B";
+    if (s >= 50) return "C";
+    return "D";
+  }
+
+  function badgeClassForTier(tier) {
+    if (tier === "A") return "bg-success";
+    if (tier === "B") return "bg-primary";
+    if (tier === "C") return "bg-warning text-dark";
+    return "bg-danger";
+  }
+
+  function computeMetaCampaignScore(payload, maxTotalHist) {
+    var totalHist = Number(payload && payload.total_hist) || 0;
+
+    var nivel = Array.isArray(payload && payload.nivel_socioeconomico_breakdown) ? payload.nivel_socioeconomico_breakdown : [];
+    var timeChunks = Array.isArray(payload && payload.time_of_day_breakdown) ? payload.time_of_day_breakdown : [];
+    var localidad = Array.isArray(payload && payload.localidad_breakdown) ? payload.localidad_breakdown : [];
+    var utmContentLoc = payload && payload.utm_content_localidad ? payload.utm_content_localidad : { labels: [], datasets: [] };
+
+    // 1) Volume (0..30) relative within Meta group
+    var maxT = Number(maxTotalHist) || 0;
+    var volumeScore = 0;
+    if (maxT > 0) {
+      volumeScore = Math.min(30, 30 * (totalHist / maxT));
+    } else {
+      volumeScore = 15;
+    }
+
+    // 2) Segment breadth (0..20) using meaningful nivel buckets
+    var meaningfulNiveles = countMeaningfulBuckets(nivel, 0.06);
+    var nivelScore = Math.min(20, meaningfulNiveles * 5); // 4 meaningful buckets gives 20
+
+    // 3) Time breadth (0..15) using meaningful time chunks
+    var meaningfulTimes = countMeaningfulBuckets(timeChunks, 0.06);
+    var timeScore = Math.min(15, meaningfulTimes * 3); // 5 chunks gives 15
+
+    // 4) Local dispersion (0..15) using meaningful localidades
+    var meaningfulLoc = countMeaningfulBuckets(localidad, 0.06);
+    var locScore = Math.min(15, meaningfulLoc * 2.5); // 6 buckets gives 15
+
+    // 5) Creative diversity via utm_content (0..20)
+    var utmDiv = countUtmContentDiversity(utmContentLoc);
+    var utmScore = Math.min(20, utmDiv * 4); // 5 contents gives 20
+
+    // Penalty for extreme concentration (0..10)
+    var penalty = 0;
+    var topNivel = topShare(nivel);
+    var topTime = topShare(timeChunks);
+    var topLoc = topShare(localidad);
+
+    // If any dimension is extremely concentrated, it is more fragile
+    if (topNivel > 0.75) penalty += 4;
+    if (topTime > 0.75) penalty += 3;
+    if (topLoc > 0.75) penalty += 3;
+    penalty = Math.min(10, penalty);
+
+    var raw = volumeScore + nivelScore + timeScore + locScore + utmScore - penalty;
+    var score = Math.max(0, Math.min(100, Math.round(raw)));
+
+    var reasons = [];
+    if (volumeScore >= 22) reasons.push("good volume");
+    else if (volumeScore <= 10) reasons.push("low volume");
+    if (utmDiv >= 4) reasons.push("diverse creatives");
+    else if (utmDiv <= 1) reasons.push("creative concentration");
+    if (meaningfulTimes >= 4) reasons.push("broad time coverage");
+    else if (meaningfulTimes <= 1) reasons.push("time concentration");
+    if (meaningfulNiveles >= 4) reasons.push("multi-segment traction");
+    else if (meaningfulNiveles <= 1) reasons.push("segment concentration");
+    if (penalty >= 7) reasons.push("fragile mix");
+
+    return {
+      score: score,
+      tier: scoreTier(score),
+      details: {
+        volumeScore: Math.round(volumeScore),
+        nivelScore: Math.round(nivelScore),
+        timeScore: Math.round(timeScore),
+        locScore: Math.round(locScore),
+        utmScore: Math.round(utmScore),
+        penalty: Math.round(penalty),
+        meaningfulNiveles: meaningfulNiveles,
+        meaningfulTimes: meaningfulTimes,
+        meaningfulLoc: meaningfulLoc,
+        utmDiversity: utmDiv
+      },
+      reasons: reasons
+    };
+  }
+
+  function renderMetaScoring() {
+    var payloads = window._metaPromptPayloads || {};
+    var entries = Object.keys(payloads).map(function(chartId) {
+      return { chartId: chartId, payload: payloads[chartId] };
+    });
+
+    if (!entries.length) {
+      var summaryEl = document.getElementById("metaGroupScoringSummary");
+      if (summaryEl) summaryEl.textContent = "No Meta payloads found for scoring.";
+      return;
+    }
+
+    // Find max total_hist to normalize volume score
+    var maxTotal = 0;
+    entries.forEach(function(e) {
+      var t = Number(e.payload && e.payload.total_hist) || 0;
+      if (t > maxTotal) maxTotal = t;
+    });
+
+    // Score each campaign
+    var scored = entries.map(function(e) {
+      var s = computeMetaCampaignScore(e.payload, maxTotal);
+      return {
+        chartId: e.chartId,
+        campaign: String(e.payload && e.payload.campaign || ""),
+        total: Number(e.payload && e.payload.total_hist) || 0,
+        score: s.score,
+        tier: s.tier,
+        reasons: s.reasons,
+        details: s.details
+      };
+    });
+
+    // Sort by score desc then total desc
+    scored.sort(function(a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.total - a.total;
+    });
+
+    // Update per-card badges
+    scored.forEach(function(x) {
+      var badge = document.getElementById("metaScoreBadge" + x.chartId);
+      var why = document.getElementById("metaScoreWhy" + x.chartId);
+
+      if (badge) {
+        badge.className = "badge " + badgeClassForTier(x.tier);
+        badge.textContent = "Score: " + x.score + " (" + x.tier + ")";
+
+        var tooltip =
+          "Breakdown\n" +
+          "- Volume: " + x.details.volumeScore + "/30\n" +
+          "- Segment breadth: " + x.details.nivelScore + "/20\n" +
+          "- Time breadth: " + x.details.timeScore + "/15\n" +
+          "- Dispersion: " + x.details.locScore + "/15\n" +
+          "- Creative diversity: " + x.details.utmScore + "/20\n" +
+          "- Penalty: -" + x.details.penalty + "\n" +
+          "Signals\n" +
+          "- Niveles (meaningful): " + x.details.meaningfulNiveles + "\n" +
+          "- Time chunks (meaningful): " + x.details.meaningfulTimes + "\n" +
+          "- Local buckets (meaningful): " + x.details.meaningfulLoc + "\n" +
+          "- UTM contents (active): " + x.details.utmDiversity;
+
+        badge.title = tooltip;
+      }
+
+      if (why) {
+        var txt = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        why.textContent = txt;
+      }
+    });
+
+    // Fill table summary if present
+    var tbody = document.getElementById("metaScoringTableBody");
+    if (tbody) {
+      var rows = scored.map(function(x) {
+        var reasons = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        var badge = '<span class="badge ' + badgeClassForTier(x.tier) + '"> ' + x.score + ' </span>';
+        var tier = '<span class="badge bg-light text-dark border"> ' + x.tier + ' </span>';
+
+        return ""
+          + "<tr>"
+          + "<td><strong>" + escapeHtml(x.campaign) + "</strong><div class='text-muted small'>Total: " + escapeHtml(String(x.total)) + " COP</div></td>"
+          + "<td class='text-nowrap'>" + badge + "</td>"
+          + "<td class='text-nowrap'>" + tier + "</td>"
+          + "<td class='text-muted small'>" + escapeHtml(reasons) + "</td>"
+          + "</tr>";
+      }).join("");
+
+      tbody.innerHTML = rows || "<tr><td colspan='4' class='text-muted'>No scored campaigns.</td></tr>";
+    }
+
+    // Group summary
+    var avg = scored.reduce(function(acc, x) { return acc + (Number(x.score) || 0); }, 0) / (scored.length || 1);
+    var top = scored[0];
+    var bottom = scored[scored.length - 1];
+
+    var summaryEl = document.getElementById("metaGroupScoringSummary");
+    if (summaryEl) {
+      summaryEl.textContent =
+        "Campaigns: " + scored.length +
+        " | Avg score: " + avg.toFixed(1) +
+        " | Top: " + (top ? (top.score + " (" + top.tier + ")") : "n/a") +
+        " | Lowest: " + (bottom ? (bottom.score + " (" + bottom.tier + ")") : "n/a");
+    }
+  }
+
+  {# ---------------------------
+     Existing charts and currency toggle
+     --------------------------- #}
+
+  var exchangeRateEl = document.getElementById("exchangeRateBogota");
   var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
   var useUSD = false;
 
   function convertToUSD(values) {
     return values.map(function(v) {
-      return Number((Number(v) / exchangeRate).toFixed(2));
+      return Number((v / exchangeRate).toFixed(2));
     });
   }
 
@@ -571,300 +2206,415 @@ document.addEventListener("DOMContentLoaded", function() {
       : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
   }
 
-  function hexToRgba(hex, alpha) {
-    if (!hex || hex[0] !== "#" || (hex.length !== 7 && hex.length !== 4)) return null;
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
 
-    var r, g, b;
-    if (hex.length === 7) {
-      r = parseInt(hex.slice(1, 3), 16);
-      g = parseInt(hex.slice(3, 5), 16);
-      b = parseInt(hex.slice(5, 7), 16);
-    } else {
-      r = parseInt(hex[1] + hex[1], 16);
-      g = parseInt(hex[2] + hex[2], 16);
-      b = parseInt(hex[3] + hex[3], 16);
-    }
-    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+    var ctx = canvas.getContext("2d");
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          { label: titlePrefix + " (COP)", data: histCOP, fill: true },
+          {
+            label: "Pronóstico " + titlePrefix.replace("Histórico ", "") + " (COP)",
+            data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
+            borderDash: [5, 5],
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "top" },
+          datalabels: { display: false }
+        },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP;
+    chart._rawForecastCOP = fcstCOP;
+    chart._histLen = histCOP.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
   }
 
-  var PALETTE = [
-    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
-    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
-    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
-  ];
+  function applyCurrencyToChart(chart) {
+    if (!chart) return;
 
-  // PIE + color map
-  var pieCanvas = document.getElementById("utmSourcePieChart");
-  var pieChart = null;
-  var channelColorMap = {};
+    var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
+    var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
 
-  if (pieCanvas) {
-    var pieCtx = pieCanvas.getContext("2d");
+    chart.data.datasets[0].data = hist;
+    chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-    var pieLabels = [
-      {% for l in pie_labels %}
-        "{{ l }}",
-      {% endfor %}
-    ];
+    chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+    chart.data.datasets[1].label = useUSD
+      ? "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (USD)"
+      : "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (COP)";
 
-    var pieValuesCOP = [
-      {% for v in pie_values %}
-        {{ v }},
-      {% endfor %}
-    ];
+    chart.update();
+  }
 
-    var filteredLabels = [];
-    var filteredCOP = [];
-    for (var i = 0; i < pieLabels.length; i++) {
-      var val = Number(pieValuesCOP[i]) || 0;
-      if (val > 0) {
-        filteredLabels.push(pieLabels[i]);
-        filteredCOP.push(val);
-      }
-    }
+  function buildPieChartWithPercentLabels(canvasId, labels, values, title) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
 
-    var pieTotal = filteredCOP.reduce(function(acc, v) {
-      return acc + (Number(v) || 0);
-    }, 0);
+    var ctx = canvas.getContext("2d");
+    var total = values.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
 
-    var pieColors = [];
-    for (var j = 0; j < filteredLabels.length; j++) {
-      var color = PALETTE[j % PALETTE.length];
-      pieColors.push(color);
-      channelColorMap[String(filteredLabels[j]).toLowerCase()] = color;
-    }
-
-    pieChart = new Chart(pieCtx, {
+    return new Chart(ctx, {
       type: "pie",
+      plugins: [ChartDataLabels],
       data: {
-        labels: filteredLabels,
-        datasets: [{
-          data: filteredCOP,
-          backgroundColor: pieColors,
-          borderColor: pieColors,
-          borderWidth: 1
-        }]
+        labels: labels,
+        datasets: [{ label: title, data: values }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom" },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                var label = context.label || "";
-                var value = Number(context.parsed || 0);
-                var percent = pieTotal > 0 ? (value / pieTotal) * 100 : 0;
-
-                var formattedValue = useUSD
-                  ? "$" + Number(value).toFixed(2) + " USD"
-                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
-
-                return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
-              }
-            }
+          datalabels: {
+            display: true,
+            formatter: function(value, context) {
+              var v = Number(value) || 0;
+              var pct = total > 0 ? (v / total) * 100 : 0;
+              var label = (context.chart.data.labels[context.dataIndex] || "").toString();
+              return label + "\n" + pct.toFixed(1) + "%";
+            },
+            anchor: "center",
+            align: "center",
+            clamp: true
           }
         }
       }
     });
-
-    pieChart._rawCOP = filteredCOP;
   }
 
-  // Line chart factory with optional bridge point for current month projection
-  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, titlePrefix, hexColor, bridgeLabel, bridgeValueCOP) {
+  function colorForIndex(i, alpha) {
+    var a = (typeof alpha === "number") ? alpha : 0.65;
+    var hue = (i * 47) % 360;
+    return "hsla(" + hue + ", 70%, 55%, " + a + ")";
+  }
+
+  function buildStackedBarChart(canvasId, labels, datasets, title) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
     var ctx = canvas.getContext("2d");
 
-    var hasBridge = !!bridgeLabel && bridgeValueCOP !== null && bridgeValueCOP !== undefined;
-
-    var labels = labelsHist.slice();
-    if (hasBridge) labels.push(bridgeLabel);
-    labels = labels.concat(labelsForecast);
-
-    var fillColor = hexToRgba(hexColor, 0.15) || undefined;
-    var lineColor = hexColor || undefined;
-
-    // Forecast padding is histLen (+1 if we insert bridge)
-    var padLen = histCOP.length + (hasBridge ? 1 : 0);
-
-    var forecastSeries = [].concat(
-      new Array(padLen).fill(null),
-      fcstCOP.map(function(v){ return Number(v) || 0; })
-    );
-
-    // Bridge point as a single dot
-    var bridgeSeries = null;
-    if (hasBridge) {
-      bridgeSeries = [].concat(
-        new Array(histCOP.length).fill(null),
-        [Number(bridgeValueCOP) || 0],
-        new Array(labelsForecast.length).fill(null)
-      );
-    }
-
-    var datasets = [
-      {
-        label: titlePrefix + " (COP)",
-        data: histCOP.map(function(v){ return Number(v) || 0; }),
-        fill: true,
-        borderColor: lineColor,
-        backgroundColor: fillColor
-      }
-    ];
-
-    if (hasBridge) {
-      datasets.push({
-        label: "Projected Current Month (COP)",
-        data: bridgeSeries,
-        showLine: false,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-        borderColor: lineColor,
-        backgroundColor: lineColor
-      });
-    }
-
-    datasets.push({
-      label: "Forecasted " + titlePrefix + " (COP)",
-      data: forecastSeries,
-      borderDash: [5, 5],
-      fill: true,
-      borderColor: lineColor,
-      backgroundColor: fillColor
+    var ds = (datasets || []).map(function(d, i) {
+      return {
+        label: d.label,
+        data: d.data,
+        backgroundColor: colorForIndex(i, 0.65),
+        borderColor: colorForIndex(i, 0.95),
+        borderWidth: 1
+      };
     });
 
     var chart = new Chart(ctx, {
-      type: "line",
-      data: { labels: labels, datasets: datasets },
+      type: "bar",
+      data: { labels: labels, datasets: ds },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: "top" } },
-        scales: { y: { ticks: { callback: formatYTick } } }
+        plugins: {
+          legend: { position: "bottom" },
+          datalabels: { display: false },
+          title: { display: false, text: title || "" }
+        },
+        scales: {
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            ticks: { callback: formatYTick }
+          }
+        }
       }
     });
 
-    chart._rawHistCOP = histCOP.map(function(v){ return Number(v) || 0; });
-    chart._rawForecastCOP = fcstCOP.map(function(v){ return Number(v) || 0; });
-    chart._histLen = histCOP.length;
-    chart._hasBridge = hasBridge;
-    chart._bridgeValueCOP = hasBridge ? (Number(bridgeValueCOP) || 0) : null;
-    chart._labelsForecastLen = labelsForecast.length;
-    chart._titlePrefix = titlePrefix;
+    chart._rawDatasetsCOP = (datasets || []).map(function(d) {
+      return { label: d.label, data: (d.data || []).slice() };
+    });
 
     return chart;
   }
 
-  // Total chart with bridge
-  var totalHistLabels = [{% for r in monthly_sales_trend %}"{{ r['Month'] }}",{% endfor %}];
-  var totalForecastLabels = [{% for r in forecast_data %}"{{ r['Month'] }}",{% endfor %}];
-  var totalHist = [{% for r in monthly_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
-  var totalFcst = [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}];
+  function applyCurrencyToStackedBarChart(chart) {
+    if (!chart) return;
+    if (!chart._rawDatasetsCOP) return;
 
-  var totalBridgeLabel = {% if forecast_includes_current_month_mtd and current_month_label %}"{{ current_month_label }}"{% else %}null{% endif %};
-  var totalBridgeValue = {% if forecast_includes_current_month_mtd %}{{ current_month_projected_sales }}{% else %}null{% endif %};
+    chart.data.datasets.forEach(function(ds, idx) {
+      var raw = chart._rawDatasetsCOP[idx];
+      if (!raw) return;
+
+      var data = useUSD ? convertToUSD(raw.data) : raw.data;
+      ds.data = data;
+    });
+
+    chart.update();
+  }
 
   var totalChart = buildLineChart(
-    "salesChart",
-    totalHistLabels,
-    totalForecastLabels,
-    totalHist,
-    totalFcst,
-    "Historical Total Sales",
-    null,
-    totalBridgeLabel,
-    totalBridgeValue
+    "bogotaTotalSalesChart",
+    [
+      {% for r in total_daily_trend %}"{{ r['Date'] }}",{% endfor %}
+      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+    ],
+    [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+    [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
+    "Historical Bogota Female Total Sales"
   );
 
-  // Channel charts with bridge
-  var channelCharts = [];
+  var campaignCharts = [];
+  var stackedBarCharts = [];
 
-  {% for ch in channel_charts %}
-    (function() {
-      var key = "{{ ch.key }}".toLowerCase();
-      var color = channelColorMap[key] || null;
+  {% for g in campaign_groups %}
+    {% for c in g['items'] %}
+      (function() {
+        var chart = buildLineChart(
+          "campaignChart{{ c['chart_id'] }}",
+          [
+            {% for r in c['total_daily_trend'] %}"{{ r['Date'] }}",{% endfor %}
+            {% for r in c['forecast_data'] %}"{{ r['Date'] }}",{% endfor %}
+          ],
+          [{% for r in c['total_daily_trend'] %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+          [{% for r in c['forecast_data'] %}{{ r['Projected Total Sales'] }},{% endfor %}],
+          "Historical {{ c['campaign'] }} Total Sales"
+        );
 
-      var histLabels = [{% for r in ch.trend %}"{{ r['Month'] }}",{% endfor %}];
-      var forecastLabels = [{% for r in ch.forecast %}"{{ r['Month'] }}",{% endfor %}];
-
-      var hist = [{% for r in ch.trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
-      var fcst = [{% for r in ch.forecast %}{{ r['Projected Total Sales'] }},{% endfor %}];
-
-      var bridgeLabel = {% if ch.forecast_includes_current_month_mtd and ch.current_month_label %}"{{ ch.current_month_label }}"{% else %}null{% endif %};
-      var bridgeValue = {% if ch.forecast_includes_current_month_mtd %}{{ ch.current_month_projected_sales }}{% else %}null{% endif %};
-
-      var c = buildLineChart(
-        "{{ ch.canvas_id }}",
-        histLabels,
-        forecastLabels,
-        hist,
-        fcst,
-        "Historical {{ ch.label }} Sales",
-        color,
-        bridgeLabel,
-        bridgeValue
-      );
-
-      if (c) channelCharts.push(c);
-    })();
+        if (chart) campaignCharts.push(chart);
+      })();
+    {% endfor %}
   {% endfor %}
 
-  // Currency toggle
-  window.toggleCurrencySales = function() {
+  {% for g in campaign_groups %}
+    {% for c in g['items'] %}
+
+      {% if c['localidad_breakdown'] and (c['localidad_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['localidad_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['localidad_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "localidadPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Localidad"
+          );
+        })();
+      {% endif %}
+
+      {% if c['estrato_breakdown'] and (c['estrato_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['estrato_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['estrato_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "estratoPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Estrato"
+          );
+        })();
+      {% endif %}
+
+      {% if c['nivel_socioeconomico_breakdown'] and (c['nivel_socioeconomico_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['nivel_socioeconomico_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['nivel_socioeconomico_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "nivelPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Segmento (Nivel Socioeconómico)"
+          );
+        })();
+      {% endif %}
+
+      {% if (g['key'] == 'meta' or g['key'] == 'google') and c['time_of_day_breakdown'] and (c['time_of_day_breakdown']|length > 0) %}
+        (function() {
+          var labels = [
+            {% for it in c['time_of_day_breakdown'] %}
+              "{{ it['label'] }}",
+            {% endfor %}
+          ];
+
+          var values = [
+            {% for it in c['time_of_day_breakdown'] %}
+              {{ it['value']|default(0) }},
+            {% endfor %}
+          ];
+
+          buildPieChartWithPercentLabels(
+            "timeChunkPie{{ c['chart_id'] }}",
+            labels,
+            values,
+            "Ventas por Hora del Día (3h)"
+          );
+        })();
+      {% endif %}
+
+      {% if (g['key'] == 'meta' or g['key'] == 'google')
+          and c['utm_content_localidad']
+          and c['utm_content_localidad']['labels']
+          and (c['utm_content_localidad']['labels']|length > 0)
+          and c['utm_content_localidad']['datasets']
+          and (c['utm_content_localidad']['datasets']|length > 0)
+      %}
+        (function() {
+          var labels = [
+            {% for l in c['utm_content_localidad']['labels'] %}
+              "{{ l }}",
+            {% endfor %}
+          ];
+
+          var datasets = [
+            {% for d in c['utm_content_localidad']['datasets'] %}
+              {
+                label: "{{ d['label'] }}",
+                data: [
+                  {% for v in d['data'] %}
+                    {{ v|default(0) }},
+                  {% endfor %}
+                ]
+              },
+            {% endfor %}
+          ];
+
+          var ch = buildStackedBarChart(
+            "utmContentLocalidad{{ c['chart_id'] }}",
+            labels,
+            datasets,
+            "UTM Content Ventas Totales por Localidad"
+          );
+
+          if (ch) stackedBarCharts.push(ch);
+        })();
+      {% endif %}
+
+      {% if g['key'] == 'meta' %}
+        (function() {
+          var payload = {
+            campaign: "{{ c['campaign']|e }}",
+            total_hist: {{ c['total_hist']|default(0) }},
+
+            localidad_breakdown: [
+              {% for it in (c['localidad_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            estrato_breakdown: [
+              {% for it in (c['estrato_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            nivel_socioeconomico_breakdown: [
+              {% for it in (c['nivel_socioeconomico_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            time_of_day_breakdown: [
+              {% for it in (c['time_of_day_breakdown'] or []) %}
+                { label: "{{ it['label']|e }}", value: {{ it['value']|default(0) }} },
+              {% endfor %}
+            ],
+
+            utm_content_localidad: {
+              labels: [
+                {% for l in (c['utm_content_localidad']['labels'] or []) %}
+                  "{{ l|e }}",
+                {% endfor %}
+              ],
+              datasets: [
+                {% for d in (c['utm_content_localidad']['datasets'] or []) %}
+                  {
+                    label: "{{ d['label']|e }}",
+                    data: [
+                      {% for v in (d['data'] or []) %}
+                        {{ v|default(0) }},
+                      {% endfor %}
+                    ]
+                  },
+                {% endfor %}
+              ]
+            }
+          };
+
+          window._metaPromptPayloads = window._metaPromptPayloads || {};
+          window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
+
+          buildMetaPromptsUI({{ c['chart_id'] }}, payload);
+
+          var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
+          if (strategicTextarea) {
+            strategicTextarea.value = buildMetaStrategicPrompt(payload);
+          }
+
+          var budgetTextarea = document.getElementById("metaBudgetPrompt{{ c['chart_id'] }}");
+          if (budgetTextarea) {
+            budgetTextarea.value = buildMetaBudgetReallocationPrompt(payload);
+          }
+
+          var scalabilityTextarea = document.getElementById("metaScalabilityPrompt{{ c['chart_id'] }}");
+          if (scalabilityTextarea) {
+            scalabilityTextarea.value = buildMetaScalabilityPredictionPrompt(payload);
+          }
+        })();
+      {% endif %}
+
+    {% endfor %}
+  {% endfor %}
+
+  // After payloads are registered, compute and render Meta scoring
+  renderMetaScoring();
+
+  window.toggleCurrencyBogota = function() {
     exchangeRate = parseFloat(exchangeRateEl.value || "4000");
     useUSD = !useUSD;
 
-    if (pieChart && pieChart._rawCOP) {
-      var pieVals = useUSD ? convertToUSD(pieChart._rawCOP) : pieChart._rawCOP;
-      pieChart.data.datasets[0].data = pieVals;
-      pieChart.update();
-    }
-
-    function apply(chart) {
-      if (!chart) return;
-
-      var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
-      var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
-
-      // dataset[0] is historical
-      chart.data.datasets[0].data = hist;
-
-      var dsIndexForecast = chart._hasBridge ? 2 : 1;
-
-      // bridge dataset if present
-      if (chart._hasBridge) {
-        var bridgeVal = useUSD ? (chart._bridgeValueCOP / exchangeRate) : chart._bridgeValueCOP;
-        var bridgeSeries = [].concat(
-          new Array(chart._histLen).fill(null),
-          [Number(bridgeVal) || 0],
-          new Array(chart._labelsForecastLen).fill(null)
-        );
-        chart.data.datasets[1].data = bridgeSeries;
-        chart.data.datasets[1].label = useUSD ? "Projected Current Month (USD)" : "Projected Current Month (COP)";
-      }
-
-      // forecast dataset
-      var padLen = chart._histLen + (chart._hasBridge ? 1 : 0);
-      chart.data.datasets[dsIndexForecast].data = [].concat(new Array(padLen).fill(null), fcst);
-
-      // labels
-      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
-      chart.data.datasets[dsIndexForecast].label = useUSD
-        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
-
-      chart.update();
-    }
-
-    apply(totalChart);
-    for (var i = 0; i < channelCharts.length; i++) {
-      apply(channelCharts[i]);
-    }
+    applyCurrencyToChart(totalChart);
+    campaignCharts.forEach(function(ch) { applyCurrencyToChart(ch); });
+    stackedBarCharts.forEach(function(ch) { applyCurrencyToStackedBarChart(ch); });
   };
 
 });
@@ -876,282 +2626,883 @@ document.addEventListener("DOMContentLoaded", function() {
 
 ========================================
 
-**app/services/get_data.py**
+**app/services/bogota_insights.py**
 ```python
-# app/services/get_data.py
-
-import csv
+# app/services/bogota_insights.py
 import os
-import requests
-from gender_guesser.detector import Detector
+import re
+import csv
+import logging
+import numpy as np
+import pandas as pd
+from typing import Optional, Dict, Any, Tuple, List
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 
-def load_name_to_gender_mapping(file_path):
-    """
-    Loads a custom name-to-gender mapping from a CSV file.
-    """
-    name_to_gender = {}
+def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
+    s = pd.Series(series).astype(float).copy()
+    s = s.replace([np.inf, -np.inf], np.nan).dropna()
+
+    if periods <= 0:
+        return pd.Series([], dtype=float)
+
+    if len(s) == 0:
+        return pd.Series([0.0] * periods, dtype=float)
+
+    s = s.clip(lower=0.0)
+    last = float(s.iloc[-1]) if len(s) else 0.0
+    last = 0.0 if np.isnan(last) else max(last, 0.0)
+
+    nonzero_days = int((s > 0).sum())
+
+    if nonzero_days < 7:
+        decay = 0.90
+        return pd.Series([max(last * (decay ** i), 0.0) for i in range(1, periods + 1)], dtype=float)
+
+    if nonzero_days < 14:
+        window = min(10, len(s))
+        recent = s.iloc[-window:].astype(float)
+
+        recent_nz = recent[recent > 0]
+        if len(recent_nz) >= 3:
+            level_med = float(recent_nz.median())
+            level_mean = float(recent_nz.mean())
+            recent_max = float(recent_nz.max())
+        else:
+            level_med = float(recent.median())
+            level_mean = float(recent.mean())
+            recent_max = float(recent.max())
+
+        diffs = recent.diff().dropna()
+        slope = float(diffs.median()) if len(diffs) else 0.0
+        if np.isnan(slope):
+            slope = 0.0
+
+        base_level = max(level_med, level_mean, 0.0)
+
+        abs_cap = max(1000.0, base_level * 0.08)
+        slope = max(min(slope, abs_cap), -abs_cap)
+
+        spike_factor = 1.0
+        if base_level > 0 and last > 1.7 * base_level:
+            spike_factor = 0.25
+        slope *= spike_factor
+
+        ceiling = max(recent_max * 1.15, base_level * 1.25, last * 1.10)
+        floor = 0.0
+
+        forecasts = []
+        for i in range(1, periods + 1):
+            val = last + slope * i
+            val *= (0.90 ** i)
+            val = min(val, ceiling)
+            val = max(val, floor)
+            forecasts.append(float(val))
+
+        return pd.Series(forecasts, dtype=float)
+
     try:
-        with open(file_path, mode="r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                name = (row.get("name") or "").strip().lower()
-                gender = (row.get("gender") or "").strip().lower()
-                if name:
-                    name_to_gender[name] = gender
-    except Exception as e:
-        print(f"Error loading name-to-gender mapping: {e}")
-    return name_to_gender
+        model = ExponentialSmoothing(
+            s,
+            trend="add",
+            damped_trend=True,
+            seasonal="add",
+            seasonal_periods=7,
+            initialization_method="estimated",
+        )
+        fit = model.fit(optimized=True)
+        fc = fit.forecast(periods)
+        return pd.Series(fc).astype(float).clip(lower=0.0)
+    except Exception:
+        return pd.Series([last] * periods, dtype=float)
 
 
-def get_gender_with_custom_mapping(name, detector, name_to_gender):
-    name_lower = (name or "").strip().lower()
-    if not name_lower:
+def _normalize_str(val: str, fallback: str = "") -> str:
+    s = "" if val is None else str(val)
+    s = s.strip()
+    if not s or s.lower() in {"nan", "none"}:
+        return fallback
+    return s
+
+
+def _normalize_city(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip()
+    if not s or s.lower() in {"nan", "none", "n/a"}:
+        return ""
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def _normalize_gender(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip().lower()
+    if s in {"female", "f", "mujer", "mujeres"}:
+        return "female"
+    if s in {"male", "m", "hombre", "hombres"}:
+        return "male"
+    return ""
+
+
+def _normalize_campaign(val: str) -> str:
+    s = _normalize_str(val, fallback="").strip()
+    if not s:
+        return "Unknown"
+
+    low = s.lower()
+    if low in {"nan", "none", "n/a", "undefined"}:
+        return "Unknown"
+
+    if low == "unknow":
+        return "Unknown"
+
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def _campaign_key(val: str) -> str:
+    label = _normalize_campaign(val)
+    if label == "Unknown":
         return "unknown"
 
-    if name_lower in name_to_gender:
-        return name_to_gender[name_lower]
+    k = label.lower()
+    k = k.replace("+", "").replace(" ", "")
+    k = k.replace("%20", "").replace("%2b", "").replace("%2B", "")
+    k = re.sub(r"[^a-z0-9]", "", k)
 
-    guessed_gender = detector.get_gender(name)
-    if guessed_gender in ["mostly_female", "female"]:
-        return "female"
-    if guessed_gender in ["mostly_male", "male"]:
-        return "male"
-    return "unknown"
+    return k or "unknown"
 
 
-def _clean_str(v):
-    if v is None:
-        return ""
-    return str(v).strip()
+def _is_numeric_campaign(name: str) -> bool:
+    if not name:
+        return False
+    return bool(re.fullmatch(r"\d+", name.strip()))
 
 
-DAILY_SALES_SCHEMA = [
-    "order_id",
-    "order_date",
-    "name",
-    "email",
-    "city",
-    "state",
-    "order_lat",
-    "order_lng",
-    "total_value",
-    "product",
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_term",
-    "utm_content",
-    "utm_answer",
-    "address_1",
-    "gender",
-]
+def _choose_display_name(display_name_counts: Dict[str, int], fallback_key: str) -> str:
+    if not display_name_counts:
+        return fallback_key
+
+    best = sorted(
+        display_name_counts.items(),
+        key=lambda kv: (kv[1], len(kv[0]), kv[0]),
+        reverse=True,
+    )[0][0]
+    return best
 
 
-def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict) -> dict:
-    name_raw = _clean_str(item.get("name"))
-    name_title = name_raw.title() if name_raw else ""
+def _sum_trend_rows(trend_rows: List[Dict[str, Any]]) -> float:
+    total = 0.0
+    for r in trend_rows or []:
+        try:
+            total += float(r.get("Total Sales", "0") or 0)
+        except Exception:
+            continue
+    return total
 
-    first_name = name_title.split()[0] if name_title else ""
-    gender = get_gender_with_custom_mapping(first_name, detector, name_to_gender) if first_name else "unknown"
 
-    utm_source = _clean_str(item.get("utm_source")).lower()
-    utm_medium = _clean_str(item.get("utm_medium"))
-    utm_campaign = _clean_str(item.get("utm_campaign"))
-    utm_term = _clean_str(item.get("utm_term"))
-    utm_content = _clean_str(item.get("utm_content"))
-    utm_answer = _clean_str(item.get("utm_answer"))
+def _to_local(dt_series: pd.Series, tz: str) -> pd.Series:
+    s = pd.to_datetime(dt_series, errors="coerce")
+    if s.isna().all():
+        return s
 
-    row = {
-        "order_id": _clean_str(item.get("order_id")),
-        "order_date": _clean_str(item.get("order_date")),
-        "name": name_title,
-        "email": _clean_str(item.get("email")),
-        "city": _clean_str(item.get("city")),
-        "state": _clean_str(item.get("state")),
-        "order_lat": _clean_str(item.get("order_lat")),
-        "order_lng": _clean_str(item.get("order_lng")),
-        "total_value": _clean_str(item.get("total_value")),
-        "product": _clean_str(item.get("product")),
-        "utm_source": utm_source,
-        "utm_medium": utm_medium,
-        "utm_campaign": utm_campaign,
-        "utm_term": utm_term,
-        "utm_content": utm_content,
-        "utm_answer": utm_answer,
-        "address_1": _clean_str(item.get("address_1")),
-        "gender": gender,
+    try:
+        if getattr(s.dt, "tz", None) is not None:
+            return s.dt.tz_convert(tz)
+    except Exception:
+        pass
+
+    # If naive timestamps, treat them as already in Bogota time and localize
+    return s.dt.tz_localize(tz)
+
+
+def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    dfx = df.copy()
+
+    dfx["order_date"] = pd.to_datetime(dfx["order_date"], errors="coerce")
+    dfx = dfx.dropna(subset=["order_date"]).copy()
+
+    # order_date is already Bogota timezone (per your note), we still localize safely
+    dfx["order_date_local"] = _to_local(dfx["order_date"], tz=tz)
+    dfx = dfx.dropna(subset=["order_date_local"]).copy()
+
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    now_local = pd.Timestamp.now(tz=tz).normalize()
+    end_yesterday = now_local - pd.Timedelta(microseconds=1)
+
+    return dfx[dfx["order_date_local"] <= end_yesterday].copy()
+
+
+def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> Tuple[list[dict], list[dict]]:
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    dfx["day"] = dfx["order_date_local"].dt.floor("D")
+
+    daily = (
+        dfx.groupby("day")["total_value"]
+        .sum()
+        .reset_index(name="Sales")
+        .sort_values("day")
+    )
+
+    daily["Date"] = daily["day"].dt.strftime("%Y-%m-%d")
+    daily["Total Sales"] = daily["Sales"].apply(lambda x: str(int(round(float(x)))))
+
+    trend_rows = daily[["Date", "Total Sales"]].to_dict(orient="records")
+
+    if forecast_periods <= 0:
+        return trend_rows, []
+
+    ts = daily[["Date", "Sales"]].copy()
+    ts["Date_dt"] = pd.to_datetime(ts["Date"], errors="coerce")
+    ts = ts.dropna(subset=["Date_dt"]).sort_values("Date_dt")
+    if ts.empty:
+        return trend_rows, []
+
+    s = ts.set_index("Date_dt")["Sales"].astype(float)
+
+    full_idx = pd.date_range(s.index.min(), s.index.max(), freq="D")
+    s = s.reindex(full_idx)
+    s = s.interpolate(limit=2).fillna(0.0)
+
+    fc = _forecast_daily_series(s, periods=forecast_periods)
+    fc_idx = pd.date_range(s.index.max() + pd.Timedelta(days=1), periods=forecast_periods, freq="D")
+
+    forecast_rows = [{"Date": d.strftime("%Y-%m-%d"), "Projected Total Sales": float(v)} for d, v in zip(fc_idx, fc)]
+    return trend_rows, forecast_rows
+
+
+def get_bogota_insights_daily(
+    orders_csv_path: str = "data/facebook_sales_orders.csv",
+    forecast_periods: int = 30,
+    city_value: str = "BOGOTA (C/MARCA)",
+    gender: Optional[str] = None,
+) -> dict:
+    tz = "America/Bogota"
+
+    if not os.path.exists(orders_csv_path):
+        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
+
+    df = pd.read_csv(orders_csv_path)
+
+    required_cols = {"order_date", "total_value", "city"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
+
+    target_city = _normalize_city(city_value).strip().lower()
+    df["city_norm"] = df["city"].apply(_normalize_city).str.strip().str.lower()
+    df = df[df["city_norm"] == target_city].copy()
+
+    if gender:
+        gender_norm = _normalize_gender(gender)
+        if not gender_norm:
+            raise ValueError("Invalid gender. Use 'female' or 'male'.")
+
+        if "gender" not in df.columns:
+            raise ValueError("Orders file is missing required column: gender")
+
+        df["gender_norm"] = df["gender"].apply(_normalize_gender)
+        df = df[df["gender_norm"] == gender_norm].copy()
+
+    total_daily_trend, forecast_data = _build_daily_series(df=df, tz=tz, forecast_periods=forecast_periods)
+
+    return {
+        "total_daily_trend": total_daily_trend,
+        "forecast_data": forecast_data,
     }
 
-    return {k: row.get(k, "") for k in DAILY_SALES_SCHEMA}
 
+def read_saved_date_options(OptionModel, file_name: str, logger: Optional[logging.Logger] = None) -> Dict[str, Optional[str]]:
+    out = {"date_range": None, "start_date": None, "end_date": None}
 
-def fetch_json_and_create_csv(
-    json_data,
-    output_file,
-    name_to_gender_file,
-    include_address_1=False,
-    force_schema=None,
-    row_builder=None,
-    drop_columns=None,
-):
     try:
-        if drop_columns is None:
-            drop_columns = ["shipping"]
+        q = OptionModel.query
+        rec = q.filter_by(meta_key=f"date_range_{file_name}").first()
+        out["date_range"] = rec.meta_value if rec else None
 
-        if not isinstance(json_data, list):
-            raise ValueError("Expected JSON data to be a list of objects.")
-        if not json_data:
-            raise ValueError("Expected JSON data list to be non-empty.")
+        rec = q.filter_by(meta_key=f"start_date_{file_name}").first()
+        out["start_date"] = rec.meta_value if rec else None
 
-        name_to_gender = load_name_to_gender_mapping(name_to_gender_file)
-        detector = Detector()
+        rec = q.filter_by(meta_key=f"end_date_{file_name}").first()
+        out["end_date"] = rec.meta_value if rec else None
 
-        rows = []
-        for item in json_data:
-            if not isinstance(item, dict):
-                continue
+    except Exception:
+        if logger:
+            logger.exception("Reading date range options failed (bogota_insights)")
+    return out
 
-            if row_builder:
-                row = row_builder(item, detector, name_to_gender)
-                rows.append(row)
-                continue
 
-            if "name" in item and item["name"]:
-                item["name"] = str(item["name"]).title()
+def build_city_filtered_csv(
+    src_path: str,
+    dst_path: str,
+    target_city: str,
+    gender: Optional[str] = None,
+) -> Dict[str, Any]:
+    if not os.path.exists(src_path):
+        raise FileNotFoundError(f"Source CSV not found: {src_path}")
 
-            first_name = str(item.get("name", "")).split()[0] if item.get("name") else ""
-            item["gender"] = (
-                get_gender_with_custom_mapping(first_name, detector, name_to_gender)
-                if first_name
-                else "unknown"
-            )
+    target_city_norm = _normalize_city(target_city).strip().lower()
+    if not target_city_norm:
+        raise ValueError("target_city is empty")
 
-            if include_address_1:
-                item["address_1"] = _clean_str(item.get("address_1"))
+    gender_norm = None
+    if gender:
+        gender_norm = _normalize_gender(gender)
+        if not gender_norm:
+            raise ValueError("Invalid gender. Use 'female' or 'male'.")
 
-            rows.append(item)
+    is_bogota = (target_city_norm == "bogota (c/marca)")
 
-        if force_schema:
-            headers = [h for h in list(force_schema) if h not in set(drop_columns)]
-        else:
-            headers = []
-            seen = set()
-            for row in rows:
-                if not isinstance(row, dict):
+    get_localidad_info = None
+    if is_bogota:
+        try:
+            from app.services.localidades import get_localidad_info as _get_localidad_info
+            get_localidad_info = _get_localidad_info
+        except Exception:
+            get_localidad_info = None
+
+    def _to_float(x):
+        try:
+            if x is None:
+                return None
+            s = str(x).strip()
+            if not s or s.lower() in {"nan", "none", "null", "undefined"}:
+                return None
+            return float(s)
+        except Exception:
+            return None
+
+    kept = 0
+    removed = 0
+    bad_rows = 0
+
+    os.makedirs(os.path.dirname(dst_path) or ".", exist_ok=True)
+
+    with open(src_path, "r", newline="", encoding="utf-8-sig", errors="replace") as src, open(
+        dst_path, "w", newline="", encoding="utf-8"
+    ) as dst:
+        reader = csv.DictReader(src)
+
+        if not reader.fieldnames:
+            raise ValueError("CSV has no header row")
+
+        base_fieldnames = [fn.lstrip("\ufeff") if isinstance(fn, str) else fn for fn in reader.fieldnames]
+
+        if "city" not in base_fieldnames:
+            raise ValueError(f"CSV is missing required column: city. Found columns: {base_fieldnames}")
+
+        if gender_norm and "gender" not in base_fieldnames:
+            raise ValueError(f"CSV is missing required column: gender. Found columns: {base_fieldnames}")
+
+        fieldnames = list(base_fieldnames)
+        if is_bogota:
+            if "order_lat" not in fieldnames:
+                fieldnames.append("order_lat")
+            if "order_lng" not in fieldnames:
+                fieldnames.append("order_lng")
+
+            for col in ["localidad", "estrato", "nivel_socioeconomico"]:
+                if col not in fieldnames:
+                    fieldnames.append(col)
+
+        writer = csv.DictWriter(dst, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+
+        for row in reader:
+            try:
+                if None in row:
+                    row.pop(None, None)
+
+                row_city = _normalize_city(row.get("city")).strip().lower()
+                if row_city != target_city_norm:
+                    removed += 1
                     continue
-                for k in row.keys():
-                    if k in set(drop_columns):
+
+                if gender_norm:
+                    row_gender = _normalize_gender(row.get("gender"))
+                    if row_gender != gender_norm:
+                        removed += 1
                         continue
-                    if k not in seen:
-                        seen.add(k)
-                        headers.append(k)
 
-        drop_set = set(drop_columns)
+                if is_bogota:
+                    row.setdefault("order_lat", "")
+                    row.setdefault("order_lng", "")
 
-        with open(output_file, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=headers, extrasaction="ignore")
-            writer.writeheader()
-            for row in rows:
-                if not isinstance(row, dict):
-                    continue
-                filtered_row = {k: v for k, v in row.items() if k not in drop_set}
-                writer.writerow(filtered_row)
+                    row["localidad"] = row.get("localidad") or ""
+                    row["estrato"] = row.get("estrato") or ""
+                    row["nivel_socioeconomico"] = row.get("nivel_socioeconomico") or ""
 
-        return f"CSV file successfully created at: {output_file}"
+                    if get_localidad_info:
+                        lat = _to_float(row.get("order_lat"))
+                        lng = _to_float(row.get("order_lng"))
+                        if lat is not None and lng is not None:
+                            try:
+                                info = get_localidad_info(lat, lng) or {}
+                                row["localidad"] = (info.get("localidad") or "").strip()
+                                row["estrato"] = (info.get("estrato") or "").strip()
+                                row["nivel_socioeconomico"] = (info.get("nivel_socioeconomico") or "").strip()
+                            except Exception:
+                                pass
 
-    except Exception as e:
-        return f"An error occurred during CSV creation: {e}"
+                writer.writerow(row)
+                kept += 1
+
+            except Exception:
+                bad_rows += 1
+                continue
+
+    return {
+        "kept": kept,
+        "removed": removed,
+        "bad_rows": bad_rows,
+        "output_file": dst_path,
+    }
 
 
-def fetch_orders_and_write_csv(
+def _localidad_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+
+    if "localidad" not in df.columns or "total_value" not in df.columns:
+        return []
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    loc = dfx["localidad"].fillna("").astype(str).str.strip()
+    loc = loc.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["localidad_norm"] = loc
+
+    totals = (
+        dfx.groupby("localidad_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
+
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
+
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
+
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _estrato_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+
+    if "estrato" not in df.columns or "total_value" not in df.columns:
+        return []
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    estr = dfx["estrato"].fillna("").astype(str).str.strip()
+    estr = estr.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["estrato_norm"] = estr
+
+    totals = (
+        dfx.groupby("estrato_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
+
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
+
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
+
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _nivel_socioeconomico_breakdown(df: pd.DataFrame, top_n: int = 10) -> List[Dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+
+    if "nivel_socioeconomico" not in df.columns or "total_value" not in df.columns:
+        return []
+
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    ns = dfx["nivel_socioeconomico"].fillna("").astype(str).str.strip()
+    ns = ns.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["nivel_norm"] = ns
+
+    totals = (
+        dfx.groupby("nivel_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    labels = totals.index.tolist()
+    values = totals.values.tolist()
+
+    if len(labels) <= top_n:
+        return [{"label": str(l), "value": float(v)} for l, v in zip(labels, values)]
+
+    top_labels = labels[:top_n]
+    top_values = values[:top_n]
+    other_sum = float(sum(values[top_n:]))
+
+    out = [{"label": str(l), "value": float(v)} for l, v in zip(top_labels, top_values)]
+    if other_sum > 0:
+        out.append({"label": "Other", "value": other_sum})
+    return out
+
+
+def _time_chunk_label(hour: int) -> str:
+    """
+    3-hour chunks:
+    00:00-02:59, 03:00-05:59, ..., 21:00-23:59
+    """
+    h = int(hour) if hour is not None else 0
+    start = (h // 3) * 3
+    end = start + 2
+    return f"{start:02d}:00-{end:02d}:59"
+
+
+def _time_of_day_3h_breakdown(df: pd.DataFrame, tz: str) -> List[Dict[str, Any]]:
+    """
+    Pie chart input:
+    [{label: "00:00-02:59", value: <sales>}, ...]
+    Uses order_date in Bogota time (already), via order_date_local.
+    """
+    if df is None or df.empty:
+        return []
+
+    needed = {"order_date", "total_value"}
+    if not needed.issubset(set(df.columns)):
+        return []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return []
+
+    # order_date_local is tz-aware Bogota time
+    dfx["hour"] = dfx["order_date_local"].dt.hour
+    dfx["chunk"] = dfx["hour"].apply(_time_chunk_label)
+
+    totals = (
+        dfx.groupby("chunk")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if totals.empty:
+        return []
+
+    # Keep natural chronological order for display
+    ordered_labels = [f"{h:02d}:00-{h+2:02d}:59" for h in range(0, 24, 3)]
+    totals = totals.reindex(ordered_labels).fillna(0.0)
+
+    out = []
+    for label, val in totals.items():
+        v = float(val) if val is not None else 0.0
+        if v <= 0:
+            continue
+        out.append({"label": str(label), "value": v})
+
+    return out
+
+
+def _utm_content_by_localidad_stacked(
+    df: pd.DataFrame,
     *,
-    orders_url: str,
-    api_key: str,
-    start_date: str,
-    end_date: str,
-    file_name: str,
-    cwd: str | None = None,
-    timeout: int = 60,
-) -> tuple[bool, dict]:
-    """
-    Calls the Orders API and writes the daily sales CSV.
+    top_contents: int = 6,
+    top_localidades: int = 12,
+) -> Dict[str, Any]:
+    if df is None or df.empty:
+        return {"labels": [], "datasets": []}
 
-    Before writing:
-      - Deletes /data/{file_name} if exists
-      - Deletes /data/{file_name_without_ext}_filtered.csv if exists
+    needed = {"total_value", "localidad", "utm_content"}
+    if not needed.issubset(set(df.columns)):
+        return {"labels": [], "datasets": []}
 
-    Returns: (ok, payload)
-      - ok=True: payload has message + csv_url
-      - ok=False: payload has message
-    """
-    try:
-        params = {"start_date": start_date, "end_date": end_date}
-        headers = {"Authorization": f"Bearer {api_key}"}
+    dfx = df.copy()
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
 
-        response = requests.get(
-            orders_url,
-            headers=headers,
-            params=params,
-            timeout=timeout
+    loc = dfx["localidad"].fillna("").astype(str).str.strip()
+    loc = loc.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
+    dfx["localidad_norm"] = loc
+
+    cont = dfx["utm_content"].fillna("").astype(str).str.strip()
+    cont = cont.replace({"": "Unknown", "nan": "Unknown", "None": "Unknown", "undefined": "Unknown"})
+    dfx["utm_content_norm"] = cont
+
+    loc_totals = (
+        dfx.groupby("localidad_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    if loc_totals.empty:
+        return {"labels": [], "datasets": []}
+
+    top_loc_labels = loc_totals.index.tolist()[:max(1, int(top_localidades))]
+    dfx = dfx[dfx["localidad_norm"].isin(top_loc_labels)].copy()
+    if dfx.empty:
+        return {"labels": [], "datasets": []}
+
+    content_totals = (
+        dfx.groupby("utm_content_norm")["total_value"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+    top_contents_labels = content_totals.index.tolist()[:max(1, int(top_contents))]
+    dfx = dfx[dfx["utm_content_norm"].isin(top_contents_labels)].copy()
+    if dfx.empty:
+        return {"labels": [], "datasets": []}
+
+    pivot = (
+        dfx.pivot_table(
+            index="localidad_norm",
+            columns="utm_content_norm",
+            values="total_value",
+            aggfunc="sum",
+            fill_value=0.0,
         )
-        response.raise_for_status()
+        .reindex(index=top_loc_labels, fill_value=0.0)
+    )
 
-        json_data = response.json()
-        if not json_data:
-            return False, {"message": "No data returned from the API."}
+    labels = [str(x) for x in pivot.index.tolist()]
+    datasets: List[Dict[str, Any]] = []
 
-        base_dir = cwd or os.getcwd()
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(data_dir, exist_ok=True)
-
-        # ----------------------------
-        # Delete existing files first
-        # ----------------------------
-
-        # Main file
-        csv_path = os.path.join(data_dir, file_name)
-
-        # Build filtered file name automatically
-        name_without_ext = os.path.splitext(file_name)[0]
-        filtered_file_name = f"{name_without_ext}_filtered.csv"
-        filtered_csv_path = os.path.join(data_dir, filtered_file_name)
-
-        for path in [csv_path, filtered_csv_path]:
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
-                except Exception:
-                    # Do not fail hard if deletion fails
-                    pass
-
-        # ----------------------------
-        # Create new CSV
-        # ----------------------------
-
-        name_map_file = os.path.join(data_dir, "name_to_gender.csv")
-
-        message = fetch_json_and_create_csv(
-            json_data=json_data,
-            output_file=csv_path,
-            name_to_gender_file=name_map_file,
-            force_schema=DAILY_SALES_SCHEMA,
-            row_builder=_build_daily_sales_row,
-            drop_columns=["shipping"],
-        )
-
-        if "successfully" in (message or "").lower():
-            return True, {
-                "message": f"data/{file_name} created successfully!",
-                "csv_url": f"/static/data/{file_name}",
+    for content_label in top_contents_labels:
+        if content_label not in pivot.columns:
+            continue
+        datasets.append(
+            {
+                "label": str(content_label),
+                "data": [float(v) for v in pivot[content_label].tolist()],
             }
+        )
 
-        return False, {"message": f"Error creating CSV: {message}"}
+    return {"labels": labels, "datasets": datasets}
 
-    except requests.exceptions.RequestException as e:
-        return False, {"message": f"Request error occurred: {e}"}
-    except Exception as e:
-        return False, {"message": f"An unexpected error occurred: {e}"}
+
+def _build_campaign_charts_from_csv(
+    filtered_file: str,
+    tz: str,
+    forecast_periods: int,
+    logger: Optional[logging.Logger] = None,
+) -> List[Dict[str, Any]]:
+    if not os.path.exists(filtered_file):
+        return []
+
+    try:
+        df = pd.read_csv(filtered_file)
+    except Exception:
+        if logger:
+            logger.exception("Failed to read filtered CSV for campaign charts: %s", filtered_file)
+        return []
+
+    required_cols = {"order_date", "total_value"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        if logger:
+            logger.warning("Campaign charts skipped. Missing columns: %s", sorted(missing))
+        return []
+
+    if "utm_campaign" not in df.columns:
+        if logger:
+            logger.warning("Campaign charts skipped. utm_campaign column not found in %s", filtered_file)
+        return []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return []
+
+    dfx["utm_campaign_display"] = dfx["utm_campaign"].apply(_normalize_campaign)
+    dfx["utm_campaign_key"] = dfx["utm_campaign"].apply(_campaign_key)
+
+    charts: List[Dict[str, Any]] = []
+
+    for campaign_key, g in dfx.groupby("utm_campaign_key"):
+        counts = g["utm_campaign_display"].value_counts(dropna=False).to_dict()
+        display_name = _choose_display_name(counts, fallback_key=campaign_key)
+
+        trend_rows, forecast_rows = _build_daily_series(g, tz=tz, forecast_periods=forecast_periods)
+        if not trend_rows and not forecast_rows:
+            continue
+
+        total_hist = _sum_trend_rows(trend_rows)
+
+        loc_breakdown = _localidad_breakdown(g, top_n=10)
+        estr_breakdown = _estrato_breakdown(g, top_n=10)
+        nivel_breakdown = _nivel_socioeconomico_breakdown(g, top_n=10)
+
+        # NEW: time-of-day breakdown (3-hour chunks)
+        time_of_day_breakdown = _time_of_day_3h_breakdown(g, tz=tz)
+
+        # Existing: utm_content totals by localidad (stacked bar data)
+        utm_content_localidad = _utm_content_by_localidad_stacked(
+            g,
+            top_contents=6,
+            top_localidades=12,
+        )
+
+        charts.append(
+            {
+                "campaign": display_name,
+                "campaign_key": campaign_key,
+                "total_daily_trend": trend_rows,
+                "forecast_data": forecast_rows,
+                "total_hist": float(total_hist),
+                "localidad_breakdown": loc_breakdown,
+                "estrato_breakdown": estr_breakdown,
+                "nivel_socioeconomico_breakdown": nivel_breakdown,
+                # NEW
+                "time_of_day_breakdown": time_of_day_breakdown,
+                # Existing
+                "utm_content_localidad": utm_content_localidad,
+            }
+        )
+
+    charts.sort(key=lambda x: float(x.get("total_hist", 0.0)), reverse=True)
+    return charts
+
+
+def _group_campaign_charts(charts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    wati_items: List[Dict[str, Any]] = []
+    unknown_items: List[Dict[str, Any]] = []
+    google_items: List[Dict[str, Any]] = []
+    meta_items: List[Dict[str, Any]] = []
+
+    for c in charts:
+        key = (c.get("campaign_key") or "").strip().lower()
+        display = (c.get("campaign") or "").strip()
+
+        if key == "wati" or display.lower() == "wati":
+            wati_items.append(c)
+            continue
+
+        if key in {"unknown", "unknow"} or display.lower() in {"unknown", "unknow"}:
+            unknown_items.append(c)
+            continue
+
+        if _is_numeric_campaign(display):
+            google_items.append(c)
+            continue
+
+        meta_items.append(c)
+
+    chart_id = 0
+    for bucket in (wati_items, unknown_items, google_items, meta_items):
+        for c in bucket:
+            c["chart_id"] = chart_id
+            chart_id += 1
+
+    groups = [
+        {"key": "wati", "title": "wati", "items": wati_items, "open_by_default": True},
+        {"key": "unknown", "title": "Unknown", "items": unknown_items, "open_by_default": False},
+        {"key": "google", "title": "Google", "items": google_items, "open_by_default": False},
+        {"key": "meta", "title": "Meta", "items": meta_items, "open_by_default": False},
+    ]
+
+    for g in groups:
+        g["total_hist"] = float(sum(float(x.get("total_hist", 0.0) or 0.0) for x in (g.get("items") or [])))
+
+    grand_total = float(sum(float(g.get("total_hist", 0.0) or 0.0) for g in groups))
+    for g in groups:
+        if grand_total > 0:
+            g["percent"] = round((float(g.get("total_hist", 0.0) or 0.0) / grand_total) * 100.0, 1)
+        else:
+            g["percent"] = 0.0
+
+    return groups
+
+
+def get_bogota_insights_view_data(
+    *,
+    OptionModel,
+    source_file: str,
+    filtered_file: str,
+    city_value: str,
+    forecast_periods: int = 30,
+    gender: Optional[str] = None,
+    logger: Optional[logging.Logger] = None,
+) -> Dict[str, Any]:
+    tz = "America/Bogota"
+    file_name = os.path.basename(source_file)
+
+    opts = read_saved_date_options(OptionModel, file_name=file_name, logger=logger)
+
+    payload: Dict[str, Any] = {
+        "error": None,
+        "date_range": opts["date_range"],
+        "start_date": opts["start_date"],
+        "end_date": opts["end_date"],
+        "total_daily_trend": [],
+        "forecast_data": [],
+        "campaign_groups": [],
+        "gender": _normalize_gender(gender) if gender else None,
+    }
+
+    if not os.path.exists(source_file):
+        payload["error"] = f"{source_file} not found. Use the date selector above to fetch data first."
+        return payload
+
+    if not os.path.exists(filtered_file):
+        payload["error"] = f"{filtered_file} not found. Could not build filtered data."
+        return payload
+
+    result = get_bogota_insights_daily(
+        orders_csv_path=filtered_file,
+        forecast_periods=forecast_periods,
+        city_value=city_value,
+        gender=gender,
+    )
+
+    payload["total_daily_trend"] = result.get("total_daily_trend", [])
+    payload["forecast_data"] = result.get("forecast_data", [])
+
+    charts = _build_campaign_charts_from_csv(
+        filtered_file=filtered_file,
+        tz=tz,
+        forecast_periods=forecast_periods,
+        logger=logger,
+    )
+
+    payload["campaign_groups"] = _group_campaign_charts(charts)
+
+    if logger:
+        counts = {g["key"]: len(g.get("items") or []) for g in payload["campaign_groups"]}
+        logger.info("Campaign groups built: %s", counts)
+
+    return payload
 
 ```
 
