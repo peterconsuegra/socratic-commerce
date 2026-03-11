@@ -314,30 +314,36 @@ Bogota Insights Female
                               {% if g['key'] == 'meta' %}
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Creativity Prompts by Socioeconomic Level (ChatGPT 5.2)</h6>
+                                <h6 class="text-center mb-2">Pomelli Creative Prompt</h6>
                                 <p class="text-center text-muted mb-3">
-                                  One prompt per <strong>socioeconomic level</strong>. Each prompt is structured for Pomelli to generate advertising images and 4-second storytelling videos, using estrato/localidad only as input for angles without explicitly mentioning them in the final creative output.
+                                  A single structured prompt for Pomelli to generate ad images and creative directions for this Meta campaign, using the available campaign JSON as context.
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
                                   <button
                                     type="button"
                                     class="btn btn-outline-primary btn-sm"
-                                    onclick="copyAllPromptsForCampaign({{ c['chart_id'] }})"
+                                    onclick="copyPomelliPrompt({{ c['chart_id'] }})"
                                   >
-                                    Copy all prompts
+                                    Copy Pomelli prompt
                                   </button>
 
                                   <button
                                     type="button"
                                     class="btn btn-outline-secondary btn-sm"
-                                    onclick="regenerateAllMetaPrompts({{ c['chart_id'] }})"
+                                    onclick="regeneratePomelliPrompt({{ c['chart_id'] }})"
                                   >
-                                    Regenerate all
+                                    Regenerate prompt
                                   </button>
                                 </div>
 
-                                <div id="metaPromptsWrap{{ c['chart_id'] }}"></div>
+                                <textarea
+                                  id="metaPomelliPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="24"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
 
                                 <hr class="my-4">
 
@@ -457,12 +463,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  /*
-    UPDATED:
-    Prompts by socioeconomic level adapted for Pomelli.
-    Cultural note: DO NOT mention estrato or localidades in the final creative output.
-  */
-  function buildMetaPromptForNivel(payload, nivelFocus) {
+  function buildMetaPomelliCampaignPrompt(payload) {
     function topN(list, n) {
       var arr = Array.isArray(list) ? list.slice() : [];
       arr.sort(function(a, b) {
@@ -479,135 +480,98 @@ document.addEventListener("DOMContentLoaded", function() {
       }).join("\n");
     }
 
-    function pct(part, total) {
-      var p = Number(part) || 0;
-      var t = Number(total) || 0;
-      if (t <= 0) return 0;
-      return (p / t) * 100;
-    }
-
     var campaign = (payload.campaign || "").toString();
     var totalHist = Number(payload.total_hist || 0);
 
     var localidad = payload.localidad_breakdown || [];
     var estrato = payload.estrato_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
     var timeChunks = payload.time_of_day_breakdown || [];
     var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
 
-    var nivelLabel = (nivelFocus && nivelFocus.label) ? String(nivelFocus.label) : "Unknown";
-    var nivelValue = (nivelFocus && nivelFocus.value) ? Number(nivelFocus.value) : 0;
-    var nivelRank = (nivelFocus && typeof nivelFocus.rank === "number") ? (nivelFocus.rank + 1) : null;
-    var nivelShare = pct(nivelValue, totalHist);
-
-    var prompt =
+    return (
       "POMELLI_STRUCTURED_PROMPT\n\n" +
 
       "ROLE\n" +
-      "You are an expert advertising creative strategist building structured prompts for Pomelli, an AI tool that generates advertising images and 4-second storytelling videos.\n\n" +
+      "You are an expert advertising creative strategist using Pomelli, an AI advertising tool that generates campaign images, concepts, and creative directions.\n\n" +
 
       "PRIMARY OBJECTIVE\n" +
-      "Generate creative concepts for this campaign focused ONLY on the specified socioeconomic-level segment. The output must be optimized for Pomelli to create:\n" +
-      "1) Static advertising images\n" +
-      "2) 4-second storytelling videos\n\n" +
+      "Generate high-converting creative ideas and visual directions for this Meta campaign.\n\n" +
 
-      "NON-NEGOTIABLE CREATIVE RULES\n" +
-      "- Do not mention estrato numbers or socioeconomic labels in the final creative output.\n" +
-      "- Do not mention localidades, neighborhoods, or specific zones in the final creative output.\n" +
-      "- You may use localidad and estrato patterns internally to infer lifestyle context, routines, emotional angles, and scene design.\n" +
-      "- The final output must feel inclusive, natural, modern, and never classist.\n" +
-      "- Keep the tone suitable for performance marketing on Meta.\n\n" +
+      "DELIVERABLE\n" +
+      "Return:\n" +
+      "1) 10 static ad image concepts\n" +
+      "2) 10 short ad idea concepts\n" +
+      "3) 10 strong hooks/headlines\n" +
+      "4) 5 CTA options\n" +
+      "5) 5 creative testing angles\n\n" +
 
-      "OUTPUT FORMAT REQUIRED\n" +
-      "Return exactly 10 structured creative concepts:\n" +
-      "- 5 concepts for STATIC AD IMAGES\n" +
-      "- 5 concepts for 4-SECOND STORYTELLING VIDEOS\n\n" +
+      "FOR EACH IMAGE CONCEPT, USE THIS STRUCTURE\n" +
+      "- Concept title\n" +
+      "- Core angle\n" +
+      "- Emotional trigger\n" +
+      "- Persona insight\n" +
+      "- Visual scene description\n" +
+      "- Styling and composition\n" +
+      "- Lighting and color palette\n" +
+      "- Suggested on-image text\n" +
+      "- Suggested headline\n" +
+      "- Suggested CTA\n" +
+      "- Why this concept should work\n\n" +
 
-      "FOR EACH STATIC AD IMAGE CONCEPT, USE THIS STRUCTURE\n" +
-      "- Format: IMAGE\n" +
-      "- Concept title:\n" +
-      "- Core marketing angle:\n" +
-      "- Main emotional trigger:\n" +
-      "- Target persona description:\n" +
-      "- Visual scene description:\n" +
-      "- Subject appearance and styling:\n" +
-      "- Environment and props:\n" +
-      "- Composition and camera framing:\n" +
-      "- Lighting style:\n" +
-      "- Color palette:\n" +
-      "- On-image text:\n" +
-      "- Headline:\n" +
-      "- CTA:\n" +
-      "- Why this should work for this segment:\n\n" +
+      "FOR EACH AD IDEA, USE THIS STRUCTURE\n" +
+      "- Idea title\n" +
+      "- Core message\n" +
+      "- Target situation or use case\n" +
+      "- Visual approach\n" +
+      "- Hook\n" +
+      "- CTA\n" +
+      "- Why this should work\n\n" +
 
-      "FOR EACH 4-SECOND STORYTELLING VIDEO CONCEPT, USE THIS STRUCTURE\n" +
-      "- Format: VIDEO_4S\n" +
-      "- Concept title:\n" +
-      "- Core marketing angle:\n" +
-      "- Main emotional trigger:\n" +
-      "- Target persona description:\n" +
-      "- 4-second story arc:\n" +
-      "- Shot-by-shot sequence:\n" +
-      "- Scene direction:\n" +
-      "- Subject movement and expression:\n" +
-      "- Camera movement:\n" +
-      "- Lighting style:\n" +
-      "- Color palette:\n" +
-      "- On-screen text:\n" +
-      "- Voiceover or implied message:\n" +
-      "- CTA end frame:\n" +
-      "- Why this should work for this segment:\n\n" +
-
-      "POMELLI EXECUTION GUIDELINES\n" +
-      "- Prioritize simple, high-conversion scenes that AI image and video tools can render clearly.\n" +
-      "- For images, prioritize a single strong visual idea.\n" +
-      "- For 4-second videos, prioritize instant clarity, emotional contrast, and one key action.\n" +
-      "- Use UGC-friendly realism, clean product storytelling, and clear commercial intent.\n" +
-      "- Avoid overly abstract concepts.\n" +
-      "- The product should feel relevant to odor control, confidence, sweat, routine, and social comfort when appropriate.\n\n" +
+      "IMPORTANT RULES\n" +
+      "- Do not mention socioeconomic level, estrato, or class descriptors in the final output.\n" +
+      "- Do not mention localidades, neighborhoods, or specific Bogotá zones in the final output.\n" +
+      "- Use campaign signals only as internal creative guidance.\n" +
+      "- Keep the final concepts natural, modern, inclusive, performance-oriented, and suitable for Meta ads.\n" +
+      "- Focus on commercial usefulness, clarity, strong hooks, and visual simplicity.\n" +
+      "- Avoid generic ideas.\n\n" +
 
       "CAMPAIGN CONTEXT\n" +
       "- Campaign: " + campaign + "\n" +
-      "- Gender focus: WOMEN\n" +
       "- Market: Bogotá (C/MARCA)\n" +
-      "- Time zone: America/Bogota\n" +
+      "- Gender focus: Women\n" +
       "- Total historical sales (COP): " + totalHist + "\n" +
       "- Data included through the end of yesterday (Bogota time)\n\n" +
 
-      "FOCUS SEGMENT (SOCIOECONOMIC LEVEL)\n" +
-      "- Segment: " + nivelLabel + "\n" +
-      (nivelRank !== null ? ("- Segment ranking by sales: #" + nivelRank + "\n") : "") +
-      "- Sales (COP) attributed to this segment: " + nivelValue + "\n" +
-      "- Share of campaign sales: " + nivelShare.toFixed(1) + "%\n\n" +
-
-      "INSIGHT SIGNALS TO USE INTERNALLY ONLY\n" +
+      "INTERNAL SIGNALS TO USE FOR CREATIVE REASONING ONLY\n" +
       "Top localidades by sales:\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
-      "Top estratos by sales:\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
       "Top time-of-day windows by sales:\n" + summarizeTop(timeChunks, 6, "time windows") + "\n\n" +
 
       "CREATIVE INTERPRETATION RULES\n" +
-      "- Infer lifestyle, urgency, routine, and aspiration from the segment and time-window signals.\n" +
-      "- If one time window dominates, adapt scenes to that moment of day.\n" +
-      "- Use everyday Bogotá realities such as weather, commuting, office life, study life, home routines, and social situations, without naming places.\n" +
-      "- Keep the creative output visually specific and commercially useful.\n\n" +
+      "- Infer lifestyle, routine, urgency, aspirations, and emotional triggers from the available signals.\n" +
+      "- If certain time windows dominate, adapt scenes and hooks to those moments of day.\n" +
+      "- Use the creative mix and sales concentration patterns to suggest both winning directions and new tests.\n" +
+      "- Keep scenes visually concrete and easy for an AI ad tool to generate.\n" +
+      "- Favor ideas that can perform well in paid social.\n\n" +
 
-      "PRODUCT ANGLES TO PRIORITIZE WHEN RELEVANT\n" +
-      "- Odor control and social confidence\n" +
-      "- Sweat and stress relief\n" +
-      "- Confidence in dating, work, and social life\n" +
-      "- Daily routine support in Bogotá\n" +
-      "- Social proof, transformation, and relief moments\n\n" +
+      "PRODUCT ANGLES TO EXPLORE WHEN RELEVANT\n" +
+      "- Odor control and freshness\n" +
+      "- Confidence in social situations\n" +
+      "- Daily routine support\n" +
+      "- Sweat, stress, and comfort\n" +
+      "- Before/after relief\n" +
+      "- Confidence at work, dating, commuting, and everyday life\n\n" +
 
       "RAW JSON REFERENCE DATA\n" +
-      "Focus segment object:\n" + safeJsonStringify(nivelFocus || {}) + "\n\n" +
       "Localidad breakdown:\n" + safeJsonStringify(localidad) + "\n\n" +
       "Estrato breakdown:\n" + safeJsonStringify(estrato) + "\n\n" +
+      "Nivel socioeconomico breakdown:\n" + safeJsonStringify(nivel) + "\n\n" +
       "Time-of-day breakdown:\n" + safeJsonStringify(timeChunks) + "\n\n" +
-      "UTM Content x Localidad (stacked totals):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
 
       "FINAL REMINDER\n" +
-      "Use all signals and JSON context for internal reasoning, but never mention estrato or localidades explicitly in the final creative concepts.\n";
-
-    return prompt;
+      "Use all JSON and campaign signals for internal reasoning, but do not mention socioeconomic information explicitly in the final creative output.\n"
+    );
   }
 
   function buildMetaStrategicPrompt(payload) {
@@ -783,87 +747,6 @@ document.addEventListener("DOMContentLoaded", function() {
     );
   }
 
-  function sortDescByValue(list) {
-    var arr = Array.isArray(list) ? list.slice() : [];
-    arr.sort(function(a, b) {
-      return (Number(b.value) || 0) - (Number(a.value) || 0);
-    });
-    return arr;
-  }
-
-  function filterValidNiveles(list) {
-    var arr = Array.isArray(list) ? list.slice() : [];
-    return arr.filter(function(n) {
-      var label = (n && n.label != null) ? String(n.label).trim() : "";
-      if (!label) return false;
-      var low = label.toLowerCase();
-      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
-      return true;
-    });
-  }
-
-  function buildMetaPromptsUI(chartId, payload) {
-    var wrap = document.getElementById("metaPromptsWrap" + chartId);
-    if (!wrap) return;
-
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) {
-      wrap.innerHTML = '<div class="text-muted">No socioeconomic-level data available to generate prompts.</div>';
-      return;
-    }
-
-    var totalHist = Number(payload.total_hist || 0);
-
-    var html = "";
-    niveles.forEach(function(n, idx) {
-      var label = (n && n.label) ? String(n.label) : "Unknown";
-      var value = Number(n && n.value ? n.value : 0);
-      var share = (totalHist > 0) ? ((value / totalHist) * 100) : 0;
-
-      var textareaId = "metaPrompt" + chartId + "_" + idx;
-
-      html += ""
-        + '<div class="card mb-3">'
-        + '  <div class="card-body">'
-        + '    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">'
-        + '      <div>'
-        + '        <h6 class="mb-1">Prompt for Segment (Socioeconomic Level): <strong>' + escapeHtml(label) + '</strong></h6>'
-        + '        <div class="text-muted small">Sales: ' + value + ' COP · Share: ' + share.toFixed(1) + '% · Rank: #' + (idx + 1) + '</div>'
-        + '        <div class="text-muted small mt-1">Structured for Pomelli images and 4-second videos. Rules: do not mention estrato or localidades.</div>'
-        + '      </div>'
-        + '      <div class="d-flex gap-2 flex-wrap">'
-        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copy</button>'
-        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">Regenerate</button>'
-        + '      </div>'
-        + '    </div>'
-        + '    <textarea'
-        + '      id="' + textareaId + '"'
-        + '      class="form-control mt-3"'
-        + '      rows="24"'
-        + '      readonly'
-        + '      style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"'
-        + '    ></textarea>'
-        + '  </div>'
-        + '</div>';
-    });
-
-    wrap.innerHTML = html;
-
-    niveles.forEach(function(n, idx) {
-      var textareaId = "metaPrompt" + chartId + "_" + idx;
-      var el = document.getElementById(textareaId);
-      if (!el) return;
-
-      var focus = {
-        label: n.label,
-        value: n.value,
-        rank: idx
-      };
-
-      el.value = buildMetaPromptForNivel(payload, focus);
-    });
-  }
-
   function escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
@@ -886,57 +769,30 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   };
 
-  window.copyAllPromptsForCampaign = async function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) return;
-
-    var allText = niveles.map(function(n, idx) {
-      var label = (n && n.label) ? String(n.label) : "Unknown";
-      var focus = { label: n.label, value: n.value, rank: idx };
-      return "===== SEGMENT (SOCIOECONOMIC LEVEL): " + label + " =====\n\n" + buildMetaPromptForNivel(payload, focus);
-    }).join("\n\n\n");
+  window.copyPomelliPrompt = async function(chartId) {
+    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
+    if (!textarea) return;
 
     try {
-      await navigator.clipboard.writeText(allText);
+      await navigator.clipboard.writeText(textarea.value || "");
     } catch (e) {
-      var tmp = document.createElement("textarea");
-      tmp.value = allText;
-      document.body.appendChild(tmp);
-      tmp.select();
+      textarea.select();
       document.execCommand("copy");
-      document.body.removeChild(tmp);
+      textarea.setSelectionRange(0, 0);
     }
   };
 
-  window._metaPromptPayloads = window._metaPromptPayloads || {};
-
-  window.regenerateMetaPrompt = function(chartId, nivelIndex) {
+  window.regeneratePomelliPrompt = function(chartId) {
     var payload = (window._metaPromptPayloads || {})[chartId];
     if (!payload) return;
 
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) return;
-
-    var n = niveles[nivelIndex];
-    if (!n) return;
-
-    var textareaId = "metaPrompt" + chartId + "_" + nivelIndex;
-    var textarea = document.getElementById(textareaId);
+    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
     if (!textarea) return;
 
-    var focus = { label: n.label, value: n.value, rank: nivelIndex };
-    textarea.value = buildMetaPromptForNivel(payload, focus);
+    textarea.value = buildMetaPomelliCampaignPrompt(payload);
   };
 
-  window.regenerateAllMetaPrompts = function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    buildMetaPromptsUI(chartId, payload);
-  };
+  window._metaPromptPayloads = window._metaPromptPayloads || {};
 
   window.copyCampaignStrategicPrompt = async function(chartId) {
     var payload = (window._metaPromptPayloads || {})[chartId];
@@ -1605,7 +1461,10 @@ document.addEventListener("DOMContentLoaded", function() {
           window._metaPromptPayloads = window._metaPromptPayloads || {};
           window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
 
-          buildMetaPromptsUI({{ c['chart_id'] }}, payload);
+          var pomelliTextarea = document.getElementById("metaPomelliPrompt{{ c['chart_id'] }}");
+          if (pomelliTextarea) {
+            pomelliTextarea.value = buildMetaPomelliCampaignPrompt(payload);
+          }
 
           var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
           if (strategicTextarea) {

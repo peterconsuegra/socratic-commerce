@@ -1,458 +1,82 @@
 **app/routes.py**
 
-from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, current_app 
-import os
-import requests
-import csv  # Ensure the csv module is imported
-import traceback
-
-import time
-
-from .models import User, Option
-from . import db
-from .sqlite_db import get_db_connection
-
-from datetime import date
-from app.services.daily import ( 
-    get_daily_sales_trend,
-    get_future_daily_sales_projections  # <-- new import
-)
-from app.services.monthly import (
-    merge_tables_by_percentage, 
-    get_monthly_sales_repurchases_trend,
-    consolidate_monthly_sales, 
-    get_monthly_sales_undefined_trend, 
-    get_monthly_sales_forecast, 
-    get_consolidated_monthly_sales, 
-    recalculate_data, 
-    get_monthly_sales_paid_trend,
-)
-
-from app.services.get_data import fetch_orders_and_write_csv
-from app.services.ads import get_daily_conversions,get_daily_conversions_by_campaign,forecast_campaigns, get_wp_campaign_trend, forecast_ads
-import logging
-from datetime import datetime
-from app.services.repurchases import (
-    find_customers_with_multiple_purchases,
-    process_repeated_orders,
-    get_monthly_repurchases_trend,
-    print_customers_with_multiple_purchases,
-    get_daily_repurchases,
-    get_monthly_repurchases_forecast
-)
-from app.services.rankings import (
-    get_top_cities_by_gender,
-    get_top_hours_by_gender,
-    get_top_days_of_the_week,
-    get_top_days_of_month_by_gender,
-    get_top_10_months_by_sales,
-    get_top_twenty_days_by_sales,
-    get_top_ten_mondays_by_sales,
-    get_top_ten_tuesdays_by_sales,
-    get_top_ten_wednesdays_by_sales,
-    get_top_ten_thursdays_by_sales,
-    get_top_ten_fridays_by_sales,
-    get_top_ten_saturdays_by_sales,
-    get_top_ten_sundays_by_sales,
-    get_top_ten_utm_campaigns,
-    get_utm_answer_ranking,
-    get_top_twenty_days_by_undefined_campaign,
-    get_top_ten_utm_content_by_sales,
-    get_top_ten_utm_source_by_sales,
-    get_top_ten_utm_medium_by_sales,
-    get_top_ten_utm_term_by_sales,
-    get_utm_content_ranking_by_gender,
-    get_order_percentage_by_city
-)
-from flask_login import login_user, logout_user, login_required, current_user
-
-
-
-from app.services.performance import (
-    get_weekly_order_stats
-)
-
-from app.services.repurchases import (
-    find_customers_with_multiple_purchases,
-    process_repeated_orders,
-    print_customers_with_multiple_purchases,
-    get_daily_repurchases,
-    get_monthly_repurchases_forecast,
-)
-
-from app.services.top_cities import get_top_cities_daily_trend_with_forecast
-
-from app.services.monthly_sales import get_monthly_sales_trend  
-
-from app.services.monthly_repurchases import get_monthly_repurchases_trend
-
-from app.services.daily_sales import get_daily_sales_trend as get_daily_sales_trend_simple
-
-from app.services.daily_repurchases import get_daily_repurchases_trend
-
-import os
-from flask import current_app, render_template, request, send_from_directory, abort
-from werkzeug.utils import secure_filename
-
-
-CACHE_TTL_SECONDS = 60 * 60 * 24  # 1 day
-ALL_ORDERS_CACHE_FILE = "data/.all_orders_cache_ts"
-
-main = Blueprint(
-    "main",
-    __name__,
-    template_folder="templates",
-    static_folder="../static"  # Adjust path relative to routes.py
-)
-
-@main.app_errorhandler(500)
-def internal_error(error):
-    return render_template(
-        "error.html",
-        error=str(error),
-        traceback=traceback.format_exc()
-    ), 500
-
-
-@main.route("/generate_all_orders", methods=["POST"])
+@main.route("/bogota_insights_female")
 @login_required
-def get_all_orders():
-    """
-    Generates data/all_orders.csv using the configured absolute path.
-    """
-    try:
-        output_csv = generate_all_orders_csv()
-
-        return jsonify({
-            "status": "success",
-            "message": "all_orders.csv generated successfully",
-            "output": output_csv,
-        }), 200
-
-    except Exception as e:
-        current_app.logger.exception("Failed to generate all_orders.csv")
-
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-        }), 500
-
-
-def should_refresh_all_orders() -> bool:
-    """
-    Returns True if all_orders.csv should be refreshed:
-    - file missing
-    - file empty
-    - cache timestamp missing/corrupt
-    - cache expired
-    """
-    csv_path = current_app.config["ALL_ORDERS_CSV"]
-    cache_file = current_app.config["ALL_ORDERS_CACHE_FILE"]
-
-    if not os.path.exists(csv_path):
-        current_app.logger.info("all_orders.csv missing; refresh required")
-        return True
-
-    try:
-        if os.path.getsize(csv_path) == 0:
-            current_app.logger.info("all_orders.csv is empty; refresh required")
-            return True
-    except OSError:
-        current_app.logger.info("Could not stat all_orders.csv; refresh required")
-        return True
-
-    if not os.path.exists(cache_file):
-        current_app.logger.info("all_orders cache file missing; refresh required")
-        return True
-
-    try:
-        with open(cache_file, "r") as f:
-            last_ts = float(f.read().strip())
-    except Exception:
-        current_app.logger.info("all_orders cache timestamp invalid; refresh required")
-        return True
-
-    expired = (time.time() - last_ts) > CACHE_TTL_SECONDS
-    if expired:
-        current_app.logger.info("all_orders cache expired; refresh required")
-
-    return expired
-
-
-def touch_all_orders_cache():
-    """
-    Updates the cache timestamp file.
-    """
-    cache_file = current_app.config["ALL_ORDERS_CACHE_FILE"]
-    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-
-    with open(cache_file, "w") as f:
-        f.write(str(time.time()))
-
-def get_option_value(meta_key: str, default=None):
-    row = Option.query.filter_by(meta_key=meta_key).first()
-    return row.meta_value if row and row.meta_value is not None else default
-
-
-def generate_all_orders_csv() -> str:
-    """
-    Generates all_orders.csv using API settings stored in the options table.
-    Returns the absolute CSV path.
-    Raises an exception if generation fails.
-    """
-    output_csv = current_app.config["ALL_ORDERS_CSV"]
-    project_root = current_app.config["PROJECT_ROOT"]
-
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
-
-    orders_url = get_option_value("orders_url")
-    api_key = get_option_value("api_key")
-
-    if not orders_url:
-        raise ValueError("Missing 'orders_url' in options table")
-
-    if not api_key:
-        raise ValueError("Missing 'api_key' in options table")
-
-    current_app.logger.info("Generating all_orders.csv at %s", output_csv)
-    current_app.logger.info("Using orders API: %s", orders_url)
-
-    ok, payload = fetch_orders_and_write_csv(
-        orders_url=orders_url,
-        api_key=api_key,
-        start_date="2000-01-01",
-        end_date=date.today().isoformat(),
-        file_name="all_orders.csv",
-        cwd=project_root,
-        timeout=120,
+def bogota_insights_female():
+    import os
+    import logging
+    from flask import render_template
+    from .models import Option
+    from app.services.bogota_insights import (
+        get_bogota_insights_view_data,
+        build_city_filtered_csv,
     )
 
-    if not ok:
-        raise RuntimeError(payload.get("message", "Unknown error generating all_orders.csv"))
+    logger = logging.getLogger(__name__)
 
-    if not os.path.exists(output_csv):
-        raise FileNotFoundError(f"CSV was not created: {output_csv}")
-
-    if os.path.getsize(output_csv) == 0:
-        raise ValueError(f"CSV was created but is empty: {output_csv}")
-
-    touch_all_orders_cache()
-    current_app.logger.info("Successfully generated all_orders.csv")
-
-    return output_csv
-
-def refresh_all_orders_if_needed():
-    """
-    Generates all_orders.csv only if cache is expired or file is missing.
-    Raises FileNotFoundError if generation fails.
-    """
-    csv_path = current_app.config["ALL_ORDERS_CSV"]
-
-    if not should_refresh_all_orders():
-        current_app.logger.info("Using cached all_orders.csv")
-        return
-
-    current_app.logger.info("Refreshing all_orders.csv from API")
+    SOURCE_FILE = "data/bogota_insights_female.csv"
+    FILTERED_FILE = "data/bogota_insights_female_filtered.csv"
+    BOGOTA_CITY_VALUE = "BOGOTA (C/MARCA)"
 
     try:
-        generate_all_orders_csv()
-    except Exception as e:
-        current_app.logger.exception("Failed to refresh all_orders.csv")
-        raise FileNotFoundError(
-            f"Could not generate required file: {csv_path}. Reason: {e}"
-        ) from e
-
-    if os.path.exists(csv_path) and os.path.getsize(csv_path) > 0:
-        current_app.logger.info("all_orders.csv refreshed and cached")
-        return
-
-    current_app.logger.error("Failed to refresh all_orders.csv")
-    raise FileNotFoundError(f"Could not generate required file: {csv_path}")
-
-
-
-@main.route("/")
-@login_required
-def monthly_sales():
-    all_orders = current_app.config["ALL_ORDERS_CSV"]
-
-    monthly_sales_trend = []
-    forecast_data = []
-
-    pie_labels = []
-    pie_values = []
-    channel_charts = []
-    other_channels_labels = []
-    other_channels_pct = 0.0
-
-    forecast_includes_current_month_mtd = False
-    projection_method = "weekday_weighted"
-    current_month_label = None
-    current_month_mtd_sales = 0.0
-    current_month_projected_sales = 0.0
-    current_month_remaining_days = 0
-    current_month_days_in_month = 0
-
-    error = None
-
-    try:
-        refresh_all_orders_if_needed()
-
-        if not os.path.exists(all_orders):
-            raise FileNotFoundError(f"{all_orders} not found. Auto-generation failed.")
-
-        # Total trend + forecast with weekday-weighted projection
-        monthly_sales_trend, forecast_data, meta = get_monthly_sales_trend(
-            output_file="monthly_sales_trend.csv",
-            forecast_periods=6,
-            return_forecast=True,
-            return_meta=True,
-            include_current_month_for_forecast=True,
-            projection_method="weekday_weighted",
-            weekday_history_months=6,
-            orders_csv_path=all_orders,
-            utm_source_filter=None,
-        )
-
-        forecast_includes_current_month_mtd = bool(meta.get("forecast_includes_current_month_mtd", False))
-        projection_method = meta.get("projection_method", "weekday_weighted")
-        current_month_label = meta.get("current_month_label")
-
-        current_month_mtd_sales = float(meta.get("current_month_mtd_sales", 0.0) or 0.0)
-        current_month_projected_sales = float(meta.get("current_month_projected_sales", 0.0) or 0.0)
-        current_month_remaining_days = int(meta.get("current_month_remaining_days", 0) or 0)
-        current_month_days_in_month = int(meta.get("current_month_days_in_month", 0) or 0)
-
-        import pandas as pd
-
-        df = pd.read_csv(all_orders)
-        required_cols = {"order_date", "total_value", "utm_source", "order_id"}
-        missing = required_cols - set(df.columns)
-        if missing:
-            raise ValueError(f"Orders file is missing required columns for pie chart: {sorted(missing)}")
-
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-        df = df.dropna(subset=["order_date"]).copy()
-        df["total_value"] = pd.to_numeric(df["total_value"], errors="coerce").fillna(0.0)
-
-        today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
-        start_current_month = today_bogota.replace(day=1)
-        end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
-        df = df[df["order_date"] <= end_prev_month].copy()
-
-        df["utm_source"] = (
-            df["utm_source"]
-            .fillna("unknown")
-            .astype(str)
-            .str.strip()
-            .str.lower()
-        )
-        df.loc[df["utm_source"] == "", "utm_source"] = "unknown"
-
-        grouped_value = (
-            df.groupby("utm_source")["total_value"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-
-        pie_labels = [str(k) for k, v in grouped_value.items() if float(v) > 0]
-        pie_values = [float(v) for v in grouped_value.values if float(v) > 0]
-        total_sales_value = float(sum(pie_values)) if pie_values else 0.0
-
-        grouped_count = (
-            df.groupby("utm_source")["order_id"]
-            .count()
-            .sort_values(ascending=False)
-        )
-
-        MIN_SHARE_PERCENT = 2.0
-        included = []
-        excluded = []
-
-        if total_sales_value > 0:
-            for ch, val in grouped_value.items():
-                val = float(val)
-                if val <= 0:
-                    continue
-
-                pct = (val / total_sales_value) * 100.0
-                cnt = int(grouped_count.get(ch, 0))
-
-                if str(ch) == "unknown":
-                    continue
-
-                item = {"key": str(ch), "pct": pct, "value": val, "count": cnt}
-                if pct >= MIN_SHARE_PERCENT:
-                    included.append(item)
-                else:
-                    excluded.append(item)
-
-        included.sort(key=lambda x: x["count"], reverse=True)
-        excluded.sort(key=lambda x: x["pct"], reverse=True)
-
-        other_channels_labels = [x["key"] for x in excluded]
-        other_channels_pct = float(sum(x["pct"] for x in excluded)) if excluded else 0.0
-
-        for item in included:
-            channel = item["key"]
-            pct = item["pct"]
-
-            ch_trend, ch_forecast, ch_meta = get_monthly_sales_trend(
-                output_file=f"monthly_sales_trend_{channel}.csv",
-                forecast_periods=6,
-                return_forecast=True,
-                return_meta=True,
-                include_current_month_for_forecast=True,
-                projection_method="weekday_weighted",
-                weekday_history_months=6,
-                orders_csv_path=all_orders,
-                utm_source_filter=channel,
+        if not os.path.exists(SOURCE_FILE):
+            return render_template(
+                "bogota_insights_female.html",
+                error=f"{SOURCE_FILE} not found. Use the date selector above to fetch data first.",
+                date_range=None,
+                start_date=None,
+                end_date=None,
+                total_daily_trend=[],
+                forecast_data=[],
+                campaign_groups=[],
+                gender="female",
             )
 
-            if not ch_trend:
-                continue
+        if not os.path.exists(FILTERED_FILE):
+            stats = build_city_filtered_csv(
+                src_path=SOURCE_FILE,
+                dst_path=FILTERED_FILE,
+                target_city=BOGOTA_CITY_VALUE,
+                gender="female",
+            )
 
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
+            logger.info(
+                "Filtered CSV created (first time): %s (kept=%s removed=%s bad_rows=%s)",
+                stats.get("output_file"),
+                stats.get("kept"),
+                stats.get("removed"),
+                stats.get("bad_rows"),
+            )
+        else:
+            logger.debug("Filtered CSV already exists. Skipping regeneration.")
 
-            channel_charts.append({
-                "key": channel,
-                "label": f"{channel.upper()} ({pct:.1f}%)",
-                "canvas_id": f"monthlySalesChart_{safe}",
-                "trend": ch_trend,
-                "forecast": ch_forecast,
-                "pct": pct,
-                "count": int(item["count"]),
-                "forecast_includes_current_month_mtd": bool(ch_meta.get("forecast_includes_current_month_mtd", False)),
-                "projection_method": ch_meta.get("projection_method", "weekday_weighted"),
-                "current_month_label": ch_meta.get("current_month_label"),
-                "current_month_mtd_sales": float(ch_meta.get("current_month_mtd_sales", 0.0) or 0.0),
-                "current_month_projected_sales": float(ch_meta.get("current_month_projected_sales", 0.0) or 0.0),
-                "current_month_remaining_days": int(ch_meta.get("current_month_remaining_days", 0) or 0),
-                "current_month_days_in_month": int(ch_meta.get("current_month_days_in_month", 0) or 0),
-            })
+        ctx = get_bogota_insights_view_data(
+            OptionModel=Option,
+            source_file=SOURCE_FILE,
+            filtered_file=FILTERED_FILE,
+            city_value=BOGOTA_CITY_VALUE,
+            forecast_periods=7,
+            gender="female",
+            logger=logger,
+        )
 
     except Exception as e:
-        error = str(e)
-        current_app.logger.exception("monthly_sales view failed")
+        logger.exception("bogota_insights_female view failed")
+        ctx = {
+            "error": str(e),
+            "date_range": None,
+            "start_date": None,
+            "end_date": None,
+            "total_daily_trend": [],
+            "forecast_data": [],
+            "campaign_groups": [],
+            "gender": "female",
+        }
 
-    return render_template(
-        "monthly_sales.html",
-        monthly_sales_trend=monthly_sales_trend,
-        forecast_data=forecast_data,
-        pie_labels=pie_labels,
-        pie_values=pie_values,
-        channel_charts=channel_charts,
-        other_channels_labels=other_channels_labels,
-        other_channels_pct=other_channels_pct,
-        forecast_includes_current_month_mtd=forecast_includes_current_month_mtd,
-        projection_method=projection_method,
-        current_month_label=current_month_label,
-        current_month_mtd_sales=current_month_mtd_sales,
-        current_month_projected_sales=current_month_projected_sales,
-        current_month_remaining_days=current_month_remaining_days,
-        current_month_days_in_month=current_month_days_in_month,
-        error=error,
-    )
+    return render_template("bogota_insights_female.html", **ctx)
+
+
+
 ========================================
 
 
