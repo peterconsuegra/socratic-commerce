@@ -316,7 +316,7 @@ Bogota Insights Female
 
                                 <h6 class="text-center mb-2">Creativity Prompts by Socioeconomic Level (ChatGPT 5.2)</h6>
                                 <p class="text-center text-muted mb-3">
-                                  One prompt per <strong>socioeconomic level</strong>. Each prompt applies David Ogilvy principles and uses estrato/localidad only as input for angles without explicitly mentioning them in the final copy.
+                                  One prompt per <strong>socioeconomic level</strong>. Each prompt is structured for Pomelli to generate advertising images and 4-second storytelling videos, using estrato/localidad only as input for angles without explicitly mentioning them in the final creative output.
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -459,8 +459,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   /*
     UPDATED:
-    Prompts by socioeconomic level applying David Ogilvy principles.
-    Cultural note: DO NOT mention estrato or localidades in the final copy.
+    Prompts by socioeconomic level adapted for Pomelli.
+    Cultural note: DO NOT mention estrato or localidades in the final creative output.
   */
   function buildMetaPromptForNivel(payload, nivelFocus) {
     function topN(list, n) {
@@ -500,43 +500,70 @@ document.addEventListener("DOMContentLoaded", function() {
     var nivelShare = pct(nivelValue, totalHist);
 
     var prompt =
-      "You are a senior Meta Ads creative and performance strategist.\n\n" +
+      "POMELLI_STRUCTURED_PROMPT\n\n" +
 
-      "OBJECTIVE\n" +
-      "Generate NEW ad ideas for this campaign, focused ONLY on the specified socioeconomic-level segment. Use localidad and estrato patterns only as input to discover angles (routines, language, situations), but DO NOT mention them explicitly in the final copy.\n\n" +
+      "ROLE\n" +
+      "You are an expert advertising creative strategist building structured prompts for Pomelli, an AI tool that generates advertising images and 4-second storytelling videos.\n\n" +
 
-      "VERY IMPORTANT RULE (FINAL COPY)\n" +
-      "- Do not mention estrato numbers or levels.\n" +
-      "- Do not mention localidades, neighborhoods, or specific zones.\n" +
-      "- You may use that information internally to generate angles, but the final text must feel inclusive and never classist.\n\n" +
+      "PRIMARY OBJECTIVE\n" +
+      "Generate creative concepts for this campaign focused ONLY on the specified socioeconomic-level segment. The output must be optimized for Pomelli to create:\n" +
+      "1) Static advertising images\n" +
+      "2) 4-second storytelling videos\n\n" +
 
-      "ADVERTISING FRAMEWORK: DAVID OGILVY PRINCIPLES (you must apply and mention them)\n" +
-      "For each idea, explicitly label which principles you used, using this list (choose the ones that apply):\n" +
-      "1) Big Idea\n" +
-      "2) Clear and specific benefit (The consumer isn't a moron)\n" +
-      "3) Strong headline: 80% of the result\n" +
-      "4) One main and consistent promise\n" +
-      "5) Proof and credibility (evidence, demonstration, testimonials)\n" +
-      "6) Speak the consumer's language\n" +
-      "7) Specificity and concrete details\n" +
-      "8) Avoid empty creativity: clarity over style\n" +
-      "9) Strategic repetition and consistency\n" +
-      "10) Focus on brand and response (clear CTA)\n\n" +
+      "NON-NEGOTIABLE CREATIVE RULES\n" +
+      "- Do not mention estrato numbers or socioeconomic labels in the final creative output.\n" +
+      "- Do not mention localidades, neighborhoods, or specific zones in the final creative output.\n" +
+      "- You may use localidad and estrato patterns internally to infer lifestyle context, routines, emotional angles, and scene design.\n" +
+      "- The final output must feel inclusive, natural, modern, and never classist.\n" +
+      "- Keep the tone suitable for performance marketing on Meta.\n\n" +
 
-      "REQUIRED OUTPUT (very strict)\n" +
-      "1) 5 NEW REELS ideas.\n" +
-      "2) 5 NEW IMAGE AD ideas.\n\n" +
+      "OUTPUT FORMAT REQUIRED\n" +
+      "Return exactly 10 structured creative concepts:\n" +
+      "- 5 concepts for STATIC AD IMAGES\n" +
+      "- 5 concepts for 4-SECOND STORYTELLING VIDEOS\n\n" +
 
-      "FORMAT FOR EACH IDEA (MANDATORY)\n" +
-      "- Ogilvy principles applied: [mention numbers and names]\n" +
-      "- Hook / Headline:\n" +
-      "- 6-10s script (Reels only):\n" +
-      "- On-screen text:\n" +
-      "- Visual direction:\n" +
-      "- Main benefit:\n" +
-      "- Proof / credibility:\n" +
+      "FOR EACH STATIC AD IMAGE CONCEPT, USE THIS STRUCTURE\n" +
+      "- Format: IMAGE\n" +
+      "- Concept title:\n" +
+      "- Core marketing angle:\n" +
+      "- Main emotional trigger:\n" +
+      "- Target persona description:\n" +
+      "- Visual scene description:\n" +
+      "- Subject appearance and styling:\n" +
+      "- Environment and props:\n" +
+      "- Composition and camera framing:\n" +
+      "- Lighting style:\n" +
+      "- Color palette:\n" +
+      "- On-image text:\n" +
+      "- Headline:\n" +
       "- CTA:\n" +
-      "- Who it is for (describe lifestyle/context, without estrato or localidad):\n\n" +
+      "- Why this should work for this segment:\n\n" +
+
+      "FOR EACH 4-SECOND STORYTELLING VIDEO CONCEPT, USE THIS STRUCTURE\n" +
+      "- Format: VIDEO_4S\n" +
+      "- Concept title:\n" +
+      "- Core marketing angle:\n" +
+      "- Main emotional trigger:\n" +
+      "- Target persona description:\n" +
+      "- 4-second story arc:\n" +
+      "- Shot-by-shot sequence:\n" +
+      "- Scene direction:\n" +
+      "- Subject movement and expression:\n" +
+      "- Camera movement:\n" +
+      "- Lighting style:\n" +
+      "- Color palette:\n" +
+      "- On-screen text:\n" +
+      "- Voiceover or implied message:\n" +
+      "- CTA end frame:\n" +
+      "- Why this should work for this segment:\n\n" +
+
+      "POMELLI EXECUTION GUIDELINES\n" +
+      "- Prioritize simple, high-conversion scenes that AI image and video tools can render clearly.\n" +
+      "- For images, prioritize a single strong visual idea.\n" +
+      "- For 4-second videos, prioritize instant clarity, emotional contrast, and one key action.\n" +
+      "- Use UGC-friendly realism, clean product storytelling, and clear commercial intent.\n" +
+      "- Avoid overly abstract concepts.\n" +
+      "- The product should feel relevant to odor control, confidence, sweat, routine, and social comfort when appropriate.\n\n" +
 
       "CAMPAIGN CONTEXT\n" +
       "- Campaign: " + campaign + "\n" +
@@ -546,38 +573,39 @@ document.addEventListener("DOMContentLoaded", function() {
       "- Total historical sales (COP): " + totalHist + "\n" +
       "- Data included through the end of yesterday (Bogota time)\n\n" +
 
-      "FOCUS SEGMENT (Socioeconomic Level)\n" +
+      "FOCUS SEGMENT (SOCIOECONOMIC LEVEL)\n" +
       "- Segment: " + nivelLabel + "\n" +
       (nivelRank !== null ? ("- Segment ranking by sales: #" + nivelRank + "\n") : "") +
       "- Sales (COP) attributed to this segment: " + nivelValue + "\n" +
       "- Share of campaign sales: " + nivelShare.toFixed(1) + "%\n\n" +
 
-      "SIGNALS (use only to inspire angles, do not name them directly)\n" +
-      "Top localidades by sales (DO NOT mention these names in the final copy):\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
-      "Top estratos by sales (DO NOT mention these numbers in the final copy):\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
+      "INSIGHT SIGNALS TO USE INTERNALLY ONLY\n" +
+      "Top localidades by sales:\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
+      "Top estratos by sales:\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
       "Top time-of-day windows by sales:\n" + summarizeTop(timeChunks, 6, "time windows") + "\n\n" +
 
-      "RAW DATA (reference)\n" +
+      "CREATIVE INTERPRETATION RULES\n" +
+      "- Infer lifestyle, urgency, routine, and aspiration from the segment and time-window signals.\n" +
+      "- If one time window dominates, adapt scenes to that moment of day.\n" +
+      "- Use everyday Bogotá realities such as weather, commuting, office life, study life, home routines, and social situations, without naming places.\n" +
+      "- Keep the creative output visually specific and commercially useful.\n\n" +
+
+      "PRODUCT ANGLES TO PRIORITIZE WHEN RELEVANT\n" +
+      "- Odor control and social confidence\n" +
+      "- Sweat and stress relief\n" +
+      "- Confidence in dating, work, and social life\n" +
+      "- Daily routine support in Bogotá\n" +
+      "- Social proof, transformation, and relief moments\n\n" +
+
+      "RAW JSON REFERENCE DATA\n" +
       "Focus segment object:\n" + safeJsonStringify(nivelFocus || {}) + "\n\n" +
       "Localidad breakdown:\n" + safeJsonStringify(localidad) + "\n\n" +
       "Estrato breakdown:\n" + safeJsonStringify(estrato) + "\n\n" +
       "Time-of-day breakdown:\n" + safeJsonStringify(timeChunks) + "\n\n" +
       "UTM Content x Localidad (stacked totals):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
 
-      "CREATIVE CONSTRAINTS\n" +
-      "- Prioritize easy-to-produce ideas: UGC style (mobile phone) and simple studio shots.\n" +
-      "- Use real Bogotá situations (weather, traffic, transport, office, university, home) without naming areas.\n" +
-      "- If one time window dominates, adapt the scene to that moment (morning, afternoon, night).\n\n" +
-
-      "PRODUCT ANGLES (choose the ones that fit)\n" +
-      "- Odor / social confidence\n" +
-      "- Sweating / stress\n" +
-      "- Confidence in relationships / social life\n" +
-      "- Daily routine in Bogotá (transport, office, university)\n" +
-      "- Social proof: before/after, testimonials, it worked for me\n\n" +
-
-      "REMINDER\n" +
-      "Do not mention estrato or localidades in the final copy. You may use those patterns internally to propose stronger angles.\n";
+      "FINAL REMINDER\n" +
+      "Use all signals and JSON context for internal reasoning, but never mention estrato or localidades explicitly in the final creative concepts.\n";
 
     return prompt;
   }
@@ -801,7 +829,7 @@ document.addEventListener("DOMContentLoaded", function() {
         + '      <div>'
         + '        <h6 class="mb-1">Prompt for Segment (Socioeconomic Level): <strong>' + escapeHtml(label) + '</strong></h6>'
         + '        <div class="text-muted small">Sales: ' + value + ' COP · Share: ' + share.toFixed(1) + '% · Rank: #' + (idx + 1) + '</div>'
-        + '        <div class="text-muted small mt-1">Rules: do not mention estrato or localidades. Apply and mention Ogilvy principles in each idea.</div>'
+        + '        <div class="text-muted small mt-1">Structured for Pomelli images and 4-second videos. Rules: do not mention estrato or localidades.</div>'
         + '      </div>'
         + '      <div class="d-flex gap-2 flex-wrap">'
         + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copy</button>'
@@ -811,7 +839,7 @@ document.addEventListener("DOMContentLoaded", function() {
         + '    <textarea'
         + '      id="' + textareaId + '"'
         + '      class="form-control mt-3"'
-        + '      rows="18"'
+        + '      rows="24"'
         + '      readonly'
         + '      style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"'
         + '    ></textarea>'
