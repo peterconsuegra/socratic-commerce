@@ -100,30 +100,111 @@ Google Insights
       </div>
     {% else %}
       {% for c in campaign_charts %}
-        <h3 class="text-center mt-5">{{ c.label }}</h3>
+        <div class="card mt-5">
+          <div class="card-body">
 
-        <p class="text-center text-muted mb-3">
-          Four pies: hour buckets, gender distribution, city share, and utm_content share.
-          Hover any slice to see the percentage.
-        </p>
+            <h3 class="text-center">{{ c.label }}</h3>
 
-        <div class="row">
-          <div class="col-md-3" style="height: 420px;">
-            <canvas id="{{ c.hour_pie_canvas_id }}"></canvas>
-          </div>
-          <div class="col-md-3" style="height: 420px;">
-            <canvas id="{{ c.gender_pie_canvas_id }}"></canvas>
-          </div>
-          <div class="col-md-3" style="height: 420px;">
-            <canvas id="{{ c.city_pie_canvas_id }}"></canvas>
-          </div>
-          <div class="col-md-3" style="height: 420px;">
-            <canvas id="{{ c.content_pie_canvas_id }}"></canvas>
-          </div>
-        </div>
+            <p class="text-center text-muted mb-3">
+              Four pies: hour buckets, gender distribution, city share, and utm_content share.
+              Hover any slice to see the percentage.
+            </p>
 
-        <div style="height: 520px; margin-top: 20px;">
-          <canvas id="{{ c.canvas_id }}"></canvas>
+            <div class="row">
+              <div class="col-md-3" style="height: 420px;">
+                <canvas id="{{ c.hour_pie_canvas_id }}"></canvas>
+              </div>
+              <div class="col-md-3" style="height: 420px;">
+                <canvas id="{{ c.gender_pie_canvas_id }}"></canvas>
+              </div>
+              <div class="col-md-3" style="height: 420px;">
+                <canvas id="{{ c.city_pie_canvas_id }}"></canvas>
+              </div>
+              <div class="col-md-3" style="height: 420px;">
+                <canvas id="{{ c.content_pie_canvas_id }}"></canvas>
+              </div>
+            </div>
+
+            <div style="height: 520px; margin-top: 20px;">
+              <canvas id="{{ c.canvas_id }}"></canvas>
+            </div>
+
+            <hr class="my-4">
+
+            <h5 class="text-center mb-2">Strategic Prompt for Google Campaign Optimization</h5>
+            <p class="text-center text-muted mb-3">
+              Analyze the full Google campaign using all available data and generate an advanced optimization plan.
+            </p>
+
+            <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+              <button
+                type="button"
+                class="btn btn-outline-dark btn-sm"
+                onclick="copyCampaignStrategicPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
+              >
+                Copy strategic prompt
+              </button>
+            </div>
+
+            <textarea
+              id="googleStrategicPrompt_{{ c.key|replace(' ','_')|replace('+','_')|replace('/','_')|replace('.','_')|replace('-','_') }}"
+              class="form-control"
+              rows="20"
+              readonly
+              style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+            ></textarea>
+
+            <hr class="my-4">
+
+            <h5 class="text-center mb-2">Prompt for Automatic Budget Reallocation (Google)</h5>
+            <p class="text-center text-muted mb-3">
+              Generate automatic budget reallocation rules using real Google campaign data.
+            </p>
+
+            <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+              <button
+                type="button"
+                class="btn btn-outline-success btn-sm"
+                onclick="copyBudgetPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
+              >
+                Copy budget prompt
+              </button>
+            </div>
+
+            <textarea
+              id="googleBudgetPrompt_{{ c.key|replace(' ','_')|replace('+','_')|replace('/','_')|replace('.','_')|replace('-','_') }}"
+              class="form-control"
+              rows="24"
+              readonly
+              style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+            ></textarea>
+
+            <hr class="my-4">
+
+            <h5 class="text-center mb-2">Prompt for Scalability Prediction (Google)</h5>
+            <p class="text-center text-muted mb-3">
+              Estimate whether this Google campaign can scale and with what probability, using only the available data.
+            </p>
+
+            <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
+              <button
+                type="button"
+                class="btn btn-outline-warning btn-sm"
+                onclick="copyScalabilityPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
+              >
+                Copy scalability prompt
+              </button>
+            </div>
+
+            <textarea
+              id="googleScalabilityPrompt_{{ c.key|replace(' ','_')|replace('+','_')|replace('/','_')|replace('.','_')|replace('-','_') }}"
+              class="form-control"
+              rows="26"
+              readonly
+              style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+            ></textarea>
+
+          </div>
         </div>
 
         {% if not loop.last %}
@@ -242,7 +323,232 @@ document.addEventListener("DOMContentLoaded", function() {
     return chart;
   }
 
-  // CAMPAIGN DISTRIBUTION PIE
+  function safeJsonStringify(obj) {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch (e) {
+      return String(obj || "");
+    }
+  }
+
+  function summarizePairs(labels, values, n) {
+    var items = [];
+    var maxItems = Number(n || 6);
+
+    for (var i = 0; i < Math.min(labels.length, values.length); i++) {
+      items.push({
+        label: String(labels[i] || "Unknown"),
+        value: Number(values[i]) || 0
+      });
+    }
+
+    items.sort(function(a, b) {
+      return b.value - a.value;
+    });
+
+    items = items.slice(0, maxItems);
+
+    if (!items.length) return "No data.";
+
+    return items.map(function(it) {
+      return "- " + it.label + ": " + it.value;
+    }).join("\n");
+  }
+
+  function buildContentCitySummary(cityLabels, cityValues, contentLabels, contentValues, nCities, nContents) {
+    var cityItems = [];
+    var contentItems = [];
+
+    for (var i = 0; i < Math.min(cityLabels.length, cityValues.length); i++) {
+      cityItems.push({
+        label: String(cityLabels[i] || "Unknown"),
+        value: Number(cityValues[i]) || 0
+      });
+    }
+
+    for (var j = 0; j < Math.min(contentLabels.length, contentValues.length); j++) {
+      contentItems.push({
+        label: String(contentLabels[j] || "Unknown"),
+        value: Number(contentValues[j]) || 0
+      });
+    }
+
+    cityItems.sort(function(a, b) { return b.value - a.value; });
+    contentItems.sort(function(a, b) { return b.value - a.value; });
+
+    cityItems = cityItems.slice(0, Number(nCities || 6));
+    contentItems = contentItems.slice(0, Number(nContents || 6));
+
+    return {
+      top_cities: cityItems,
+      top_contents: contentItems
+    };
+  }
+
+  function sumTrend(trendRows) {
+    var total = 0;
+    var rows = Array.isArray(trendRows) ? trendRows : [];
+    rows.forEach(function(r) {
+      total += Number(r && r.total_sales) || 0;
+    });
+    return total;
+  }
+
+  function buildGoogleStrategicPrompt(payload) {
+    var campaign = String(payload.campaign || "");
+    var totalHist = Number(payload.total_hist || 0);
+
+    return (
+      "You are a senior Google Ads consultant specialized in campaign optimization based on real sales data.\n\n" +
+      "OBJECTIVE\n" +
+      "Analyze this Google campaign using the historical data and generate an advanced optimization plan.\n\n" +
+      "CONTEXT\n" +
+      "- Campaign: " + campaign + "\n" +
+      "- Channel: Google Ads\n" +
+      "- Market: Colombia\n" +
+      "- Total historical sales: " + totalHist + " COP\n" +
+      "- Data included through yesterday (Bogota time)\n\n" +
+      "ANALYSIS INPUTS\n" +
+      "Hour buckets:\n" + summarizePairs(payload.hour_labels || [], payload.hour_values || [], 8) + "\n\n" +
+      "Gender distribution:\n" + summarizePairs(payload.gender_labels || [], payload.gender_values || [], 6) + "\n\n" +
+      "City distribution:\n" + summarizePairs(payload.city_labels || [], payload.city_values || [], 10) + "\n\n" +
+      "UTM Content distribution:\n" + summarizePairs(payload.content_labels || [], payload.content_values || [], 10) + "\n\n" +
+      "Creative / keyword / message and geography summary:\n" + safeJsonStringify(payload.content_city_summary || {}) + "\n\n" +
+      "DELIVERABLE\n" +
+      "- Diagnosis\n" +
+      "- Quick wins\n" +
+      "- Risks\n" +
+      "- 7-day action plan\n" +
+      "- Recommendations for campaign structure, keyword intent, ad messaging, schedule, device/location prioritization, and landing page alignment\n"
+    );
+  }
+
+  function buildGoogleBudgetReallocationPrompt(payload) {
+    var campaign = String(payload.campaign || "");
+    var totalHist = Number(payload.total_hist || 0);
+
+    return (
+      "You are a senior Google Ads expert specialized in budget automation.\n\n" +
+      "OBJECTIVE\n" +
+      "Design an AUTOMATIC budget reallocation strategy for this Google campaign using only real data.\n\n" +
+      "CONTEXT\n" +
+      "- Campaign: " + campaign + "\n" +
+      "- Channel: Google Ads\n" +
+      "- Market: Colombia\n" +
+      "- Total historical sales (COP): " + totalHist + "\n" +
+      "- Data source: attributed orders and UTM data\n\n" +
+      "DATA\n" +
+      "Hour buckets:\n" + summarizePairs(payload.hour_labels || [], payload.hour_values || [], 8) + "\n\n" +
+      "Gender distribution:\n" + summarizePairs(payload.gender_labels || [], payload.gender_values || [], 6) + "\n\n" +
+      "City distribution:\n" + summarizePairs(payload.city_labels || [], payload.city_values || [], 10) + "\n\n" +
+      "UTM Content distribution:\n" + summarizePairs(payload.content_labels || [], payload.content_values || [], 10) + "\n\n" +
+      "Creative / keyword / message and geography summary:\n" + safeJsonStringify(payload.content_city_summary || {}) + "\n\n" +
+      "DELIVERABLE\n" +
+      "1) Diagnosis\n" +
+      "2) Reallocation percentages across time windows, cities, genders, and content/message clusters using a 100-unit budget model\n" +
+      "3) Automatic rules\n" +
+      "4) Risk controls\n" +
+      "5) Daily and 3-day review cadence\n"
+    );
+  }
+
+  function buildGoogleScalabilityPredictionPrompt(payload) {
+    var campaign = String(payload.campaign || "");
+    var totalHist = Number(payload.total_hist || 0);
+
+    return (
+      "Act as a growth director specialized in Google Ads and scalability prediction.\n\n" +
+      "OBJECTIVE\n" +
+      "Using the available campaign data, estimate this Google campaign's SCALABILITY POTENTIAL and deliver an actionable prediction.\n\n" +
+      "CONTEXT\n" +
+      "- Campaign: " + campaign + "\n" +
+      "- Channel: Google Ads\n" +
+      "- Market: Colombia\n" +
+      "- Total historical sales (COP): " + totalHist + "\n" +
+      "- Data source: attributed orders + UTM data\n\n" +
+      "AVAILABLE DATA\n" +
+      "1) Hour bucket distribution:\n" + summarizePairs(payload.hour_labels || [], payload.hour_values || [], 8) + "\n\n" +
+      "2) Gender distribution:\n" + summarizePairs(payload.gender_labels || [], payload.gender_values || [], 6) + "\n\n" +
+      "3) City distribution:\n" + summarizePairs(payload.city_labels || [], payload.city_values || [], 10) + "\n\n" +
+      "4) UTM Content distribution:\n" + summarizePairs(payload.content_labels || [], payload.content_values || [], 10) + "\n\n" +
+      "5) Creative / keyword / message and geography summary:\n" + safeJsonStringify(payload.content_city_summary || {}) + "\n\n" +
+      "TASKS (STRUCTURED RESPONSE)\n" +
+      "A) Scalability signals\n" +
+      "- Density vs dispersion\n" +
+      "- Dependence on 1-2 content/message clusters\n" +
+      "- Dependence on 1-2 time windows\n" +
+      "- Dependence on 1-2 cities or demographics\n" +
+      "- Mix robustness\n\n" +
+      "B) Scalability prediction (MANDATORY)\n" +
+      "- Score 0-100\n" +
+      "- Probability of scaling (Low/Medium/High) with estimated %\n" +
+      "- Recommended budget increase over 7 days: +X% with min/max range\n\n" +
+      "C) 3-phase scaling plan\n" +
+      "Phase 1 (0-3 days)\n" +
+      "Phase 2 (4-7 days)\n" +
+      "Phase 3 (8-14 days)\n\n" +
+      "D) Automatic scaling rules\n" +
+      "- If [condition] then [action]\n" +
+      "- Include safety limits and evaluation frequency\n\n" +
+      "E) Assumptions and limitations\n" +
+      "- Explain what cannot be known without full Google Ads metrics and how you compensate using the available signals.\n\n" +
+      "STYLE RULES\n" +
+      "- Do not be generic.\n" +
+      "- Justify everything with the provided data.\n" +
+      "- Do not invent metrics that do not exist.\n"
+    );
+  }
+
+  function sanitizeKey(rawKey) {
+    return String(rawKey || "")
+      .replace(/\s+/g, "_")
+      .replace(/[+\/.\-]/g, "_");
+  }
+
+  window._googlePromptPayloads = window._googlePromptPayloads || {};
+
+  window.copyCampaignStrategicPromptGoogle = async function(rawKey) {
+    var key = sanitizeKey(rawKey);
+    var textarea = document.getElementById("googleStrategicPrompt_" + key);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyBudgetPromptGoogle = async function(rawKey) {
+    var key = sanitizeKey(rawKey);
+    var textarea = document.getElementById("googleBudgetPrompt_" + key);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
+  window.copyScalabilityPromptGoogle = async function(rawKey) {
+    var key = sanitizeKey(rawKey);
+    var textarea = document.getElementById("googleScalabilityPrompt_" + key);
+    if (!textarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textarea.value || "");
+    } catch (e) {
+      textarea.select();
+      document.execCommand("copy");
+      textarea.setSelectionRange(0, 0);
+    }
+  };
+
   var pieCanvas = document.getElementById("googleCampaignPieChart");
   var pieChart = null;
   var campaignColorMap = {};
@@ -330,7 +636,6 @@ document.addEventListener("DOMContentLoaded", function() {
     pieChart._rawCOP = filteredPieValuesCOP;
   }
 
-  // TOTAL PIES
   var totalHourPie = buildPieChart(
     "googleTotalHourPieChart",
     [{% for l in total_hour_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
@@ -470,6 +775,53 @@ document.addEventListener("DOMContentLoaded", function() {
         color
       );
       if (ch) campaignCharts.push(ch);
+
+      var rawKey = "{{ c.key|replace('"','\\"') }}";
+      var safeKey = sanitizeKey(rawKey);
+
+      var payload = {
+        key: rawKey,
+        campaign: "{{ c.label|replace('"','\\"') }}",
+        total_hist: sumTrend([
+          {% for r in c.trend %}
+            { date: "{{ r['Date'] }}", total_sales: {{ r['Total Sales']|default('0') }} },
+          {% endfor %}
+        ]),
+        hour_labels: [{% for l in c.hour_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        hour_values: [{% for v in c.hour_pie_values %}{{ v }},{% endfor %}],
+        gender_labels: [{% for l in c.gender_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        gender_values: [{% for v in c.gender_pie_values %}{{ v }},{% endfor %}],
+        city_labels: [{% for l in c.city_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        city_values: [{% for v in c.city_pie_values %}{{ v }},{% endfor %}],
+        content_labels: [{% for l in c.content_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        content_values: [{% for v in c.content_pie_values %}{{ v }},{% endfor %}]
+      };
+
+      payload.content_city_summary = buildContentCitySummary(
+        payload.city_labels,
+        payload.city_values,
+        payload.content_labels,
+        payload.content_values,
+        8,
+        8
+      );
+
+      window._googlePromptPayloads[safeKey] = payload;
+
+      var strategicTextarea = document.getElementById("googleStrategicPrompt_" + safeKey);
+      if (strategicTextarea) {
+        strategicTextarea.value = buildGoogleStrategicPrompt(payload);
+      }
+
+      var budgetTextarea = document.getElementById("googleBudgetPrompt_" + safeKey);
+      if (budgetTextarea) {
+        budgetTextarea.value = buildGoogleBudgetReallocationPrompt(payload);
+      }
+
+      var scalabilityTextarea = document.getElementById("googleScalabilityPrompt_" + safeKey);
+      if (scalabilityTextarea) {
+        scalabilityTextarea.value = buildGoogleScalabilityPredictionPrompt(payload);
+      }
     })();
   {% endfor %}
 

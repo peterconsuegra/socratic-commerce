@@ -1,83 +1,139 @@
 **app/routes.py**
 
-# app/routes.py
-
-@main.route("/bogota_insights_female")
+@main.route("/google_insights")
 @login_required
-def bogota_insights_female():
+def google_insights():
     import os
     import logging
     from flask import render_template
     from .models import Option
-    from app.services.bogota_insights import (
-        get_bogota_insights_view_data,
-        build_city_filtered_csv,
-    )
+    from app.services.google_insights import get_google_insights_daily
 
     logger = logging.getLogger(__name__)
+    input_file = "data/google_sales_orders.csv"
 
-    SOURCE_FILE = "data/bogota_insights_female.csv"
-    FILTERED_FILE = "data/bogota_insights_female_filtered.csv"
-    BOGOTA_CITY_VALUE = "BOGOTA (C/MARCA)"
+    error = None
+    date_range = start_date = end_date = None
+
+    total_daily_trend = []
+    forecast_data = []
+
+    pie_labels = []
+    pie_keys = []
+    pie_values = []
+    campaign_charts = []
+
+    other_campaigns_labels = []
+    other_campaigns_pct = 0.0
+
+    total_hour_pie_labels = []
+    total_hour_pie_values = []
+    total_gender_pie_labels = []
+    total_gender_pie_values = []
+
+    total_city_pie_labels = []
+    total_city_pie_values = []
+
+    # NEW: total utm_content pie
+    total_content_pie_labels = []
+    total_content_pie_values = []
 
     try:
-        if not os.path.exists(SOURCE_FILE):
-            return render_template(
-                "bogota_insights_female.html",
-                error=f"{SOURCE_FILE} not found. Use the date selector above to fetch data first.",
-                date_range=None,
-                start_date=None,
-                end_date=None,
-                total_daily_trend=[],
-                forecast_data=[],
-                campaign_groups=[],
-                gender="female",
-            )
+        rec = Option.query.filter_by(meta_key="date_range_google_sales_orders.csv").first()
+        date_range = rec.meta_value if rec else None
 
-        if not os.path.exists(FILTERED_FILE):
-            stats = build_city_filtered_csv(
-                src_path=SOURCE_FILE,
-                dst_path=FILTERED_FILE,
-                target_city=BOGOTA_CITY_VALUE,
-                gender="female",
-            )
+        rec = Option.query.filter_by(meta_key="start_date_google_sales_orders.csv").first()
+        start_date = rec.meta_value if rec else None
 
-            logger.info(
-                "Filtered CSV created (first time): %s (kept=%s removed=%s bad_rows=%s)",
-                stats.get("output_file"),
-                stats.get("kept"),
-                stats.get("removed"),
-                stats.get("bad_rows"),
-            )
-        else:
-            logger.debug("Filtered CSV already exists. Skipping regeneration.")
+        rec = Option.query.filter_by(meta_key="end_date_google_sales_orders.csv").first()
+        end_date = rec.meta_value if rec else None
+    except Exception:
+        logger.exception("Reading date range options failed (google_insights)")
 
-        ctx = get_bogota_insights_view_data(
-            OptionModel=Option,
-            source_file=SOURCE_FILE,
-            filtered_file=FILTERED_FILE,
-            city_value=BOGOTA_CITY_VALUE,
-            forecast_periods=7,
-            gender="female",
-            logger=logger,
+    if not os.path.exists(input_file):
+        error = f"{input_file} not found. Use the date selector above to fetch data first."
+        return render_template(
+            "google_insights.html",
+            error=error,
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+            total_daily_trend=[],
+            forecast_data=[],
+            pie_labels=[],
+            pie_keys=[],
+            pie_values=[],
+            campaign_charts=[],
+            other_campaigns_labels=[],
+            other_campaigns_pct=0.0,
+            total_hour_pie_labels=[],
+            total_hour_pie_values=[],
+            total_gender_pie_labels=[],
+            total_gender_pie_values=[],
+            total_city_pie_labels=[],
+            total_city_pie_values=[],
+            total_content_pie_labels=[],
+            total_content_pie_values=[],
         )
 
+    try:
+        result = get_google_insights_daily(
+            orders_csv_path=input_file,
+            forecast_periods=30,
+            min_share_percent=2.0,
+        )
+
+        total_daily_trend = result["total_daily_trend"]
+        forecast_data = result["forecast_data"]
+
+        pie_labels = result["pie_labels"]
+        pie_keys = result.get("pie_keys", [])
+        pie_values = result["pie_values"]
+
+        campaign_charts = result["campaign_charts"]
+
+        other_campaigns_labels = result["other_campaigns_labels"]
+        other_campaigns_pct = result["other_campaigns_pct"]
+
+        total_hour_pie_labels = result.get("total_hour_pie_labels", [])
+        total_hour_pie_values = result.get("total_hour_pie_values", [])
+        total_gender_pie_labels = result.get("total_gender_pie_labels", [])
+        total_gender_pie_values = result.get("total_gender_pie_values", [])
+
+        total_city_pie_labels = result.get("total_city_pie_labels", [])
+        total_city_pie_values = result.get("total_city_pie_values", [])
+
+        # NEW
+        total_content_pie_labels = result.get("total_content_pie_labels", [])
+        total_content_pie_values = result.get("total_content_pie_values", [])
+
     except Exception as e:
-        logger.exception("bogota_insights_female view failed")
-        ctx = {
-            "error": str(e),
-            "date_range": None,
-            "start_date": None,
-            "end_date": None,
-            "total_daily_trend": [],
-            "forecast_data": [],
-            "campaign_groups": [],
-            "gender": "female",
-        }
+        logger.exception("google_insights view failed")
+        error = str(e)
 
-    return render_template("bogota_insights_female.html", **ctx)
-
-
+    return render_template(
+        "google_insights.html",
+        error=error,
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+        total_daily_trend=total_daily_trend,
+        forecast_data=forecast_data,
+        pie_labels=pie_labels,
+        pie_keys=pie_keys,
+        pie_values=pie_values,
+        campaign_charts=campaign_charts,
+        other_campaigns_labels=other_campaigns_labels,
+        other_campaigns_pct=other_campaigns_pct,
+        total_hour_pie_labels=total_hour_pie_labels,
+        total_hour_pie_values=total_hour_pie_values,
+        total_gender_pie_labels=total_gender_pie_labels,
+        total_gender_pie_values=total_gender_pie_values,
+        total_city_pie_labels=total_city_pie_labels,
+        total_city_pie_values=total_city_pie_values,
+        total_content_pie_labels=total_content_pie_labels,
+        total_content_pie_values=total_content_pie_values,
+    )
 
 
 @main.route("/facebook_insights")
