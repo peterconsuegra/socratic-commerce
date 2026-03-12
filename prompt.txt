@@ -1297,39 +1297,6 @@ Bogota Insights Female
                               {% if g['key'] == 'meta' %}
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Pomelli Creative Prompt</h6>
-                                <p class="text-center text-muted mb-3">
-                                  A single structured prompt for Pomelli to generate ad images and creative directions for this Meta campaign, using the available campaign JSON as context.
-                                </p>
-
-                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
-                                  <button
-                                    type="button"
-                                    class="btn btn-outline-primary btn-sm"
-                                    onclick="copyPomelliPrompt({{ c['chart_id'] }})"
-                                  >
-                                    Copy Pomelli prompt
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    onclick="regeneratePomelliPrompt({{ c['chart_id'] }})"
-                                  >
-                                    Regenerate prompt
-                                  </button>
-                                </div>
-
-                                <textarea
-                                  id="metaPomelliPrompt{{ c['chart_id'] }}"
-                                  class="form-control"
-                                  rows="24"
-                                  readonly
-                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
-                                ></textarea>
-
-                                <hr class="my-4">
-
                                 <h6 class="text-center mb-2">Strategic Prompt for Meta Campaign Optimization</h6>
                                 <p class="text-center text-muted mb-3">
                                   Analyze the full campaign using all available data and generate an advanced optimization plan.
@@ -1444,117 +1411,6 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch (e) {
       return String(obj || "");
     }
-  }
-
-  function buildMetaPomelliCampaignPrompt(payload) {
-    function topN(list, n) {
-      var arr = Array.isArray(list) ? list.slice() : [];
-      arr.sort(function(a, b) {
-        return (Number(b.value) || 0) - (Number(a.value) || 0);
-      });
-      return arr.slice(0, n);
-    }
-
-    function summarizeTop(list, n, labelName) {
-      var top = topN(list, n);
-      if (!top.length) return "No data available for " + labelName + ".";
-      return top.map(function(it) {
-        return "- " + (it.label || "Unknown") + ": " + (Number(it.value) || 0);
-      }).join("\n");
-    }
-
-    var campaign = (payload.campaign || "").toString();
-    var totalHist = Number(payload.total_hist || 0);
-
-    var localidad = payload.localidad_breakdown || [];
-    var estrato = payload.estrato_breakdown || [];
-    var nivel = payload.nivel_socioeconomico_breakdown || [];
-    var timeChunks = payload.time_of_day_breakdown || [];
-    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
-
-    return (
-      "POMELLI_STRUCTURED_PROMPT\n\n" +
-
-      "ROLE\n" +
-      "You are an expert advertising creative strategist using Pomelli, an AI advertising tool that generates campaign images, concepts, and creative directions.\n\n" +
-
-      "PRIMARY OBJECTIVE\n" +
-      "Generate high-converting creative ideas and visual directions for this Meta campaign.\n\n" +
-
-      "DELIVERABLE\n" +
-      "Return:\n" +
-      "1) 10 static ad image concepts\n" +
-      "2) 10 short ad idea concepts\n" +
-      "3) 10 strong hooks/headlines\n" +
-      "4) 5 CTA options\n" +
-      "5) 5 creative testing angles\n\n" +
-
-      "FOR EACH IMAGE CONCEPT, USE THIS STRUCTURE\n" +
-      "- Concept title\n" +
-      "- Core angle\n" +
-      "- Emotional trigger\n" +
-      "- Persona insight\n" +
-      "- Visual scene description\n" +
-      "- Styling and composition\n" +
-      "- Lighting and color palette\n" +
-      "- Suggested on-image text\n" +
-      "- Suggested headline\n" +
-      "- Suggested CTA\n" +
-      "- Why this concept should work\n\n" +
-
-      "FOR EACH AD IDEA, USE THIS STRUCTURE\n" +
-      "- Idea title\n" +
-      "- Core message\n" +
-      "- Target situation or use case\n" +
-      "- Visual approach\n" +
-      "- Hook\n" +
-      "- CTA\n" +
-      "- Why this should work\n\n" +
-
-      "IMPORTANT RULES\n" +
-      "- Do not mention socioeconomic level, estrato, or class descriptors in the final output.\n" +
-      "- Do not mention localidades, neighborhoods, or specific Bogotá zones in the final output.\n" +
-      "- Use campaign signals only as internal creative guidance.\n" +
-      "- Keep the final concepts natural, modern, inclusive, performance-oriented, and suitable for Meta ads.\n" +
-      "- Focus on commercial usefulness, clarity, strong hooks, and visual simplicity.\n" +
-      "- Avoid generic ideas.\n\n" +
-
-      "CAMPAIGN CONTEXT\n" +
-      "- Campaign: " + campaign + "\n" +
-      "- Market: Bogotá (C/MARCA)\n" +
-      "- Gender focus: Women\n" +
-      "- Total historical sales (COP): " + totalHist + "\n" +
-      "- Data included through the end of yesterday (Bogota time)\n\n" +
-
-      "INTERNAL SIGNALS TO USE FOR CREATIVE REASONING ONLY\n" +
-      "Top localidades by sales:\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
-      "Top time-of-day windows by sales:\n" + summarizeTop(timeChunks, 6, "time windows") + "\n\n" +
-
-      "CREATIVE INTERPRETATION RULES\n" +
-      "- Infer lifestyle, routine, urgency, aspirations, and emotional triggers from the available signals.\n" +
-      "- If certain time windows dominate, adapt scenes and hooks to those moments of day.\n" +
-      "- Use the creative mix and sales concentration patterns to suggest both winning directions and new tests.\n" +
-      "- Keep scenes visually concrete and easy for an AI ad tool to generate.\n" +
-      "- Favor ideas that can perform well in paid social.\n\n" +
-
-      "PRODUCT ANGLES TO EXPLORE WHEN RELEVANT\n" +
-      "- Odor control and freshness\n" +
-      "- Confidence in social situations\n" +
-      "- Daily routine support\n" +
-      "- Sweat, stress, and comfort\n" +
-      "- Before/after relief\n" +
-      "- Confidence at work, dating, commuting, and everyday life\n\n" +
-
-      "RAW JSON REFERENCE DATA\n" +
-      "Localidad breakdown:\n" + safeJsonStringify(localidad) + "\n\n" +
-      "Estrato breakdown:\n" + safeJsonStringify(estrato) + "\n\n" +
-      "Nivel socioeconomico breakdown:\n" + safeJsonStringify(nivel) + "\n\n" +
-      "Time-of-day breakdown:\n" + safeJsonStringify(timeChunks) + "\n\n" +
-      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
-
-      "FINAL REMINDER\n" +
-      "Use all JSON and campaign signals for internal reasoning, but do not mention socioeconomic information explicitly in the final creative output.\n"
-    );
   }
 
   function buildMetaStrategicPrompt(payload) {
@@ -1750,29 +1606,6 @@ document.addEventListener("DOMContentLoaded", function() {
       document.execCommand("copy");
       el.setSelectionRange(0, 0);
     }
-  };
-
-  window.copyPomelliPrompt = async function(chartId) {
-    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
-    if (!textarea) return;
-
-    try {
-      await navigator.clipboard.writeText(textarea.value || "");
-    } catch (e) {
-      textarea.select();
-      document.execCommand("copy");
-      textarea.setSelectionRange(0, 0);
-    }
-  };
-
-  window.regeneratePomelliPrompt = function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
-    if (!textarea) return;
-
-    textarea.value = buildMetaPomelliCampaignPrompt(payload);
   };
 
   window._metaPromptPayloads = window._metaPromptPayloads || {};
@@ -2443,11 +2276,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
           window._metaPromptPayloads = window._metaPromptPayloads || {};
           window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
-
-          var pomelliTextarea = document.getElementById("metaPomelliPrompt{{ c['chart_id'] }}");
-          if (pomelliTextarea) {
-            pomelliTextarea.value = buildMetaPomelliCampaignPrompt(payload);
-          }
 
           var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
           if (strategicTextarea) {
@@ -3366,5 +3194,1094 @@ def get_bogota_insights_view_data(
 
     return payload
 
+```
+
+========================================
+
+**app/services/facebook_insights.py**
+```python
+# app/services/facebook_insights.py
+import os
+import re
+import numpy as np
+import pandas as pd
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+
+def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
+    s = pd.Series(series).astype(float).copy()
+    s = s.replace([np.inf, -np.inf], np.nan).dropna()
+
+    if periods <= 0:
+        return pd.Series([], dtype=float)
+
+    if len(s) == 0:
+        return pd.Series([0.0] * periods, dtype=float)
+
+    s = s.clip(lower=0.0)
+    last = float(s.iloc[-1]) if len(s) else 0.0
+    last = 0.0 if np.isnan(last) else max(last, 0.0)
+
+    nonzero_days = int((s > 0).sum())
+
+    if nonzero_days < 7:
+        decay = 0.90
+        return pd.Series([max(last * (decay ** i), 0.0) for i in range(1, periods + 1)], dtype=float)
+
+    if nonzero_days < 14:
+        window = min(10, len(s))
+        recent = s.iloc[-window:].astype(float)
+
+        recent_nz = recent[recent > 0]
+        if len(recent_nz) >= 3:
+            level_med = float(recent_nz.median())
+            level_mean = float(recent_nz.mean())
+            recent_max = float(recent_nz.max())
+        else:
+            level_med = float(recent.median())
+            level_mean = float(recent.mean())
+            recent_max = float(recent.max())
+
+        diffs = recent.diff().dropna()
+        slope = float(diffs.median()) if len(diffs) else 0.0
+        if np.isnan(slope):
+            slope = 0.0
+
+        base_level = max(level_med, level_mean, 0.0)
+
+        abs_cap = max(1000.0, base_level * 0.08)
+        slope = max(min(slope, abs_cap), -abs_cap)
+
+        spike_factor = 1.0
+        if base_level > 0 and last > 1.7 * base_level:
+            spike_factor = 0.25
+        slope *= spike_factor
+
+        ceiling = max(recent_max * 1.15, base_level * 1.25, last * 1.10)
+        floor = 0.0
+
+        forecasts = []
+        for i in range(1, periods + 1):
+            val = last + slope * i
+            val *= (0.90 ** i)
+            val = min(val, ceiling)
+            val = max(val, floor)
+            forecasts.append(float(val))
+
+        return pd.Series(forecasts, dtype=float)
+
+    try:
+        model = ExponentialSmoothing(
+            s,
+            trend="add",
+            damped_trend=True,
+            seasonal="add",
+            seasonal_periods=7,
+            initialization_method="estimated",
+        )
+        fit = model.fit(optimized=True)
+        fc = fit.forecast(periods)
+        return pd.Series(fc).astype(float).clip(lower=0.0)
+    except Exception:
+        return pd.Series([last] * periods, dtype=float)
+
+
+def _normalize_str(val: str, fallback: str = "unknown") -> str:
+    s = "" if val is None else str(val)
+    s = s.strip()
+    if not s or s.lower() in {"nan", "none"}:
+        return fallback
+    return s
+
+
+def _normalize_utm_source(val: str) -> str:
+    return _normalize_str(val, fallback="").lower()
+
+
+def _normalize_campaign_key(val: str) -> str:
+    s = _normalize_str(val, fallback="unknown").lower()
+    s = s.replace("+", "")
+    s = re.sub(r"[\s\-_]+", "", s)
+    s = re.sub(r"[^a-z0-9]", "", s)
+    return s or "unknown"
+
+
+def _normalize_gender(val: str) -> str:
+    s = _normalize_str(val, fallback="other").lower()
+    if s in {"f", "female", "mujer", "femenino"}:
+        return "female"
+    if s in {"m", "male", "hombre", "masculino"}:
+        return "male"
+    return "other"
+
+
+def _normalize_city(val: str) -> str:
+    s = _normalize_str(val, fallback="Unknown").strip()
+    if not s or s.lower() in {"nan", "none", "n/a"}:
+        return "Unknown"
+    s = re.sub(r"\s+", " ", s)
+    return s.title()
+
+
+def _normalize_content(val: str) -> str:
+    s = _normalize_str(val, fallback="Unknown").strip()
+    if not s or s.lower() in {"nan", "none", "n/a", "undefined"}:
+        return "Unknown"
+    s = re.sub(r"\s+", " ", s)
+    # Keep original-ish casing but readable
+    return s
+
+
+def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    dfx = df.copy()
+
+    dfx["order_date"] = pd.to_datetime(dfx["order_date"], errors="coerce")
+    dfx = dfx.dropna(subset=["order_date"]).copy()
+
+    dfx["order_date_local"] = dfx["order_date"].dt.tz_localize(tz)
+    dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
+
+    now_local = pd.Timestamp.now(tz=tz).normalize()
+    end_yesterday = now_local - pd.Timedelta(microseconds=1)
+
+    dfx = dfx[dfx["order_date_local"] <= end_yesterday].copy()
+    return dfx
+
+
+def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> tuple[list[dict], list[dict]]:
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    dfx["day"] = dfx["order_date_local"].dt.floor("D")
+
+    daily = (
+        dfx.groupby("day")["total_value"]
+        .sum()
+        .reset_index(name="Sales")
+        .sort_values("day")
+    )
+
+    daily["Date"] = daily["day"].dt.strftime("%Y-%m-%d")
+    daily["Total Sales"] = daily["Sales"].apply(lambda x: str(int(round(float(x)))))
+
+    trend_rows = daily[["Date", "Total Sales"]].to_dict(orient="records")
+
+    forecast_rows: list[dict] = []
+    if forecast_periods <= 0:
+        return trend_rows, forecast_rows
+
+    ts = daily[["Date", "Sales"]].copy()
+    ts["Date_dt"] = pd.to_datetime(ts["Date"], errors="coerce")
+    ts = ts.dropna(subset=["Date_dt"]).sort_values("Date_dt")
+
+    if not ts.empty:
+        s = ts.set_index("Date_dt")["Sales"].astype(float)
+
+        full_idx = pd.date_range(s.index.min(), s.index.max(), freq="D")
+        s = s.reindex(full_idx)
+        s = s.interpolate(limit=2).fillna(0.0)
+
+        fc = _forecast_daily_series(s, periods=forecast_periods)
+        fc_idx = pd.date_range(s.index.max() + pd.Timedelta(days=1), periods=forecast_periods, freq="D")
+
+        for d, v in zip(fc_idx, fc):
+            forecast_rows.append({"Date": d.strftime("%Y-%m-%d"), "Projected Total Sales": float(v)})
+
+    return trend_rows, forecast_rows
+
+
+def _count_nonzero_sales_days(df: pd.DataFrame, tz: str) -> int:
+    if df.empty:
+        return 0
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return 0
+
+    dfx["day"] = dfx["order_date_local"].dt.floor("D")
+    daily = dfx.groupby("day")["total_value"].sum()
+    return int((daily > 0).sum())
+
+
+def _build_hour_bucket_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[float]]:
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    hours = dfx["order_date_local"].dt.hour.astype(int)
+    dfx["hour_bucket_start"] = (hours // 3) * 3
+
+    grouped = dfx.groupby("hour_bucket_start")["total_value"].sum().sort_index()
+
+    labels: list[str] = []
+    values: list[float] = []
+
+    for start_hour, val in grouped.items():
+        valf = float(val)
+        if valf <= 0:
+            continue
+        end_hour = int(start_hour) + 2
+        labels.append(f"{int(start_hour):02d}:00-{end_hour:02d}:59")
+        values.append(valf)
+
+    return labels, values
+
+
+def _build_gender_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[float]]:
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    if "gender" not in dfx.columns:
+        return [], []
+
+    dfx["gender_norm"] = dfx["gender"].apply(_normalize_gender)
+
+    grouped = dfx.groupby("gender_norm")["total_value"].sum().sort_values(ascending=False)
+
+    labels: list[str] = []
+    values: list[float] = []
+
+    for g, v in grouped.items():
+        vf = float(v)
+        if vf <= 0:
+            continue
+        if g == "female":
+            labels.append("Female")
+        elif g == "male":
+            labels.append("Male")
+        else:
+            labels.append("Other/Unknown")
+        values.append(vf)
+
+    return labels, values
+
+
+def _build_city_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list[str], list[float]]:
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    if "city" not in dfx.columns:
+        return [], []
+
+    dfx["city_norm"] = dfx["city"].apply(_normalize_city)
+
+    grouped = dfx.groupby("city_norm")["total_value"].sum().sort_values(ascending=False)
+    grouped = grouped[grouped > 0]
+    if grouped.empty:
+        return [], []
+
+    if top_n is not None and int(top_n) > 0 and len(grouped) > int(top_n):
+        top = grouped.iloc[: int(top_n)]
+        rest = grouped.iloc[int(top_n) :]
+        other_sum = float(rest.sum()) if len(rest) else 0.0
+
+        labels = [str(x) for x in top.index.tolist()]
+        values = [float(x) for x in top.values.tolist()]
+
+        if other_sum > 0:
+            labels.append("Other")
+            values.append(other_sum)
+
+        return labels, values
+
+    return [str(x) for x in grouped.index.tolist()], [float(x) for x in grouped.values.tolist()]
+
+
+def _build_content_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list[str], list[float]]:
+    """
+    Pie distribution by utm_content based on SALES (sum total_value).
+    Keeps top_n contents, aggregates the rest into "Other".
+    """
+    if df.empty:
+        return [], []
+
+    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    if dfx.empty:
+        return [], []
+
+    if "utm_content" not in dfx.columns:
+        return [], []
+
+    dfx["content_norm"] = dfx["utm_content"].apply(_normalize_content)
+
+    grouped = dfx.groupby("content_norm")["total_value"].sum().sort_values(ascending=False)
+    grouped = grouped[grouped > 0]
+    if grouped.empty:
+        return [], []
+
+    if top_n is not None and int(top_n) > 0 and len(grouped) > int(top_n):
+        top = grouped.iloc[: int(top_n)]
+        rest = grouped.iloc[int(top_n) :]
+        other_sum = float(rest.sum()) if len(rest) else 0.0
+
+        labels = [str(x) for x in top.index.tolist()]
+        values = [float(x) for x in top.values.tolist()]
+
+        if other_sum > 0:
+            labels.append("Other")
+            values.append(other_sum)
+
+        return labels, values
+
+    return [str(x) for x in grouped.index.tolist()], [float(x) for x in grouped.values.tolist()]
+
+
+def get_facebook_insights_daily(
+    orders_csv_path: str = "data/facebook_sales_orders.csv",
+    forecast_periods: int = 30,
+    min_share_percent: float = 2.0,
+):
+    tz = "America/Bogota"
+
+    if not os.path.exists(orders_csv_path):
+        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
+
+    df = pd.read_csv(orders_csv_path)
+
+    required_cols = {"order_date", "total_value", "utm_source", "utm_campaign"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
+
+    # Normalize + filter facebook
+    df["utm_source_norm"] = df["utm_source"].apply(_normalize_utm_source)
+    df = df[df["utm_source_norm"] == "facebook"].copy()
+
+    df["utm_campaign_key"] = df["utm_campaign"].apply(_normalize_campaign_key)
+    df["utm_campaign_display"] = df["utm_campaign"].apply(lambda x: _normalize_str(x, fallback="unknown"))
+
+    total_daily_trend, forecast_data = _build_daily_series(df=df.copy(), tz=tz, forecast_periods=forecast_periods)
+
+    if not total_daily_trend:
+        return {
+            "total_daily_trend": [],
+            "forecast_data": [],
+            "pie_labels": [],
+            "pie_keys": [],
+            "pie_values": [],
+            "campaign_charts": [],
+            "other_campaigns_labels": [],
+            "other_campaigns_pct": 0.0,
+            "total_hour_pie_labels": [],
+            "total_hour_pie_values": [],
+            "total_gender_pie_labels": [],
+            "total_gender_pie_values": [],
+            "total_city_pie_labels": [],
+            "total_city_pie_values": [],
+            "total_content_pie_labels": [],
+            "total_content_pie_values": [],
+        }
+
+    total_hour_pie_labels, total_hour_pie_values = _build_hour_bucket_pie(df=df.copy(), tz=tz)
+    total_gender_pie_labels, total_gender_pie_values = _build_gender_pie(df=df.copy(), tz=tz)
+    total_city_pie_labels, total_city_pie_values = _build_city_pie(df=df.copy(), tz=tz, top_n=12)
+
+    # NEW: total content pie
+    total_content_pie_labels, total_content_pie_values = _build_content_pie(df=df.copy(), tz=tz, top_n=12)
+
+    df2 = _apply_time_cutoff_rules(df.copy(), tz=tz)
+    if df2.empty:
+        return {
+            "total_daily_trend": total_daily_trend,
+            "forecast_data": forecast_data,
+            "pie_labels": [],
+            "pie_keys": [],
+            "pie_values": [],
+            "campaign_charts": [],
+            "other_campaigns_labels": [],
+            "other_campaigns_pct": 0.0,
+            "total_hour_pie_labels": total_hour_pie_labels,
+            "total_hour_pie_values": total_hour_pie_values,
+            "total_gender_pie_labels": total_gender_pie_labels,
+            "total_gender_pie_values": total_gender_pie_values,
+            "total_city_pie_labels": total_city_pie_labels,
+            "total_city_pie_values": total_city_pie_values,
+            "total_content_pie_labels": total_content_pie_labels,
+            "total_content_pie_values": total_content_pie_values,
+        }
+
+    display_map = (
+        df2.groupby("utm_campaign_key")["utm_campaign_display"]
+        .agg(lambda s: s.value_counts().index[0] if len(s) else "unknown")
+        .to_dict()
+    )
+
+    grouped_value = df2.groupby("utm_campaign_key")["total_value"].sum().sort_values(ascending=False)
+
+    pie_keys = [str(k) for k, v in grouped_value.items() if float(v) > 0]
+    pie_labels = [display_map.get(k, str(k)) for k in pie_keys]
+    pie_values = [float(grouped_value.loc[k]) for k in pie_keys]
+    total_sales_value = float(sum(pie_values)) if pie_values else 0.0
+
+    included = []
+    excluded = []
+
+    if total_sales_value > 0:
+        for camp_key, val in grouped_value.items():
+            val = float(val)
+            if val <= 0:
+                continue
+            pct = (val / total_sales_value) * 100.0
+            item = {"key": str(camp_key), "label": display_map.get(camp_key, str(camp_key)), "pct": pct, "value": val}
+            if pct >= float(min_share_percent):
+                included.append(item)
+            else:
+                excluded.append(item)
+
+    included.sort(key=lambda x: x["pct"], reverse=True)
+    excluded.sort(key=lambda x: x["pct"], reverse=True)
+
+    other_campaigns_labels = [x["label"] for x in excluded]
+    other_campaigns_pct = float(sum(x["pct"] for x in excluded)) if excluded else 0.0
+
+    SHORT_CAMPAIGN_NONZERO_DAYS_THRESHOLD = 12
+    SHORT_CAMPAIGN_FORECAST_DAYS = 14
+
+    campaign_charts: list[dict] = []
+    for item in included:
+        camp_key = item["key"]
+        camp_label = item["label"]
+        pct = float(item["pct"])
+
+        subset = df[df["utm_campaign_key"] == camp_key].copy()
+
+        nonzero_days = _count_nonzero_sales_days(subset, tz=tz)
+
+        campaign_forecast_periods = forecast_periods
+        if nonzero_days <= SHORT_CAMPAIGN_NONZERO_DAYS_THRESHOLD:
+            campaign_forecast_periods = SHORT_CAMPAIGN_FORECAST_DAYS
+
+        trend_rows, fc_rows = _build_daily_series(df=subset, tz=tz, forecast_periods=campaign_forecast_periods)
+        if not trend_rows:
+            continue
+
+        hour_pie_labels, hour_pie_values = _build_hour_bucket_pie(df=subset, tz=tz)
+        gender_pie_labels, gender_pie_values = _build_gender_pie(df=subset, tz=tz)
+        city_pie_labels, city_pie_values = _build_city_pie(df=subset, tz=tz, top_n=12)
+        content_pie_labels, content_pie_values = _build_content_pie(df=subset, tz=tz, top_n=12)
+
+        safe = "".join(c if c.isalnum() else "_" for c in str(camp_key).lower())
+
+        label_suffix = ""
+        if campaign_forecast_periods != forecast_periods:
+            label_suffix = f" (forecast {campaign_forecast_periods}d)"
+
+        campaign_charts.append({
+            "key": camp_key,
+            "label": f"{camp_label} ({pct:.1f}%){label_suffix}",
+            "canvas_id": f"facebookCampaignChart_{safe}",
+            "trend": trend_rows,
+            "forecast": fc_rows,
+            "pct": pct,
+            "hour_pie_canvas_id": f"facebookCampaignHourPie_{safe}",
+            "hour_pie_labels": hour_pie_labels,
+            "hour_pie_values": hour_pie_values,
+            "gender_pie_canvas_id": f"facebookCampaignGenderPie_{safe}",
+            "gender_pie_labels": gender_pie_labels,
+            "gender_pie_values": gender_pie_values,
+            "city_pie_canvas_id": f"facebookCampaignCityPie_{safe}",
+            "city_pie_labels": city_pie_labels,
+            "city_pie_values": city_pie_values,
+            # NEW
+            "content_pie_canvas_id": f"facebookCampaignContentPie_{safe}",
+            "content_pie_labels": content_pie_labels,
+            "content_pie_values": content_pie_values,
+        })
+
+    return {
+        "total_daily_trend": total_daily_trend,
+        "forecast_data": forecast_data,
+        "pie_labels": pie_labels,
+        "pie_keys": pie_keys,
+        "pie_values": pie_values,
+        "campaign_charts": campaign_charts,
+        "other_campaigns_labels": other_campaigns_labels,
+        "other_campaigns_pct": other_campaigns_pct,
+        "total_hour_pie_labels": total_hour_pie_labels,
+        "total_hour_pie_values": total_hour_pie_values,
+        "total_gender_pie_labels": total_gender_pie_labels,
+        "total_gender_pie_values": total_gender_pie_values,
+        "total_city_pie_labels": total_city_pie_labels,
+        "total_city_pie_values": total_city_pie_values,
+        # NEW
+        "total_content_pie_labels": total_content_pie_labels,
+        "total_content_pie_values": total_content_pie_values,
+    }
+
+```
+
+========================================
+
+**app/templates/facebook_insights.html**
+```html
+{# app/templates/facebook_insights.html #}
+{% extends "layout.html" %}
+
+{% block title %}
+Facebook Insights
+{% endblock %}
+
+{% block content %}
+
+{% set file_name = "facebook_sales_orders.csv" %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "today", "label": "Today"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-4">
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  {% if not total_daily_trend %}
+    <div class="alert alert-warning mt-3">
+      No data available to display for this selection.
+    </div>
+  {% else %}
+
+    <div class="text-center mb-3">
+      <label for="exchangeRateFacebook">USD Exchange Rate (COP):</label>
+      <input type="number" id="exchangeRateFacebook" value="4000" step="50" min="3000" max="6000">
+      <button onclick="toggleCurrencyFacebook()" class="btn btn-primary">Switch Currency</button>
+    </div>
+
+    <h2 class="text-center">Facebook Campaign Distribution (utm_campaign)</h2>
+    <p class="text-center text-muted mb-3">
+      Based on the selected date range, filtered to utm_source = facebook.
+      Campaigns are grouped by removing "+" from utm_campaign.
+    </p>
+
+    <div style="height: 420px;">
+      <canvas id="facebookCampaignPieChart"></canvas>
+    </div>
+
+    {% if other_campaigns_labels and other_campaigns_pct and other_campaigns_pct > 0 %}
+      <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
+        Other campaigns (&lt;2%): {{ other_campaigns_labels|join(", ") }} ({{ "%.1f"|format(other_campaigns_pct) }}%)
+      </p>
+    {% endif %}
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Total Facebook Sales Distribution</h2>
+    <p class="text-center text-muted mb-3">
+      Four pies: hour buckets, gender, city share, and utm_content share.
+      Hover any slice to see the percentage.
+    </p>
+
+    <div class="row">
+      <div class="col-md-3" style="height: 420px;">
+        <canvas id="facebookTotalHourPieChart"></canvas>
+      </div>
+      <div class="col-md-3" style="height: 420px;">
+        <canvas id="facebookTotalGenderPieChart"></canvas>
+      </div>
+      <div class="col-md-3" style="height: 420px;">
+        <canvas id="facebookTotalCityPieChart"></canvas>
+      </div>
+      <div class="col-md-3" style="height: 420px;">
+        <canvas id="facebookTotalContentPieChart"></canvas>
+      </div>
+    </div>
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Daily Facebook Sales Trend and Forecast</h2>
+    <div style="height: 520px;">
+      <canvas id="facebookTotalSalesChart"></canvas>
+    </div>
+
+    <hr class="my-5">
+
+    <h2 class="text-center">Daily Sales Trend and Forecast by Facebook Campaign</h2>
+
+    {% if not campaign_charts %}
+      <div class="alert alert-warning mt-3">
+        No per-campaign charts available for this selection.
+      </div>
+    {% else %}
+      {% for c in campaign_charts %}
+        <h3 class="text-center mt-5">{{ c.label }}</h3>
+
+        <p class="text-center text-muted mb-3">
+          Four pies: hour buckets, gender, city share, and utm_content share.
+          Hover any slice to see the percentage.
+        </p>
+
+        <div class="row">
+          <div class="col-md-3" style="height: 420px;">
+            <canvas id="{{ c.hour_pie_canvas_id }}"></canvas>
+          </div>
+          <div class="col-md-3" style="height: 420px;">
+            <canvas id="{{ c.gender_pie_canvas_id }}"></canvas>
+          </div>
+          <div class="col-md-3" style="height: 420px;">
+            <canvas id="{{ c.city_pie_canvas_id }}"></canvas>
+          </div>
+          <div class="col-md-3" style="height: 420px;">
+            <canvas id="{{ c.content_pie_canvas_id }}"></canvas>
+          </div>
+        </div>
+
+        <div style="height: 520px; margin-top: 20px;">
+          <canvas id="{{ c.canvas_id }}"></canvas>
+        </div>
+
+        {% if not loop.last %}
+          <hr class="my-5">
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+  var exchangeRateEl = document.getElementById("exchangeRateFacebook");
+  var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
+  var useUSD = false;
+
+  function convertToUSD(values) {
+    return values.map(function(v) {
+      return Number((v / exchangeRate).toFixed(2));
+    });
+  }
+
+  function formatYTick(value) {
+    return useUSD
+      ? "$" + Number(value).toFixed(2) + " USD"
+      : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+  }
+
+  function hexToRgba(hex, alpha) {
+    if (!hex || hex[0] !== "#" || (hex.length !== 7 && hex.length !== 4)) return null;
+
+    var r, g, b;
+
+    if (hex.length === 7) {
+      r = parseInt(hex.slice(1, 3), 16);
+      g = parseInt(hex.slice(3, 5), 16);
+      b = parseInt(hex.slice(5, 7), 16);
+    } else {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    }
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  var PALETTE = [
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+  ];
+
+  function buildPieChart(canvasId, labels, valuesCOP) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var filteredLabels = [];
+    var filteredValues = [];
+
+    for (var i = 0; i < labels.length; i++) {
+      var v = Number(valuesCOP[i]) || 0;
+      if (v > 0) {
+        filteredLabels.push(labels[i]);
+        filteredValues.push(v);
+      }
+    }
+
+    var total = filteredValues.reduce(function(acc, v) {
+      return acc + (Number(v) || 0);
+    }, 0);
+
+    var colors = [];
+    for (var j = 0; j < filteredLabels.length; j++) {
+      colors.push(PALETTE[j % PALETTE.length]);
+    }
+
+    var chart = new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels: filteredLabels,
+        datasets: [{
+          data: filteredValues,
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || "";
+                var value = Number(context.parsed || 0);
+                var percent = total > 0 ? (value / total) * 100 : 0;
+
+                var formattedValue = useUSD
+                  ? "$" + Number(value).toFixed(2) + " USD"
+                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+
+                return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
+              }
+            }
+          }
+        }
+      }
+    });
+
+    chart._rawCOP = filteredValues;
+    return chart;
+  }
+
+  // Campaign distribution pie
+  var pieCanvas = document.getElementById("facebookCampaignPieChart");
+  var pieChart = null;
+  var campaignColorMap = {};
+
+  if (pieCanvas) {
+    var pieCtx = pieCanvas.getContext("2d");
+
+    var pieLabels = [
+      {% for l in pie_labels %}
+        "{{ l|replace('"','\\"') }}",
+      {% endfor %}
+    ];
+
+    var pieKeys = [
+      {% for k in pie_keys %}
+        "{{ k|replace('"','\\"') }}",
+      {% endfor %}
+    ];
+
+    var pieValuesCOP = [
+      {% for v in pie_values %}
+        {{ v }},
+      {% endfor %}
+    ];
+
+    var filteredPieLabels = [];
+    var filteredPieKeys = [];
+    var filteredPieValuesCOP = [];
+
+    for (var i = 0; i < pieLabels.length; i++) {
+      var val = Number(pieValuesCOP[i]) || 0;
+      if (val > 0) {
+        filteredPieLabels.push(pieLabels[i]);
+        filteredPieKeys.push(pieKeys[i] || pieLabels[i]);
+        filteredPieValuesCOP.push(val);
+      }
+    }
+
+    var pieTotal = filteredPieValuesCOP.reduce(function(acc, v) {
+      return acc + (Number(v) || 0);
+    }, 0);
+
+    var pieColors = [];
+    for (var j = 0; j < filteredPieLabels.length; j++) {
+      var color = PALETTE[j % PALETTE.length];
+      pieColors.push(color);
+      campaignColorMap[String(filteredPieKeys[j]).toLowerCase()] = color;
+    }
+
+    pieChart = new Chart(pieCtx, {
+      type: "pie",
+      data: {
+        labels: filteredPieLabels,
+        datasets: [{
+          data: filteredPieValuesCOP,
+          backgroundColor: pieColors,
+          borderColor: pieColors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.label || "";
+                var value = Number(context.parsed || 0);
+                var percent = pieTotal > 0 ? (value / pieTotal) * 100 : 0;
+
+                var formattedValue = useUSD
+                  ? "$" + Number(value).toFixed(2) + " USD"
+                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+
+                return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
+              }
+            }
+          }
+        }
+      }
+    });
+
+    pieChart._rawCOP = filteredPieValuesCOP;
+  }
+
+  // Total pies
+  var totalHourPie = buildPieChart(
+    "facebookTotalHourPieChart",
+    [{% for l in total_hour_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for v in total_hour_pie_values %}{{ v }},{% endfor %}]
+  );
+
+  var totalGenderPie = buildPieChart(
+    "facebookTotalGenderPieChart",
+    [{% for l in total_gender_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for v in total_gender_pie_values %}{{ v }},{% endfor %}]
+  );
+
+  var totalCityPie = buildPieChart(
+    "facebookTotalCityPieChart",
+    [{% for l in total_city_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for v in total_city_pie_values %}{{ v }},{% endfor %}]
+  );
+
+  var totalContentPie = buildPieChart(
+    "facebookTotalContentPieChart",
+    [{% for l in total_content_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for v in total_content_pie_values %}{{ v }},{% endfor %}]
+  );
+
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix, hexColor) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+
+    var ctx = canvas.getContext("2d");
+
+    var fillColor = hexToRgba(hexColor, 0.15) || undefined;
+    var lineColor = hexColor || undefined;
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: titlePrefix + " (COP)",
+            data: histCOP,
+            fill: true,
+            borderColor: lineColor,
+            backgroundColor: fillColor
+          },
+          {
+            label: "Forecasted " + titlePrefix + " (COP)",
+            data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
+            borderDash: [5, 5],
+            fill: true,
+            borderColor: lineColor,
+            backgroundColor: fillColor
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: formatYTick } } }
+      }
+    });
+
+    chart._rawHistCOP = histCOP;
+    chart._rawForecastCOP = fcstCOP;
+    chart._histLen = histCOP.length;
+    chart._titlePrefix = titlePrefix;
+
+    return chart;
+  }
+
+  var totalChart = buildLineChart(
+    "facebookTotalSalesChart",
+    [
+      {% for r in total_daily_trend %}"{{ r['Date'] }}",{% endfor %}
+      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+    ],
+    [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+    [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
+    "Historical Facebook Total Sales",
+    null
+  );
+
+  var campaignCharts = [];
+  var campaignHourPies = [];
+  var campaignGenderPies = [];
+  var campaignCityPies = [];
+  var campaignContentPies = [];
+
+  {% for c in campaign_charts %}
+    (function() {
+      var hourPie = buildPieChart(
+        "{{ c.hour_pie_canvas_id }}",
+        [{% for l in c.hour_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for v in c.hour_pie_values %}{{ v }},{% endfor %}]
+      );
+      if (hourPie) campaignHourPies.push(hourPie);
+
+      var genderPie = buildPieChart(
+        "{{ c.gender_pie_canvas_id }}",
+        [{% for l in c.gender_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for v in c.gender_pie_values %}{{ v }},{% endfor %}]
+      );
+      if (genderPie) campaignGenderPies.push(genderPie);
+
+      var cityPie = buildPieChart(
+        "{{ c.city_pie_canvas_id }}",
+        [{% for l in c.city_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for v in c.city_pie_values %}{{ v }},{% endfor %}]
+      );
+      if (cityPie) campaignCityPies.push(cityPie);
+
+      var contentPie = buildPieChart(
+        "{{ c.content_pie_canvas_id }}",
+        [{% for l in c.content_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for v in c.content_pie_values %}{{ v }},{% endfor %}]
+      );
+      if (contentPie) campaignContentPies.push(contentPie);
+
+      var key = "{{ c.key|replace('"','\\"') }}".toLowerCase();
+      var color = campaignColorMap[key] || null;
+
+      var labels = [
+        {% for r in c.trend %}"{{ r['Date'] }}",{% endfor %}
+        {% for r in c.forecast %}"{{ r['Date'] }}",{% endfor %}
+      ];
+
+      var hist = [{% for r in c.trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
+      var fcst = [{% for r in c.forecast %}{{ r['Projected Total Sales'] }},{% endfor %}];
+
+      var ch = buildLineChart(
+        "{{ c.canvas_id }}",
+        labels,
+        hist,
+        fcst,
+        "Historical {{ c.label|replace('"','\\"') }} Sales",
+        color
+      );
+      if (ch) campaignCharts.push(ch);
+    })();
+  {% endfor %}
+
+  window.toggleCurrencyFacebook = function() {
+    exchangeRate = parseFloat(exchangeRateEl.value || "4000");
+    useUSD = !useUSD;
+
+    function updatePie(pie) {
+      if (!pie || !pie._rawCOP) return;
+      var vals = useUSD ? convertToUSD(pie._rawCOP) : pie._rawCOP;
+      pie.data.datasets[0].data = vals;
+      pie.update();
+    }
+
+    updatePie(pieChart);
+    updatePie(totalHourPie);
+    updatePie(totalGenderPie);
+    updatePie(totalCityPie);
+    updatePie(totalContentPie);
+
+    for (var i = 0; i < campaignHourPies.length; i++) updatePie(campaignHourPies[i]);
+    for (var j = 0; j < campaignGenderPies.length; j++) updatePie(campaignGenderPies[j]);
+    for (var k = 0; k < campaignCityPies.length; k++) updatePie(campaignCityPies[k]);
+    for (var m = 0; m < campaignContentPies.length; m++) updatePie(campaignContentPies[m]);
+
+    function apply(chart) {
+      if (!chart) return;
+
+      var hist = useUSD ? convertToUSD(chart._rawHistCOP) : chart._rawHistCOP;
+      var fcst = useUSD ? convertToUSD(chart._rawForecastCOP) : chart._rawForecastCOP;
+
+      chart.data.datasets[0].data = hist;
+      chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
+
+      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+      chart.data.datasets[1].label = useUSD
+        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
+        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+
+      chart.update();
+    }
+
+    apply(totalChart);
+    for (var x = 0; x < campaignCharts.length; x++) apply(campaignCharts[x]);
+  };
+
+});
+</script>
+
+{% endblock %}
+
+```
+
+========================================
+
+**data/facebook_sales_orders.csv**
+```csv
+order_id,order_date,name,email,city,state,order_lat,order_lng,total_value,product,utm_source,utm_medium,utm_campaign,utm_term,utm_content,utm_answer,address_1,gender
+160855,2026-03-11 23:09:43,Pamela,pamets1912@gmail.com,MANIZALES (CDAS),Caldas,5.0671411,-75.5011482,25000.00,Desodorante natural 1 unidad,facebook,paid,Advantage+Capitan+Nemo+EVO8,3X+Ad+set,LuisaMalOlor,Instagram,Torreon De San Jorge Torre 1 D2. Calle 46 A #20-55,female
+160848,2026-03-11 22:03:32,Jenny,jeisrapri86@gmail.com,IBAGUE (TOL),Tolima,4.4477766,-75.175916,48000.00,Promoción 3X2,facebook,paid,Ad+System+Aclara+Tus+Axilas+Real+Audio,New+Concepts+Ad+Set,AntesyDespues2RealAudio,Instagram,Av Ambalá #100-50 Condominio Campestre La Hacienda,female
+160846,2026-03-11 21:52:52,Arianes,arianesn@hotmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6357125,-74.1252021,48000.00,Promoción 3X2,facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,ValentinaNFT,Instagram,Cra 68g #9c-97 conjunto villa veronica 2 torre 2 apto 1103,unknown
+160843,2026-03-11 21:30:44,Nini,ninigabriela15@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7091214,-74.0737703,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,ValentinaNFT,Instagram,Cra. 70c #57r Sur-75 estancia 70 torre 4 apto 2216,female
+160849,2026-03-11 20:48:00,Nohora,nicolgonzalezz2010@gmail.com,HONDA (TOL),N/A,5.226923,-74.733607,38000.00,Promoción Valentín (2 unidades),wati,wati,wati,N/A,N/A,N/A,Calle 39 N 12-30,unknown
+160840,2026-03-11 20:07:12,Geovanny,liajr82@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7232155,-74.1286428,48000.00,Promoción 3X2,facebook,paid,Ad+System+SudoracionHombres+Audio+Pro,New+Concepts+Ad+Set,AguaSaveAPlaya,Instagram,Diagonal 77b #116b-42 Interior 4 torre 1 apto 1001 Barrio gran granada,unknown
+160834,2026-03-11 19:38:00,María,mariaisabelmolinaatehortua@gmail.com,ITAGUI (ANT),N/A,6.1903783,-75.6000151,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,cra58#77-50 urbanización laureles del Sur torre 1 apartamento 1324,female
+160828,2026-03-11 19:08:00,Diana,dianaleja3@gmail.com,VILLA DEL ROSARIO (N/STDER),N/A,7.8653773,-72.4812269,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Cl 23 # 5 - 119 Barrio Portal de los Alcázares Tienda Esquina,female
+160825,2026-03-11 19:06:34,Jennifer,yosoyalexa.or@gmail.com,SOACHA (C/MARCA),Cundinamarca,4.5771076,-74.2014121,38000.00,Promoción Valentín (2 unidades),undefined,undefined,undefined,undefined,undefined,Google,cra 9 este # 29 c08,female
+160830,2026-03-11 18:24:00,Katherine,alejandramendezpedraza@gmail.com,ZIPAQUIRA (C/MARCA),N/A,5.018876,-74.0035257,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,"Carrera 11 # 1 - 65, conjunto residencial Torres del zipa torre 5 apartamento 102",female
+160821,2026-03-11 18:10:56,Catalina,catalinaa021603@gmail.com,FUNZA (C/MARCA),Cundinamarca,4.7042151,-74.2115669,48000.00,Promoción 3X2,undefined,undefined,undefined,undefined,undefined,Instagram,Carrera 3a No 6 52 Porvenir Funza,female
+160818,2026-03-11 17:42:33,Diana,diana.castano025@gmail.com,CALI (VALLE),Valle del Cauca,3.3455236,-76.5133217,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,TestimoniosRockstar4,Instagram,"Carrera 121A #48-100 Conjunto Agua Clara. Apto. 201, bloque O. Conjunto Agua Clara -Barrio: Ciudad Pacífica.",female
+160817,2026-03-11 17:34:13,Paola,pduque22@hotmail.com,PEREIRA (RS),Risaralda,4.8041368,-75.6983534,48000.00,Promoción 3X2,facebook,paid,Advantage+Capitan+Nemo+EVO8,3X+Ad+set,TestimoniosRockstar4,Facebook,Calle 22 bis 19 b 06,female
+160811,2026-03-11 17:07:11,David,dmfernandezosorio@gmail.com,BOGOTA (C/MARCA),Cundinamarca,5.026003,-74.0300122,48000.00,Promoción 3X2,google,paid,22532026047,saveaplaya,180377223498,Google,Cra 39d # 5a-52 Torre 1 apto 2006 Conjunto primvavera 639-2,male
+160832,2026-03-11 16:58:00,Josselyn,contabilidad.angulo.josselyn@gmail.com,ARMENIA (QDIO),N/A,4.574399,-75.6445803,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Cl. 45 Nte. #13-95 Conjunto Oro negro atardecer Apto 408 Torre C,male
+160836,2026-03-11 16:53:00,Maria,mapyrosa@gmail.com,BOGOTA (C/MARCA),N/A,4.6635241,-74.0473279,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Carrera 6 # 84B 55 Apartamento 302 Barrio Los Rosales,female
+160838,2026-03-11 16:49:00,Alexis,alexisms1102@hotmail.com,BOGOTA (C/MARCA),N/A,4.6344101,-74.1555761,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Calle 5 a sur #80 g 58 To 6 Apto 1007,male
+160799,2026-03-11 16:05:09,Wendy,wjohana1993@gmail.com,PLATO (MG/LENA),Magdalena,9.7984794,-74.7893459,25000.00,Desodorante natural 1 unidad,facebook,paid,AdSystemAclaraTusAxilasRealAudio,NewConceptsAdSet,JohaAdSystemAclaraTusAxilasRealAudio,Instagram,Cra 10 # 10 -81,female
+160798,2026-03-11 15:55:00,Andrea,ksernav@gmail.com,MEDELLIN (ANT),N/A,6.3031935,-75.5708593,76000.00,Promoción Valentín (2 unidades),wati,wati,wati,N/A,N/A,N/A,calle 105B # 71A- 167 barrio el Pedregal - supermercado los primos,female
+...
 ```
 

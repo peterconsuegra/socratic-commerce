@@ -80,7 +80,144 @@ def bogota_insights_female():
 
 
 
+@main.route("/facebook_insights")
+@login_required
+def facebook_insights():
+    import os
+    import logging
+    from flask import render_template
+    from .models import Option
+    from app.services.facebook_insights import get_facebook_insights_daily
 
+    logger = logging.getLogger(__name__)
+
+    input_file = "data/facebook_sales_orders.csv"
+
+    error = None
+    date_range = start_date = end_date = None
+
+    total_daily_trend = []
+    forecast_data = []
+
+    pie_labels = []
+    pie_keys = []
+    pie_values = []
+    campaign_charts = []
+
+    other_campaigns_labels = []
+    other_campaigns_pct = 0.0
+
+    total_hour_pie_labels = []
+    total_hour_pie_values = []
+
+    total_gender_pie_labels = []
+    total_gender_pie_values = []
+
+    total_city_pie_labels = []
+    total_city_pie_values = []
+
+    # NEW: total utm_content pie
+    total_content_pie_labels = []
+    total_content_pie_values = []
+
+    try:
+        opt = Option.query
+
+        rec = opt.filter_by(meta_key="date_range_facebook_sales_orders.csv").first()
+        date_range = rec.meta_value if rec else None
+
+        rec = opt.filter_by(meta_key="start_date_facebook_sales_orders.csv").first()
+        start_date = rec.meta_value if rec else None
+
+        rec = opt.filter_by(meta_key="end_date_facebook_sales_orders.csv").first()
+        end_date = rec.meta_value if rec else None
+    except Exception:
+        logger.exception("Reading date range options failed (facebook_insights)")
+
+    if not os.path.exists(input_file):
+        error = f"{input_file} not found. Use the date selector above to fetch data first."
+        return render_template(
+            "facebook_insights.html",
+            error=error,
+            date_range=date_range,
+            start_date=start_date,
+            end_date=end_date,
+            total_daily_trend=[],
+            forecast_data=[],
+            pie_labels=[],
+            pie_keys=[],
+            pie_values=[],
+            campaign_charts=[],
+            other_campaigns_labels=[],
+            other_campaigns_pct=0.0,
+            total_hour_pie_labels=[],
+            total_hour_pie_values=[],
+            total_gender_pie_labels=[],
+            total_gender_pie_values=[],
+            total_city_pie_labels=[],
+            total_city_pie_values=[],
+            total_content_pie_labels=[],
+            total_content_pie_values=[],
+        )
+
+    try:
+        result = get_facebook_insights_daily(
+            orders_csv_path=input_file,
+            forecast_periods=30,
+            min_share_percent=2.0,
+        )
+
+        total_daily_trend = result["total_daily_trend"]
+        forecast_data = result["forecast_data"]
+
+        pie_labels = result["pie_labels"]
+        pie_keys = result.get("pie_keys", [])
+        pie_values = result["pie_values"]
+
+        campaign_charts = result["campaign_charts"]
+
+        other_campaigns_labels = result["other_campaigns_labels"]
+        other_campaigns_pct = result["other_campaigns_pct"]
+
+        total_hour_pie_labels = result.get("total_hour_pie_labels", [])
+        total_hour_pie_values = result.get("total_hour_pie_values", [])
+        total_gender_pie_labels = result.get("total_gender_pie_labels", [])
+        total_gender_pie_values = result.get("total_gender_pie_values", [])
+
+        total_city_pie_labels = result.get("total_city_pie_labels", [])
+        total_city_pie_values = result.get("total_city_pie_values", [])
+
+        # NEW
+        total_content_pie_labels = result.get("total_content_pie_labels", [])
+        total_content_pie_values = result.get("total_content_pie_values", [])
+
+    except Exception as e:
+        logger.exception("facebook_insights view failed")
+        error = str(e)
+
+    return render_template(
+        "facebook_insights.html",
+        error=error,
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+        total_daily_trend=total_daily_trend,
+        forecast_data=forecast_data,
+        pie_labels=pie_labels,
+        pie_keys=pie_keys,
+        pie_values=pie_values,
+        campaign_charts=campaign_charts,
+        other_campaigns_labels=other_campaigns_labels,
+        other_campaigns_pct=other_campaigns_pct,
+        total_hour_pie_labels=total_hour_pie_labels,
+        total_hour_pie_values=total_hour_pie_values,
+        total_gender_pie_labels=total_gender_pie_labels,
+        total_gender_pie_values=total_gender_pie_values,
+        total_city_pie_labels=total_city_pie_labels,
+        total_city_pie_values=total_city_pie_values,
+        total_content_pie_labels=total_content_pie_labels,
+        total_content_pie_values=total_content_pie_values,
+    )
 
 ========================================
 
