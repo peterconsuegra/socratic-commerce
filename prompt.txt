@@ -73,25 +73,25 @@ def create_app():
 **data/bogota_insights_female_filtered.csv**
 ```csv
 order_id,order_date,name,email,city,state,order_lat,order_lng,total_value,product,utm_source,utm_medium,utm_campaign,utm_term,utm_content,utm_answer,address_1,gender,localidad,estrato,nivel_socioeconomico
-160539,2026-03-09 22:12:25,Diana,paocantor2222@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7534165,-74.0407187,25000.00,Desodorante natural 1 unidad,facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,LuisaMalOlor,Instagram,Calle 173 #18-60 Torre 3 Apt 202,female,USAQUEN,3 y 4,Medio
-160529,2026-03-09 20:47:00,Nathaly,nataplata30@gmail.com,BOGOTA (C/MARCA),N/A,4.7450487,-74.0392629,38000.00,Promoción Valentín (2 unidades),wati,wati,wati,N/A,N/A,N/A,"Carrera 16 C no. 146 -50, Torre 2, Apartamento 201. Toberin - Unicentro",female,USAQUEN,3 y 4,Medio
-160520,2026-03-09 20:33:09,Angely,angelyk9205@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6925887,-74.10713,25000.00,Desodorante natural 1 unidad,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,LuisaMalOlor,Instagram,Calle 70 n 84a 35,female,ENGATIVA,3,Medio
-160512,2026-03-09 19:19:08,Paola,paocriollo77@yahoo.es,BOGOTA (C/MARCA),Cundinamarca,4.7019482,-74.1193235,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,"Cra 101 #70-55. Torre 2, apto 304",female,ENGATIVA,3,Medio
-160507,2026-03-09 16:54:00,Adelaida,adelita9311@hotmail.com,BOGOTA (C/MARCA),N/A,4.7163046,-74.1292365,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,"Dirección: Calle 72F # 114A - 40, Torre 8 Apto 601, Conjunto Montecarlo VII",female,ENGATIVA,3,Medio
-160491,2026-03-09 16:52:15,Liliana,lilita020@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.601739,-74.151244,48000.00,Promoción 3X2,google,paid,22794060443,undefined,undefined,Instagram,Calle 48 b bis sur # 72i-19 casa 213,female,KENNEDY,2,Bajo
-160485,2026-03-09 16:16:00,Stephany,stephanyalvarezg16@gmail.com,BOGOTA (C/MARCA),N/A,4.6186287,-74.1212024,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,"Cra 56 a # 2 a 86 barrio galán, casa",female,PUENTE ARANDA,3,Medio
-160440,2026-03-09 14:10:47,Andrea,andrea.jimenez@samsa.co,BOGOTA (C/MARCA),Cundinamarca,4.6546972,-74.1296849,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Amigos,Carrera 77 # 18-51 torre 7 apto 101,female,FONTIBON,3,Medio
-160432,2026-03-09 12:39:28,Karen,karen_andrea02@hotmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6704744,-74.1545701,38000.00,Promoción Valentín (2 unidades),google,paid,23408022609,undefined,undefined,Instagram,DIAGONAL 15B # 104 - 46 COMPOSTELA 2 CASA 34,female,FONTIBON,3,Medio
-160417,2026-03-09 09:56:32,Johanna,johannaloaiza.c@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.766852,-74.050004,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,Centro Comercial San Pedro Local B07,female,SUBA,2 y 3,Bajo
-160411,2026-03-09 09:27:22,Jessica,jessforero.2017@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.591354,-74.1196911,48000.00,Promoción 3X2,google,paid,22532026047,saveaplaya,180377223498,Instagram,Carrera 34a#34-86 sur,female,ANTONIO NARIÑO,3,Medio
-160390,2026-03-09 06:57:23,Nathalia,nathaliams2013@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7304007,-74.1174946,38000.00,Promoción Valentín (2 unidades),facebook,paid,Advantage+CapitanNemoEVO8BogotaOnly,3XAdset,LuisaMalOlor,Instagram,Diagonal 89a #117-50 int 6 apto 504,female,ENGATIVA,3,Medio
-160389,2026-03-09 06:55:44,Laura,lau.galvan1745@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.699177,-74.119972,48000.00,Promoción 3X2,google,paid,22532026047,saveaplaya,180377223498,Instagram,Calle 69#99-77,female,ENGATIVA,3,Medio
-160386,2026-03-08 23:25:35,Daniela,danieladgarcia19@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6966089,-74.123714,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,Calle 64F #103-19,female,ENGATIVA,3,Medio
-160349,2026-03-08 21:08:09,Claudia,claudiamtel@yahoo.com,BOGOTA (C/MARCA),Cundinamarca,4.6926722,-74.0540174,38000.00,Promoción Valentín (2 unidades),facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,DepilacionLaser1,Instagram,Calle 105 21 32 Apt 203 Apt 203,female,USAQUEN,3 y 4,Medio
-160382,2026-03-08 20:54:00,Cindy,moster3023@hotmail.com,BOGOTA (C/MARCA),N/A,4.622857,-74.1043964,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Calle 12 a # 44-59 puente Aranda,female,PUENTE ARANDA,3,Medio
-160380,2026-03-08 20:01:00,Johana,jzpinto2006@gmail.com,BOGOTA (C/MARCA),N/A,4.7502025,-74.1018972,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Calle 146#138A-04 torre 4 apartamento 304. Conjunto .Reserva de Fontana (suba),female,SUBA,2 y 3,Bajo
-160334,2026-03-08 17:52:01,Carol,cjpalmao@unal.edu.co,BOGOTA (C/MARCA),Cundinamarca,5.026003,-74.0300122,48000.00,Promoción 3X2,google,paid,22532026047,desodorantenatural,180377223498,Google,Cl19A #120-09 Torre 1 Apart.1801,female,,,
-160325,2026-03-08 17:14:02,Sonia,sonimile@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.5694994,-74.0711129,48000.00,Promoción 3X2,facebook,paid,Advantage+Capitan+Nemo+EVO8+Bogota+Only,3X+Ad+set,DepilacionLaser1,Amigos,Cl. 10 80f 40 torre 2 apto 801,female,SAN CRISTOBAL,1 y 2,Bajo
+160843,2026-03-11 21:30:44,Nini,ninigabriela15@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.7091214,-74.0737703,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,ValentinaNFT,Instagram,Cra. 70c #57r Sur-75 estancia 70 torre 4 apto 2216,female,SUBA,2 y 3,Bajo
+160836,2026-03-11 16:53:00,Maria,mapyrosa@gmail.com,BOGOTA (C/MARCA),N/A,4.6635241,-74.0473279,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Carrera 6 # 84B 55 Apartamento 302 Barrio Los Rosales,female,CHAPINERO,4 y 6,Alto
+160797,2026-03-11 15:51:00,Blanca,b_deulofeu@sena.edu.co,BOGOTA (C/MARCA),N/A,4.6536273,-74.1001511,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,"Calle 44 #66b-45, Edificio Salitre Centro Apto 301",female,TEUSAQUILLO,4,Medio
+160789,2026-03-11 15:05:00,Valentina,kiki.medina@hotmail.com,BOGOTA (C/MARCA),N/A,4.7161721,-74.0632423,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Calle 129#54-75 T11-Apto304,female,SUBA,2 y 3,Bajo
+160757,2026-03-11 13:52:02,Carolina,carolina.talaga@utp.edu.co,BOGOTA (C/MARCA),Cundinamarca,4.5596378,-74.1266379,48000.00,Promoción 3X2,google,paid,22794060443,undefined,undefined,Instagram,Cra 12 a 54-36 Sur Tunjuelito Bogotá,female,TUNJUELITO,2,Bajo
+160777,2026-03-11 11:42:00,Diana,carolinajer@hotmail.com,BOGOTA (C/MARCA),N/A,4.710135,-74.116814,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,Cr 104 # 76 b 27 piso 4,female,ENGATIVA,3,Medio
+160773,2026-03-11 11:16:00,Viviana,nataliarodeiguezoviedo5@gmail.com,BOGOTA (C/MARCA),N/A,4.5820658,-74.0796673,38000.00,Promoción Valentín (2 unidades),wati,wati,wati,N/A,N/A,N/A,Calle 36 i sur #1c03,female,SAN CRISTOBAL,1 y 2,Bajo
+160738,2026-03-11 10:57:08,Maribel,Marynovoa554@gmail.com,BOGOTA (C/MARCA),Cundinamarca,5.026003,-74.0300122,48000.00,Promoción 3X2,ig,social,undefined,undefined,link_in_bio,Instagram,Carrera 13#100-39,female,,,
+160761,2026-03-11 10:06:00,Tatiana,tatiandi@hotmail.com,BOGOTA (C/MARCA),N/A,4.714112,-74.127305,125000.00,Promoción Regala Salud: (10 unidades),wati,wati,wati,N/A,N/A,N/A,Carrera 112c#72c-50 Villas de Granada,female,ENGATIVA,3,Medio
+160767,2026-03-11 09:36:00,Nataly,natalydiaz105@gmail.com,BOGOTA (C/MARCA),N/A,4.764619,-74.0488311,48000.00,Promoción 3X2,wati,wati,wati,N/A,N/A,N/A,"Cra 54 D No. 186-35, torre 6, apto 502",female,SUBA,2 y 3,Bajo
+160729,2026-03-11 09:04:02,Mildred,Mi.angarita85@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6482669,-74.1369875,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,TestimoniosRockstar4,Instagram,Kr 79a # 11b - 40 torre G Apto 606,female,KENNEDY,2,Bajo
+160705,2026-03-11 05:38:18,Adriana,amaratiana@hotmail.com,BOGOTA (C/MARCA),Cundinamarca,4.716787,-74.105282,48000.00,Promoción 3X2,facebook,paid,DiversidadCreativa1,NewConceptsAdSet,CuidadodeAxilas,Instagram,Cl 87 95h 26 Int 105,female,ENGATIVA,3,Medio
+160679,2026-03-10 20:26:32,Esperanza,esperanzaortegon9155@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6166434,-74.1261671,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,TestimoniosRockstar4,Instagram,Cra 63 10 05 sur barrio milenta,female,PUENTE ARANDA,3,Medio
+160687,2026-03-10 20:01:00,Laura,lauramedina030303@gmail.com,BOGOTA (C/MARCA),N/A,4.6068536,-74.1463721,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Calle 40 Sur#72 g 01,female,KENNEDY,2,Bajo
+160668,2026-03-10 19:27:29,Maria,mpilarhrincon77@gmail.com,BOGOTA (C/MARCA),Cundinamarca,5.026003,-74.0300122,48000.00,Promoción 3X2,undefined,undefined,undefined,undefined,undefined,Instagram,cll87 10 51,female,,,
+160663,2026-03-10 17:27:00,Alexandra,Ingridgutierrezb49@gmail.com,BOGOTA (C/MARCA),N/A,4.5264888,-74.0877697,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Calle 63 sur # 14-89 este mirador del Este 1,female,SAN CRISTOBAL,1 y 2,Bajo
+160653,2026-03-10 17:17:19,Lina,linac1682@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6653154,-74.0666606,48000.00,Promoción 3X2,google,paid,23408022609,undefined,undefined,Instagram,CRA 26 # 74 - 16,female,BARRIOS UNIDOS,3,Medio
+160651,2026-03-10 16:47:28,Camila,suarez86camila@gmail.com,BOGOTA (C/MARCA),Cundinamarca,4.6760338,-74.0585294,48000.00,Promoción 3X2,facebook,paid,Advantage+CapitanNemoEVO8,3XAdset,DepilacionLaser1,Instagram,Carrera 20#88-20,female,CHAPINERO,4 y 6,Alto
+160646,2026-03-10 16:10:00,Paola,palexaf@hotmail.com,BOGOTA (C/MARCA),N/A,4.7285734,-74.0874255,25000.00,Desodorante natural 1 unidad,wati,wati,wati,N/A,N/A,N/A,Carrera 89#130d -80 bloque 30 apto 310,female,SUBA,2 y 3,Bajo
 ...
 ```
 
@@ -1297,30 +1297,36 @@ Bogota Insights Female
                               {% if g['key'] == 'meta' %}
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Creativity Prompts by Socioeconomic Level (ChatGPT 5.2)</h6>
+                                <h6 class="text-center mb-2">Pomelli Creative Prompt</h6>
                                 <p class="text-center text-muted mb-3">
-                                  One prompt per <strong>socioeconomic level</strong>. Each prompt is structured for Pomelli to generate advertising images and 4-second storytelling videos, using estrato/localidad only as input for angles without explicitly mentioning them in the final creative output.
+                                  A single structured prompt for Pomelli to generate ad images and creative directions for this Meta campaign, using the available campaign JSON as context.
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
                                   <button
                                     type="button"
                                     class="btn btn-outline-primary btn-sm"
-                                    onclick="copyAllPromptsForCampaign({{ c['chart_id'] }})"
+                                    onclick="copyPomelliPrompt({{ c['chart_id'] }})"
                                   >
-                                    Copy all prompts
+                                    Copy Pomelli prompt
                                   </button>
 
                                   <button
                                     type="button"
                                     class="btn btn-outline-secondary btn-sm"
-                                    onclick="regenerateAllMetaPrompts({{ c['chart_id'] }})"
+                                    onclick="regeneratePomelliPrompt({{ c['chart_id'] }})"
                                   >
-                                    Regenerate all
+                                    Regenerate prompt
                                   </button>
                                 </div>
 
-                                <div id="metaPromptsWrap{{ c['chart_id'] }}"></div>
+                                <textarea
+                                  id="metaPomelliPrompt{{ c['chart_id'] }}"
+                                  class="form-control"
+                                  rows="24"
+                                  readonly
+                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
+                                ></textarea>
 
                                 <hr class="my-4">
 
@@ -1440,12 +1446,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  /*
-    UPDATED:
-    Prompts by socioeconomic level adapted for Pomelli.
-    Cultural note: DO NOT mention estrato or localidades in the final creative output.
-  */
-  function buildMetaPromptForNivel(payload, nivelFocus) {
+  function buildMetaPomelliCampaignPrompt(payload) {
     function topN(list, n) {
       var arr = Array.isArray(list) ? list.slice() : [];
       arr.sort(function(a, b) {
@@ -1462,135 +1463,98 @@ document.addEventListener("DOMContentLoaded", function() {
       }).join("\n");
     }
 
-    function pct(part, total) {
-      var p = Number(part) || 0;
-      var t = Number(total) || 0;
-      if (t <= 0) return 0;
-      return (p / t) * 100;
-    }
-
     var campaign = (payload.campaign || "").toString();
     var totalHist = Number(payload.total_hist || 0);
 
     var localidad = payload.localidad_breakdown || [];
     var estrato = payload.estrato_breakdown || [];
+    var nivel = payload.nivel_socioeconomico_breakdown || [];
     var timeChunks = payload.time_of_day_breakdown || [];
     var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
 
-    var nivelLabel = (nivelFocus && nivelFocus.label) ? String(nivelFocus.label) : "Unknown";
-    var nivelValue = (nivelFocus && nivelFocus.value) ? Number(nivelFocus.value) : 0;
-    var nivelRank = (nivelFocus && typeof nivelFocus.rank === "number") ? (nivelFocus.rank + 1) : null;
-    var nivelShare = pct(nivelValue, totalHist);
-
-    var prompt =
+    return (
       "POMELLI_STRUCTURED_PROMPT\n\n" +
 
       "ROLE\n" +
-      "You are an expert advertising creative strategist building structured prompts for Pomelli, an AI tool that generates advertising images and 4-second storytelling videos.\n\n" +
+      "You are an expert advertising creative strategist using Pomelli, an AI advertising tool that generates campaign images, concepts, and creative directions.\n\n" +
 
       "PRIMARY OBJECTIVE\n" +
-      "Generate creative concepts for this campaign focused ONLY on the specified socioeconomic-level segment. The output must be optimized for Pomelli to create:\n" +
-      "1) Static advertising images\n" +
-      "2) 4-second storytelling videos\n\n" +
+      "Generate high-converting creative ideas and visual directions for this Meta campaign.\n\n" +
 
-      "NON-NEGOTIABLE CREATIVE RULES\n" +
-      "- Do not mention estrato numbers or socioeconomic labels in the final creative output.\n" +
-      "- Do not mention localidades, neighborhoods, or specific zones in the final creative output.\n" +
-      "- You may use localidad and estrato patterns internally to infer lifestyle context, routines, emotional angles, and scene design.\n" +
-      "- The final output must feel inclusive, natural, modern, and never classist.\n" +
-      "- Keep the tone suitable for performance marketing on Meta.\n\n" +
+      "DELIVERABLE\n" +
+      "Return:\n" +
+      "1) 10 static ad image concepts\n" +
+      "2) 10 short ad idea concepts\n" +
+      "3) 10 strong hooks/headlines\n" +
+      "4) 5 CTA options\n" +
+      "5) 5 creative testing angles\n\n" +
 
-      "OUTPUT FORMAT REQUIRED\n" +
-      "Return exactly 10 structured creative concepts:\n" +
-      "- 5 concepts for STATIC AD IMAGES\n" +
-      "- 5 concepts for 4-SECOND STORYTELLING VIDEOS\n\n" +
+      "FOR EACH IMAGE CONCEPT, USE THIS STRUCTURE\n" +
+      "- Concept title\n" +
+      "- Core angle\n" +
+      "- Emotional trigger\n" +
+      "- Persona insight\n" +
+      "- Visual scene description\n" +
+      "- Styling and composition\n" +
+      "- Lighting and color palette\n" +
+      "- Suggested on-image text\n" +
+      "- Suggested headline\n" +
+      "- Suggested CTA\n" +
+      "- Why this concept should work\n\n" +
 
-      "FOR EACH STATIC AD IMAGE CONCEPT, USE THIS STRUCTURE\n" +
-      "- Format: IMAGE\n" +
-      "- Concept title:\n" +
-      "- Core marketing angle:\n" +
-      "- Main emotional trigger:\n" +
-      "- Target persona description:\n" +
-      "- Visual scene description:\n" +
-      "- Subject appearance and styling:\n" +
-      "- Environment and props:\n" +
-      "- Composition and camera framing:\n" +
-      "- Lighting style:\n" +
-      "- Color palette:\n" +
-      "- On-image text:\n" +
-      "- Headline:\n" +
-      "- CTA:\n" +
-      "- Why this should work for this segment:\n\n" +
+      "FOR EACH AD IDEA, USE THIS STRUCTURE\n" +
+      "- Idea title\n" +
+      "- Core message\n" +
+      "- Target situation or use case\n" +
+      "- Visual approach\n" +
+      "- Hook\n" +
+      "- CTA\n" +
+      "- Why this should work\n\n" +
 
-      "FOR EACH 4-SECOND STORYTELLING VIDEO CONCEPT, USE THIS STRUCTURE\n" +
-      "- Format: VIDEO_4S\n" +
-      "- Concept title:\n" +
-      "- Core marketing angle:\n" +
-      "- Main emotional trigger:\n" +
-      "- Target persona description:\n" +
-      "- 4-second story arc:\n" +
-      "- Shot-by-shot sequence:\n" +
-      "- Scene direction:\n" +
-      "- Subject movement and expression:\n" +
-      "- Camera movement:\n" +
-      "- Lighting style:\n" +
-      "- Color palette:\n" +
-      "- On-screen text:\n" +
-      "- Voiceover or implied message:\n" +
-      "- CTA end frame:\n" +
-      "- Why this should work for this segment:\n\n" +
-
-      "POMELLI EXECUTION GUIDELINES\n" +
-      "- Prioritize simple, high-conversion scenes that AI image and video tools can render clearly.\n" +
-      "- For images, prioritize a single strong visual idea.\n" +
-      "- For 4-second videos, prioritize instant clarity, emotional contrast, and one key action.\n" +
-      "- Use UGC-friendly realism, clean product storytelling, and clear commercial intent.\n" +
-      "- Avoid overly abstract concepts.\n" +
-      "- The product should feel relevant to odor control, confidence, sweat, routine, and social comfort when appropriate.\n\n" +
+      "IMPORTANT RULES\n" +
+      "- Do not mention socioeconomic level, estrato, or class descriptors in the final output.\n" +
+      "- Do not mention localidades, neighborhoods, or specific Bogotá zones in the final output.\n" +
+      "- Use campaign signals only as internal creative guidance.\n" +
+      "- Keep the final concepts natural, modern, inclusive, performance-oriented, and suitable for Meta ads.\n" +
+      "- Focus on commercial usefulness, clarity, strong hooks, and visual simplicity.\n" +
+      "- Avoid generic ideas.\n\n" +
 
       "CAMPAIGN CONTEXT\n" +
       "- Campaign: " + campaign + "\n" +
-      "- Gender focus: WOMEN\n" +
       "- Market: Bogotá (C/MARCA)\n" +
-      "- Time zone: America/Bogota\n" +
+      "- Gender focus: Women\n" +
       "- Total historical sales (COP): " + totalHist + "\n" +
       "- Data included through the end of yesterday (Bogota time)\n\n" +
 
-      "FOCUS SEGMENT (SOCIOECONOMIC LEVEL)\n" +
-      "- Segment: " + nivelLabel + "\n" +
-      (nivelRank !== null ? ("- Segment ranking by sales: #" + nivelRank + "\n") : "") +
-      "- Sales (COP) attributed to this segment: " + nivelValue + "\n" +
-      "- Share of campaign sales: " + nivelShare.toFixed(1) + "%\n\n" +
-
-      "INSIGHT SIGNALS TO USE INTERNALLY ONLY\n" +
+      "INTERNAL SIGNALS TO USE FOR CREATIVE REASONING ONLY\n" +
       "Top localidades by sales:\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
-      "Top estratos by sales:\n" + summarizeTop(estrato, 6, "estratos") + "\n\n" +
       "Top time-of-day windows by sales:\n" + summarizeTop(timeChunks, 6, "time windows") + "\n\n" +
 
       "CREATIVE INTERPRETATION RULES\n" +
-      "- Infer lifestyle, urgency, routine, and aspiration from the segment and time-window signals.\n" +
-      "- If one time window dominates, adapt scenes to that moment of day.\n" +
-      "- Use everyday Bogotá realities such as weather, commuting, office life, study life, home routines, and social situations, without naming places.\n" +
-      "- Keep the creative output visually specific and commercially useful.\n\n" +
+      "- Infer lifestyle, routine, urgency, aspirations, and emotional triggers from the available signals.\n" +
+      "- If certain time windows dominate, adapt scenes and hooks to those moments of day.\n" +
+      "- Use the creative mix and sales concentration patterns to suggest both winning directions and new tests.\n" +
+      "- Keep scenes visually concrete and easy for an AI ad tool to generate.\n" +
+      "- Favor ideas that can perform well in paid social.\n\n" +
 
-      "PRODUCT ANGLES TO PRIORITIZE WHEN RELEVANT\n" +
-      "- Odor control and social confidence\n" +
-      "- Sweat and stress relief\n" +
-      "- Confidence in dating, work, and social life\n" +
-      "- Daily routine support in Bogotá\n" +
-      "- Social proof, transformation, and relief moments\n\n" +
+      "PRODUCT ANGLES TO EXPLORE WHEN RELEVANT\n" +
+      "- Odor control and freshness\n" +
+      "- Confidence in social situations\n" +
+      "- Daily routine support\n" +
+      "- Sweat, stress, and comfort\n" +
+      "- Before/after relief\n" +
+      "- Confidence at work, dating, commuting, and everyday life\n\n" +
 
       "RAW JSON REFERENCE DATA\n" +
-      "Focus segment object:\n" + safeJsonStringify(nivelFocus || {}) + "\n\n" +
       "Localidad breakdown:\n" + safeJsonStringify(localidad) + "\n\n" +
       "Estrato breakdown:\n" + safeJsonStringify(estrato) + "\n\n" +
+      "Nivel socioeconomico breakdown:\n" + safeJsonStringify(nivel) + "\n\n" +
       "Time-of-day breakdown:\n" + safeJsonStringify(timeChunks) + "\n\n" +
-      "UTM Content x Localidad (stacked totals):\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
+      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
 
       "FINAL REMINDER\n" +
-      "Use all signals and JSON context for internal reasoning, but never mention estrato or localidades explicitly in the final creative concepts.\n";
-
-    return prompt;
+      "Use all JSON and campaign signals for internal reasoning, but do not mention socioeconomic information explicitly in the final creative output.\n"
+    );
   }
 
   function buildMetaStrategicPrompt(payload) {
@@ -1766,87 +1730,6 @@ document.addEventListener("DOMContentLoaded", function() {
     );
   }
 
-  function sortDescByValue(list) {
-    var arr = Array.isArray(list) ? list.slice() : [];
-    arr.sort(function(a, b) {
-      return (Number(b.value) || 0) - (Number(a.value) || 0);
-    });
-    return arr;
-  }
-
-  function filterValidNiveles(list) {
-    var arr = Array.isArray(list) ? list.slice() : [];
-    return arr.filter(function(n) {
-      var label = (n && n.label != null) ? String(n.label).trim() : "";
-      if (!label) return false;
-      var low = label.toLowerCase();
-      if (low === "unknown" || low === "unknow" || low === "desconocido") return false;
-      return true;
-    });
-  }
-
-  function buildMetaPromptsUI(chartId, payload) {
-    var wrap = document.getElementById("metaPromptsWrap" + chartId);
-    if (!wrap) return;
-
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) {
-      wrap.innerHTML = '<div class="text-muted">No socioeconomic-level data available to generate prompts.</div>';
-      return;
-    }
-
-    var totalHist = Number(payload.total_hist || 0);
-
-    var html = "";
-    niveles.forEach(function(n, idx) {
-      var label = (n && n.label) ? String(n.label) : "Unknown";
-      var value = Number(n && n.value ? n.value : 0);
-      var share = (totalHist > 0) ? ((value / totalHist) * 100) : 0;
-
-      var textareaId = "metaPrompt" + chartId + "_" + idx;
-
-      html += ""
-        + '<div class="card mb-3">'
-        + '  <div class="card-body">'
-        + '    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">'
-        + '      <div>'
-        + '        <h6 class="mb-1">Prompt for Segment (Socioeconomic Level): <strong>' + escapeHtml(label) + '</strong></h6>'
-        + '        <div class="text-muted small">Sales: ' + value + ' COP · Share: ' + share.toFixed(1) + '% · Rank: #' + (idx + 1) + '</div>'
-        + '        <div class="text-muted small mt-1">Structured for Pomelli images and 4-second videos. Rules: do not mention estrato or localidades.</div>'
-        + '      </div>'
-        + '      <div class="d-flex gap-2 flex-wrap">'
-        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copy</button>'
-        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">Regenerate</button>'
-        + '      </div>'
-        + '    </div>'
-        + '    <textarea'
-        + '      id="' + textareaId + '"'
-        + '      class="form-control mt-3"'
-        + '      rows="24"'
-        + '      readonly'
-        + '      style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"'
-        + '    ></textarea>'
-        + '  </div>'
-        + '</div>';
-    });
-
-    wrap.innerHTML = html;
-
-    niveles.forEach(function(n, idx) {
-      var textareaId = "metaPrompt" + chartId + "_" + idx;
-      var el = document.getElementById(textareaId);
-      if (!el) return;
-
-      var focus = {
-        label: n.label,
-        value: n.value,
-        rank: idx
-      };
-
-      el.value = buildMetaPromptForNivel(payload, focus);
-    });
-  }
-
   function escapeHtml(str) {
     return String(str || "")
       .replace(/&/g, "&amp;")
@@ -1869,57 +1752,30 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   };
 
-  window.copyAllPromptsForCampaign = async function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) return;
-
-    var allText = niveles.map(function(n, idx) {
-      var label = (n && n.label) ? String(n.label) : "Unknown";
-      var focus = { label: n.label, value: n.value, rank: idx };
-      return "===== SEGMENT (SOCIOECONOMIC LEVEL): " + label + " =====\n\n" + buildMetaPromptForNivel(payload, focus);
-    }).join("\n\n\n");
+  window.copyPomelliPrompt = async function(chartId) {
+    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
+    if (!textarea) return;
 
     try {
-      await navigator.clipboard.writeText(allText);
+      await navigator.clipboard.writeText(textarea.value || "");
     } catch (e) {
-      var tmp = document.createElement("textarea");
-      tmp.value = allText;
-      document.body.appendChild(tmp);
-      tmp.select();
+      textarea.select();
       document.execCommand("copy");
-      document.body.removeChild(tmp);
+      textarea.setSelectionRange(0, 0);
     }
   };
 
-  window._metaPromptPayloads = window._metaPromptPayloads || {};
-
-  window.regenerateMetaPrompt = function(chartId, nivelIndex) {
+  window.regeneratePomelliPrompt = function(chartId) {
     var payload = (window._metaPromptPayloads || {})[chartId];
     if (!payload) return;
 
-    var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
-    if (!niveles.length) return;
-
-    var n = niveles[nivelIndex];
-    if (!n) return;
-
-    var textareaId = "metaPrompt" + chartId + "_" + nivelIndex;
-    var textarea = document.getElementById(textareaId);
+    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
     if (!textarea) return;
 
-    var focus = { label: n.label, value: n.value, rank: nivelIndex };
-    textarea.value = buildMetaPromptForNivel(payload, focus);
+    textarea.value = buildMetaPomelliCampaignPrompt(payload);
   };
 
-  window.regenerateAllMetaPrompts = function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    buildMetaPromptsUI(chartId, payload);
-  };
+  window._metaPromptPayloads = window._metaPromptPayloads || {};
 
   window.copyCampaignStrategicPrompt = async function(chartId) {
     var payload = (window._metaPromptPayloads || {})[chartId];
@@ -2588,7 +2444,10 @@ document.addEventListener("DOMContentLoaded", function() {
           window._metaPromptPayloads = window._metaPromptPayloads || {};
           window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
 
-          buildMetaPromptsUI({{ c['chart_id'] }}, payload);
+          var pomelliTextarea = document.getElementById("metaPomelliPrompt{{ c['chart_id'] }}");
+          if (pomelliTextarea) {
+            pomelliTextarea.value = buildMetaPomelliCampaignPrompt(payload);
+          }
 
           var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
           if (strategicTextarea) {

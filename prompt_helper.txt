@@ -1,5 +1,7 @@
 **app/routes.py**
 
+# app/routes.py
+
 @main.route("/bogota_insights_female")
 @login_required
 def bogota_insights_female():
@@ -74,6 +76,9 @@ def bogota_insights_female():
         }
 
     return render_template("bogota_insights_female.html", **ctx)
+
+
+
 
 
 

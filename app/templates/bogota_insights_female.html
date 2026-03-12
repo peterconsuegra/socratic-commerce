@@ -314,39 +314,6 @@ Bogota Insights Female
                               {% if g['key'] == 'meta' %}
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Pomelli Creative Prompt</h6>
-                                <p class="text-center text-muted mb-3">
-                                  A single structured prompt for Pomelli to generate ad images and creative directions for this Meta campaign, using the available campaign JSON as context.
-                                </p>
-
-                                <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
-                                  <button
-                                    type="button"
-                                    class="btn btn-outline-primary btn-sm"
-                                    onclick="copyPomelliPrompt({{ c['chart_id'] }})"
-                                  >
-                                    Copy Pomelli prompt
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    onclick="regeneratePomelliPrompt({{ c['chart_id'] }})"
-                                  >
-                                    Regenerate prompt
-                                  </button>
-                                </div>
-
-                                <textarea
-                                  id="metaPomelliPrompt{{ c['chart_id'] }}"
-                                  class="form-control"
-                                  rows="24"
-                                  readonly
-                                  style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;"
-                                ></textarea>
-
-                                <hr class="my-4">
-
                                 <h6 class="text-center mb-2">Strategic Prompt for Meta Campaign Optimization</h6>
                                 <p class="text-center text-muted mb-3">
                                   Analyze the full campaign using all available data and generate an advanced optimization plan.
@@ -461,117 +428,6 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch (e) {
       return String(obj || "");
     }
-  }
-
-  function buildMetaPomelliCampaignPrompt(payload) {
-    function topN(list, n) {
-      var arr = Array.isArray(list) ? list.slice() : [];
-      arr.sort(function(a, b) {
-        return (Number(b.value) || 0) - (Number(a.value) || 0);
-      });
-      return arr.slice(0, n);
-    }
-
-    function summarizeTop(list, n, labelName) {
-      var top = topN(list, n);
-      if (!top.length) return "No data available for " + labelName + ".";
-      return top.map(function(it) {
-        return "- " + (it.label || "Unknown") + ": " + (Number(it.value) || 0);
-      }).join("\n");
-    }
-
-    var campaign = (payload.campaign || "").toString();
-    var totalHist = Number(payload.total_hist || 0);
-
-    var localidad = payload.localidad_breakdown || [];
-    var estrato = payload.estrato_breakdown || [];
-    var nivel = payload.nivel_socioeconomico_breakdown || [];
-    var timeChunks = payload.time_of_day_breakdown || [];
-    var utmContentLoc = payload.utm_content_localidad || { labels: [], datasets: [] };
-
-    return (
-      "POMELLI_STRUCTURED_PROMPT\n\n" +
-
-      "ROLE\n" +
-      "You are an expert advertising creative strategist using Pomelli, an AI advertising tool that generates campaign images, concepts, and creative directions.\n\n" +
-
-      "PRIMARY OBJECTIVE\n" +
-      "Generate high-converting creative ideas and visual directions for this Meta campaign.\n\n" +
-
-      "DELIVERABLE\n" +
-      "Return:\n" +
-      "1) 10 static ad image concepts\n" +
-      "2) 10 short ad idea concepts\n" +
-      "3) 10 strong hooks/headlines\n" +
-      "4) 5 CTA options\n" +
-      "5) 5 creative testing angles\n\n" +
-
-      "FOR EACH IMAGE CONCEPT, USE THIS STRUCTURE\n" +
-      "- Concept title\n" +
-      "- Core angle\n" +
-      "- Emotional trigger\n" +
-      "- Persona insight\n" +
-      "- Visual scene description\n" +
-      "- Styling and composition\n" +
-      "- Lighting and color palette\n" +
-      "- Suggested on-image text\n" +
-      "- Suggested headline\n" +
-      "- Suggested CTA\n" +
-      "- Why this concept should work\n\n" +
-
-      "FOR EACH AD IDEA, USE THIS STRUCTURE\n" +
-      "- Idea title\n" +
-      "- Core message\n" +
-      "- Target situation or use case\n" +
-      "- Visual approach\n" +
-      "- Hook\n" +
-      "- CTA\n" +
-      "- Why this should work\n\n" +
-
-      "IMPORTANT RULES\n" +
-      "- Do not mention socioeconomic level, estrato, or class descriptors in the final output.\n" +
-      "- Do not mention localidades, neighborhoods, or specific Bogotá zones in the final output.\n" +
-      "- Use campaign signals only as internal creative guidance.\n" +
-      "- Keep the final concepts natural, modern, inclusive, performance-oriented, and suitable for Meta ads.\n" +
-      "- Focus on commercial usefulness, clarity, strong hooks, and visual simplicity.\n" +
-      "- Avoid generic ideas.\n\n" +
-
-      "CAMPAIGN CONTEXT\n" +
-      "- Campaign: " + campaign + "\n" +
-      "- Market: Bogotá (C/MARCA)\n" +
-      "- Gender focus: Women\n" +
-      "- Total historical sales (COP): " + totalHist + "\n" +
-      "- Data included through the end of yesterday (Bogota time)\n\n" +
-
-      "INTERNAL SIGNALS TO USE FOR CREATIVE REASONING ONLY\n" +
-      "Top localidades by sales:\n" + summarizeTop(localidad, 6, "localidades") + "\n\n" +
-      "Top time-of-day windows by sales:\n" + summarizeTop(timeChunks, 6, "time windows") + "\n\n" +
-
-      "CREATIVE INTERPRETATION RULES\n" +
-      "- Infer lifestyle, routine, urgency, aspirations, and emotional triggers from the available signals.\n" +
-      "- If certain time windows dominate, adapt scenes and hooks to those moments of day.\n" +
-      "- Use the creative mix and sales concentration patterns to suggest both winning directions and new tests.\n" +
-      "- Keep scenes visually concrete and easy for an AI ad tool to generate.\n" +
-      "- Favor ideas that can perform well in paid social.\n\n" +
-
-      "PRODUCT ANGLES TO EXPLORE WHEN RELEVANT\n" +
-      "- Odor control and freshness\n" +
-      "- Confidence in social situations\n" +
-      "- Daily routine support\n" +
-      "- Sweat, stress, and comfort\n" +
-      "- Before/after relief\n" +
-      "- Confidence at work, dating, commuting, and everyday life\n\n" +
-
-      "RAW JSON REFERENCE DATA\n" +
-      "Localidad breakdown:\n" + safeJsonStringify(localidad) + "\n\n" +
-      "Estrato breakdown:\n" + safeJsonStringify(estrato) + "\n\n" +
-      "Nivel socioeconomico breakdown:\n" + safeJsonStringify(nivel) + "\n\n" +
-      "Time-of-day breakdown:\n" + safeJsonStringify(timeChunks) + "\n\n" +
-      "UTM Content x Localidad:\n" + safeJsonStringify(utmContentLoc) + "\n\n" +
-
-      "FINAL REMINDER\n" +
-      "Use all JSON and campaign signals for internal reasoning, but do not mention socioeconomic information explicitly in the final creative output.\n"
-    );
   }
 
   function buildMetaStrategicPrompt(payload) {
@@ -767,29 +623,6 @@ document.addEventListener("DOMContentLoaded", function() {
       document.execCommand("copy");
       el.setSelectionRange(0, 0);
     }
-  };
-
-  window.copyPomelliPrompt = async function(chartId) {
-    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
-    if (!textarea) return;
-
-    try {
-      await navigator.clipboard.writeText(textarea.value || "");
-    } catch (e) {
-      textarea.select();
-      document.execCommand("copy");
-      textarea.setSelectionRange(0, 0);
-    }
-  };
-
-  window.regeneratePomelliPrompt = function(chartId) {
-    var payload = (window._metaPromptPayloads || {})[chartId];
-    if (!payload) return;
-
-    var textarea = document.getElementById("metaPomelliPrompt" + chartId);
-    if (!textarea) return;
-
-    textarea.value = buildMetaPomelliCampaignPrompt(payload);
   };
 
   window._metaPromptPayloads = window._metaPromptPayloads || {};
@@ -1460,11 +1293,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
           window._metaPromptPayloads = window._metaPromptPayloads || {};
           window._metaPromptPayloads[{{ c['chart_id'] }}] = payload;
-
-          var pomelliTextarea = document.getElementById("metaPomelliPrompt{{ c['chart_id'] }}");
-          if (pomelliTextarea) {
-            pomelliTextarea.value = buildMetaPomelliCampaignPrompt(payload);
-          }
 
           var strategicTextarea = document.getElementById("metaStrategicPrompt{{ c['chart_id'] }}");
           if (strategicTextarea) {
