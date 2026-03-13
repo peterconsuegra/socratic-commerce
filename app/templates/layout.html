@@ -120,7 +120,7 @@
   display: block;
   height: 44px;     /* desktop default */
   width: auto;
-  max-width: 65vw;  /* prevent overflow on small screens */
+  height: 80px;
   object-fit: contain;
 }
 
@@ -130,8 +130,7 @@
     padding: 8px 12px;
   }
   .brand-logo{
-    height: 34px;
-    max-width: 70vw;
+    height: 80px;
   }
 }
 
@@ -302,7 +301,7 @@
 <header class="app-header">
   <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="Go to dashboard">
     <img
-      src="{{ url_for('static', filename='LogoDashboard400px.png') }}"
+      src="{{ url_for('static', filename='SocraticSignalsLogoSmall.jpg') }}"
       alt="Save a Playa Logo"
       class="brand-logo"
     >
