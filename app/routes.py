@@ -93,6 +93,8 @@ import os
 from flask import current_app, render_template, request, send_from_directory, abort
 from werkzeug.utils import secure_filename
 
+from app.services.daily_sales import build_daily_sales_dashboard_context
+
 
 CACHE_TTL_SECONDS = 60 * 60 * 24  # 1 day
 ALL_ORDERS_CACHE_FILE = "data/.all_orders_cache_ts"
@@ -479,33 +481,9 @@ def daily_sales():
 
     input_file = "data/daily_sales_orders.csv"
 
-    daily_sales_trend = []
-    forecast_data = []
-    pie_labels = []
-    pie_values = []
-    channel_charts = []
-
-    # Excluded small channels summary
-    other_channels_labels = []
-    other_channels_pct = 0.0
-
-    # Gender pies
-    gender_labels_total = []
-    gender_values_total = []
-    gender_pies_by_channel = {}  # channel -> {"labels":[...], "values":[...]}
-
-    # City pies (Top 20 + Other)
-    city_labels_total = []
-    city_values_total = []
-    city_pies_by_channel = {}  # channel -> {"labels":[...], "values":[...]}
-
-    # Time pies (3-hour buckets)
-    time_labels_total = []
-    time_values_total = []
-    time_pies_by_channel = {}  # channel -> {"labels":[...], "values":[...]}
-
-    error = None
-    date_range = start_date = end_date = None
+    date_range = None
+    start_date = None
+    end_date = None
 
     try:
         opt = Option.query
@@ -518,323 +496,23 @@ def daily_sales():
 
         rec = opt.filter_by(meta_key="end_date_daily_sales_orders.csv").first()
         end_date = rec.meta_value if rec else None
+
     except Exception:
         current_app.logger.exception("Reading date range options failed (daily_sales)")
 
-    if not os.path.exists(input_file):
-        error = f"{input_file} not found. Use the date selector above to fetch data first."
-        return render_template(
-            "daily_sales.html",
-            daily_sales_trend=daily_sales_trend,
-            forecast_data=forecast_data,
-            pie_labels=pie_labels,
-            pie_values=pie_values,
-            channel_charts=channel_charts,
-            other_channels_labels=other_channels_labels,
-            other_channels_pct=other_channels_pct,
-            gender_labels_total=gender_labels_total,
-            gender_values_total=gender_values_total,
-            gender_pies_by_channel=gender_pies_by_channel,
-            city_labels_total=city_labels_total,
-            city_values_total=city_values_total,
-            city_pies_by_channel=city_pies_by_channel,
-            time_labels_total=time_labels_total,
-            time_values_total=time_values_total,
-            time_pies_by_channel=time_pies_by_channel,
-            error=error,
-            date_range=date_range,
-            start_date=start_date,
-            end_date=end_date,
-        )
-
-    def _top_n_with_other(series, n=20, other_label="Other"):
-        """
-        series: pandas Series indexed by label, values numeric (sales).
-        Returns (labels, values) for top N labels plus an aggregated 'Other'.
-        """
-        if series is None or len(series) == 0:
-            return [], []
-
-        s = series.copy()
-        s = s[s > 0].sort_values(ascending=False)
-
-        if len(s) == 0:
-            return [], []
-
-        top = s.head(n)
-        rest_sum = float(s.iloc[n:].sum()) if len(s) > n else 0.0
-
-        labels = [str(x) for x in top.index.tolist()]
-        values = [float(x) for x in top.values.tolist()]
-
-        if rest_sum > 0:
-            labels.append(other_label)
-            values.append(float(rest_sum))
-
-        return labels, values
-
-    def _time_bucket_label(hour: int) -> str:
-        """
-        Returns 3-hour bucket label for a given hour [0..23].
-        """
-        h = int(hour) if hour is not None else 0
-        start = (h // 3) * 3
-        end = start + 3
-        return f"{start:02d}-{end:02d}" if end < 24 else "21-24"
-
-    def _time_pie_from_df(df_in):
-        """
-        Builds labels/values for 3-hour buckets across the day in fixed order.
-
-        IMPORTANT:
-        - order_date in data/daily_sales_orders.csv is already GMT-5 Bogota local time.
-        - We treat it as naive local time and DO NOT tz_localize/tz_convert anything.
-        - If it ever arrives tz-aware (unexpected), we strip tz to avoid shifting hours.
-        """
-        if df_in is None or df_in.empty:
-            return [], []
-
-        df_tmp = df_in.copy()
-        if "order_date" not in df_tmp.columns:
-            return [], []
-
-        df_tmp["order_date"] = pd.to_datetime(df_tmp["order_date"], errors="coerce")
-        df_tmp = df_tmp.dropna(subset=["order_date"]).copy()
-
-        # Safety: if tz-aware sneaks in, strip tz without shifting (keeps wall-clock time)
-        try:
-            if getattr(df_tmp["order_date"].dt, "tz", None) is not None:
-                df_tmp["order_date"] = df_tmp["order_date"].dt.tz_localize(None)
-        except Exception:
-            pass
-
-        df_tmp["hour"] = df_tmp["order_date"].dt.hour
-        df_tmp["time_bucket"] = df_tmp["hour"].apply(_time_bucket_label)
-
-        grouped = df_tmp.groupby("time_bucket")["total_value"].sum()
-
-        bucket_order = ["00-03", "03-06", "06-09", "09-12", "12-15", "15-18", "18-21", "21-24"]
-
-        labels = []
-        values = []
-        for b in bucket_order:
-            v = float(grouped.get(b, 0.0))
-            if v > 0:
-                labels.append(b)
-                values.append(v)
-
-        return labels, values
-
-    try:
-        import pandas as pd
-
-        # Total sales chart (always)
-        daily_sales_trend, forecast_data = get_daily_sales_trend_simple(
-            output_file="daily_sales_trend.csv",
-            forecast_periods=30,
-            return_forecast=True,
-            orders_csv_path=input_file,
-            utm_source_filter=None,
-        )
-
-        df = pd.read_csv(input_file)
-
-        required_cols = {"order_date", "total_value", "utm_source"}
-        missing = required_cols - set(df.columns)
-        if missing:
-            raise ValueError(f"Orders file is missing required columns for charts: {sorted(missing)}")
-
-        # order_date is already Bogota local time in CSV (naive). Keep it naive.
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-        df = df.dropna(subset=["order_date"]).copy()
-        df["total_value"] = pd.to_numeric(df["total_value"], errors="coerce").fillna(0.0)
-
-        # Normalize utm_source
-        df["utm_source"] = (
-            df["utm_source"]
-            .fillna("unknown")
-            .astype(str)
-            .str.strip()
-            .str.lower()
-        )
-        df.loc[df["utm_source"] == "", "utm_source"] = "unknown"
-
-        # Normalize gender
-        if "gender" in df.columns:
-            df["gender"] = (
-                df["gender"]
-                .fillna("unknown")
-                .astype(str)
-                .str.strip()
-                .str.lower()
-            )
-            df.loc[df["gender"] == "", "gender"] = "unknown"
-        else:
-            df["gender"] = "unknown"
-
-        # Normalize city
-        if "city" in df.columns:
-            df["city"] = (
-                df["city"]
-                .fillna("unknown")
-                .astype(str)
-                .str.strip()
-            )
-            df.loc[df["city"] == "", "city"] = "unknown"
-        else:
-            df["city"] = "unknown"
-
-        # ----------------------
-        # UTM SOURCE PIE (sales)
-        # ----------------------
-        grouped = (
-            df.groupby("utm_source")["total_value"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-
-        pie_labels = [str(k) for k, v in grouped.items() if float(v) > 0]
-        pie_values = [float(v) for v in grouped.values if float(v) > 0]
-
-        total_sales = float(grouped.sum()) if len(grouped) else 0.0
-        MIN_SHARE_PERCENT = 2.0
-
-        included = []
-        excluded = []
-
-        if total_sales > 0:
-            for ch, val in grouped.items():
-                val = float(val)
-                if val <= 0:
-                    continue
-
-                pct = (val / total_sales) * 100.0
-                ch_str = str(ch)
-
-                # we do not chart unknown, and we do not count it in "Other channels (<2%)"
-                if ch_str == "unknown":
-                    continue
-
-                if pct >= MIN_SHARE_PERCENT:
-                    included.append({"key": ch_str, "pct": pct, "value": val})
-                else:
-                    excluded.append({"key": ch_str, "pct": pct, "value": val})
-
-        included.sort(key=lambda x: x["pct"], reverse=True)
-        excluded.sort(key=lambda x: x["pct"], reverse=True)
-
-        other_channels_labels = [x["key"] for x in excluded]
-        other_channels_pct = float(sum(x["pct"] for x in excluded)) if excluded else 0.0
-
-        # -----------------------------
-        # TOTAL GENDER PIE (sales share)
-        # -----------------------------
-        gender_group_total = (
-            df.groupby("gender")["total_value"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        gender_labels_total = [str(k) for k, v in gender_group_total.items() if float(v) > 0]
-        gender_values_total = [float(v) for v in gender_group_total.values if float(v) > 0]
-
-        # ---------------------------
-        # TOTAL CITY PIE (Top 20 + Other)
-        # ---------------------------
-        city_group_total = (
-            df.groupby("city")["total_value"]
-            .sum()
-            .sort_values(ascending=False)
-        )
-        city_labels_total, city_values_total = _top_n_with_other(city_group_total, n=20, other_label="Other")
-
-        # ---------------------------
-        # TOTAL TIME PIE (3-hour buckets)
-        # ---------------------------
-        time_labels_total, time_values_total = _time_pie_from_df(df)
-
-        # -----------------------------------------
-        # CHANNEL CHARTS + GENDER/CITY/TIME PIE PER CH
-        # -----------------------------------------
-        for item in included:
-            channel = item["key"]
-            pct = item["pct"]
-
-            trend_rows, forecast_rows = get_daily_sales_trend_simple(
-                output_file=f"daily_sales_trend_{channel}.csv",
-                forecast_periods=30,
-                return_forecast=True,
-                orders_csv_path=input_file,
-                utm_source_filter=channel,
-            )
-
-            if not trend_rows:
-                continue
-
-            df_ch = df[df["utm_source"] == channel].copy()
-
-            # Gender pie per channel
-            gender_group_ch = (
-                df_ch.groupby("gender")["total_value"]
-                .sum()
-                .sort_values(ascending=False)
-            )
-            g_labels = [str(k) for k, v in gender_group_ch.items() if float(v) > 0]
-            g_values = [float(v) for v in gender_group_ch.values if float(v) > 0]
-            gender_pies_by_channel[channel] = {"labels": g_labels, "values": g_values}
-
-            # City pie per channel (Top 20 + Other)
-            city_group_ch = (
-                df_ch.groupby("city")["total_value"]
-                .sum()
-                .sort_values(ascending=False)
-            )
-            c_labels, c_values = _top_n_with_other(city_group_ch, n=20, other_label="Other")
-            city_pies_by_channel[channel] = {"labels": c_labels, "values": c_values}
-
-            # Time pie per channel (3-hour buckets)
-            t_labels, t_values = _time_pie_from_df(df_ch)
-            time_pies_by_channel[channel] = {"labels": t_labels, "values": t_values}
-
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
-            channel_charts.append({
-                "key": channel,
-                "label": f"{channel.upper()} ({pct:.1f}%)",
-                "canvas_id": f"dailySalesChart_{safe}",
-                "gender_canvas_id": f"genderPie_{safe}",
-                "city_canvas_id": f"cityPie_{safe}",
-                "time_canvas_id": f"timePie_{safe}",
-                "trend": trend_rows,
-                "forecast": forecast_rows,
-                "pct": pct,
-            })
-
-    except Exception as e:
-        error = str(e)
-        current_app.logger.exception("daily_sales view failed")
-
-    return render_template(
-        "daily_sales.html",
-        daily_sales_trend=daily_sales_trend,
-        forecast_data=forecast_data,
-        pie_labels=pie_labels,
-        pie_values=pie_values,
-        channel_charts=channel_charts,
-        other_channels_labels=other_channels_labels,
-        other_channels_pct=other_channels_pct,
-        gender_labels_total=gender_labels_total,
-        gender_values_total=gender_values_total,
-        gender_pies_by_channel=gender_pies_by_channel,
-        city_labels_total=city_labels_total,
-        city_values_total=city_values_total,
-        city_pies_by_channel=city_pies_by_channel,
-        time_labels_total=time_labels_total,
-        time_values_total=time_values_total,
-        time_pies_by_channel=time_pies_by_channel,
-        error=error,
-        date_range=date_range,
-        start_date=start_date,
-        end_date=end_date,
+    context = build_daily_sales_dashboard_context(
+        input_file=input_file,
+        forecast_periods=30,
+        min_channel_share_percent=2.0,
     )
+
+    context.update({
+        "date_range": date_range,
+        "start_date": start_date,
+        "end_date": end_date,
+    })
+
+    return render_template("daily_sales.html", **context)
 
 
 @main.route("/top_cities")
