@@ -28,7 +28,7 @@ EXTENSION_LANGUAGE_MAP = {
     ".go": "go", ".ts": "typescript", ".swift": "swift", ".kt": "kotlin",
     ".rs": "rust", ".html": "html", ".css": "css", ".json": "json",
     ".xml": "xml", ".sh": "bash", ".sql": "sql", ".md": "markdown",
-    ".csv": "csv",
+    ".csv": "csv", ".md": "md"
 }
 
 
@@ -83,7 +83,7 @@ def write_file_as_code_block(src_path: str, out_fp) -> None:
             pass
         if content.count("\n") > 20:
             content = "\n".join(content.splitlines()[:20] + ["..."])
-    elif language == "csv":
+    elif language == "csv" or language == "md":
         lines = content.splitlines()
         if len(lines) > 20:
             content = "\n".join(lines[:20] + ["..."])
