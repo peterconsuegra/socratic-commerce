@@ -763,10 +763,37 @@ def daily_sales():
         min_channel_share_percent=2.0,
     )
 
+    daily_repurchases_trend = []
+    daily_repurchases_forecast_data = []
+    daily_repurchases_error = None
+
+    try:
+        all_orders_file = current_app.config["ALL_ORDERS_CSV"]
+
+        if not os.path.exists(all_orders_file):
+            daily_repurchases_error = f"{all_orders_file} not found. Please generate all orders first."
+        else:
+            daily_repurchases_trend, daily_repurchases_forecast_data = get_daily_repurchases_trend(
+                output_file="daily_sales_all_repurchases_trend.csv",
+                forecast_periods=30,
+                return_forecast=True,
+                orders_csv_path=all_orders_file,
+                start_date=start_date,
+                end_date=end_date,
+                utm_source_filter=None,
+            )
+
+    except Exception as exc:
+        current_app.logger.exception("Failed building daily all repurchases trend for daily_sales")
+        daily_repurchases_error = str(exc)
+
     context.update({
         "date_range": date_range,
         "start_date": start_date,
         "end_date": end_date,
+        "daily_repurchases_trend": daily_repurchases_trend,
+        "daily_repurchases_forecast_data": daily_repurchases_forecast_data,
+        "daily_repurchases_error": daily_repurchases_error,
     })
 
     return render_template("daily_sales.html", **context)
@@ -2034,6 +2061,29 @@ Daily Sales
       <canvas id="dailySalesChart"></canvas>
     </div>
 
+    <div class="mt-5">
+      <h2 class="text-center">Daily All Repurchases Trend and Forecast</h2>
+      <p class="text-center text-muted mb-3">
+        This chart uses all orders to identify repeat customers, then applies the selected date range.
+      </p>
+
+      {% if daily_repurchases_error %}
+        <div class="alert alert-warning mt-3">
+          {{ daily_repurchases_error }}
+        </div>
+      {% endif %}
+
+      {% if daily_repurchases_trend %}
+        <div class="mt-4" style="height: 520px;">
+          <canvas id="dailyAllRepurchasesChart"></canvas>
+        </div>
+      {% else %}
+        <div class="alert alert-warning mt-3">
+          No all repurchases data available for this selection.
+        </div>
+      {% endif %}
+    </div>
+
     <hr class="my-5">
 
     <h2 class="text-center">Daily Sales Trend and Forecast by Channel</h2>
@@ -2443,6 +2493,29 @@ document.addEventListener("DOMContentLoaded", function() {
   );
 
   // ======================
+  // ALL REPURCHASES LINE CHART
+  // ======================
+  var dailyAllRepurchasesChart = buildLineChart(
+    "dailyAllRepurchasesChart",
+    [
+      {% for r in daily_repurchases_trend %}"{{ r['Day'] }}",{% endfor %}
+      {% for r in daily_repurchases_forecast_data %}"{{ r['Day'] }}",{% endfor %}
+    ],
+    [
+      {% for r in daily_repurchases_trend %}
+        {{ r['Repurchase Total Value']|default('0') }},
+      {% endfor %}
+    ],
+    [
+      {% for r in daily_repurchases_forecast_data %}
+        {{ r['Projected Repurchase Sales']|default(0) }},
+      {% endfor %}
+    ],
+    "Historical All Repurchases",
+    null
+  );
+
+  // ======================
   // CHANNEL CHARTS + PIES
   // ======================
   var channelCharts = [];
@@ -2579,6 +2652,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     applyLine(dailySalesChart);
+    applyLine(dailyAllRepurchasesChart);
+
     for (var i = 0; i < channelCharts.length; i++) applyLine(channelCharts[i]);
   };
 
@@ -2586,6 +2661,5 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 
 {% endblock %}
-
 ```
 

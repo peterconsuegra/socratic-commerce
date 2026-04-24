@@ -61,7 +61,10 @@ Daily Sales
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Total Sales Trend and Forecast</h2>
+    <h2 class="text-center">Daily Total Sales and All Repurchases Trend and Forecast</h2>
+    <p class="text-center text-muted mb-3">
+      Total sales and all repurchases are shown together for easier comparison.
+    </p>
 
     <div class="row mt-4">
       <div class="col-12 col-lg-4">
@@ -84,31 +87,14 @@ Daily Sales
       </div>
     </div>
 
-    <div class="mt-4" style="height: 520px;">
-      <canvas id="dailySalesChart"></canvas>
-    </div>
+    {% if daily_repurchases_error %}
+      <div class="alert alert-warning mt-3">
+        {{ daily_repurchases_error }}
+      </div>
+    {% endif %}
 
-    <div class="mt-5">
-      <h2 class="text-center">Daily All Repurchases Trend and Forecast</h2>
-      <p class="text-center text-muted mb-3">
-        This chart uses all orders to identify repeat customers, then applies the selected date range.
-      </p>
-
-      {% if daily_repurchases_error %}
-        <div class="alert alert-warning mt-3">
-          {{ daily_repurchases_error }}
-        </div>
-      {% endif %}
-
-      {% if daily_repurchases_trend %}
-        <div class="mt-4" style="height: 520px;">
-          <canvas id="dailyAllRepurchasesChart"></canvas>
-        </div>
-      {% else %}
-        <div class="alert alert-warning mt-3">
-          No all repurchases data available for this selection.
-        </div>
-      {% endif %}
+    <div class="mt-4" style="height: 560px;">
+      <canvas id="dailySalesAndRepurchasesChart"></canvas>
     </div>
 
     <hr class="my-5">
@@ -166,7 +152,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function convertToUSD(values) {
     return values.map(function(v) {
-      return Number((v / exchangeRate).toFixed(2));
+      if (v === null || v === undefined || v === "") {
+        return null;
+      }
+
+      return Number((Number(v) / exchangeRate).toFixed(2));
     });
   }
 
@@ -190,6 +180,7 @@ document.addEventListener("DOMContentLoaded", function() {
       g = parseInt(hex[2] + hex[2], 16);
       b = parseInt(hex[3] + hex[3], 16);
     }
+
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
@@ -207,7 +198,6 @@ document.addEventListener("DOMContentLoaded", function() {
     "other": "#af7aa1"
   };
 
-  // Unique color for the "Other" slice in CITY pies (total + channels)
   var CITY_OTHER_COLOR = "#000000";
 
   function normKey(s) {
@@ -216,34 +206,37 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function buildGenderColors(labels) {
     var out = [];
+
     for (var i = 0; i < labels.length; i++) {
       var k = normKey(labels[i]);
       out.push(GENDER_COLOR_MAP[k] || "#bab0ab");
     }
+
     return out;
   }
 
-  // PIE HELPER
-  // If useFixedGenderColors is true -> uses GENDER_COLOR_MAP
-  // Else -> uses PALETTE (with optional forced colors by label)
   function buildPieChart(canvasId, labels, valuesCOP, titleText, useFixedGenderColors, specialSliceColorMap) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
-    // filter out zeros
     var fl = [];
     var fv = [];
+
     for (var i = 0; i < labels.length; i++) {
       var v = Number(valuesCOP[i]) || 0;
+
       if (v > 0) {
         fl.push(labels[i]);
         fv.push(v);
       }
     }
 
-    var total = fv.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
+    var total = fv.reduce(function(acc, v) {
+      return acc + (Number(v) || 0);
+    }, 0);
 
     var colors = [];
+
     if (useFixedGenderColors) {
       colors = buildGenderColors(fl);
     } else {
@@ -255,6 +248,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (specialSliceColorMap) {
       for (var k = 0; k < fl.length; k++) {
         var key = normKey(fl[k]);
+
         if (specialSliceColorMap[key]) {
           colors[k] = specialSliceColorMap[key];
         }
@@ -262,6 +256,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     var ctx = canvas.getContext("2d");
+
     var chart = new Chart(ctx, {
       type: "pie",
       data: {
@@ -288,7 +283,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
                 var formattedValue = useUSD
                   ? "$" + Number(value).toFixed(2) + " USD"
-                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+                  : new Intl.NumberFormat("es-CO", {
+                      style: "currency",
+                      currency: "COP"
+                    }).format(value);
 
                 return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
               }
@@ -300,7 +298,9 @@ document.addEventListener("DOMContentLoaded", function() {
               return v > 0;
             },
             formatter: function(value, ctx) {
-              var sum = ctx.dataset.data.reduce(function(acc, v) { return acc + (Number(v) || 0); }, 0);
+              var sum = ctx.dataset.data.reduce(function(acc, v) {
+                return acc + (Number(v) || 0);
+              }, 0);
               var pct = sum > 0 ? (Number(value) / sum) * 100 : 0;
               return pct.toFixed(1) + "%";
             },
@@ -340,8 +340,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var filteredPieLabels = [];
     var filteredPieValuesCOP = [];
+
     for (var i2 = 0; i2 < pieLabels.length; i2++) {
       var val2 = Number(pieValuesCOP[i2]) || 0;
+
       if (val2 > 0) {
         filteredPieLabels.push(pieLabels[i2]);
         filteredPieValuesCOP.push(val2);
@@ -349,6 +351,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     var pieColors = [];
+
     for (var j2 = 0; j2 < filteredPieLabels.length; j2++) {
       var color2 = PALETTE[j2 % PALETTE.length];
       pieColors.push(color2);
@@ -360,6 +363,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }, 0);
 
     var pieCtx = pieCanvas.getContext("2d");
+
     pieChart = new Chart(pieCtx, {
       type: "pie",
       data: {
@@ -385,7 +389,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
                 var formattedValue = useUSD
                   ? "$" + Number(value).toFixed(2) + " USD"
-                  : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
+                  : new Intl.NumberFormat("es-CO", {
+                      style: "currency",
+                      currency: "COP"
+                    }).format(value);
 
                 return label + ": " + formattedValue + " (" + percent.toFixed(1) + "%)";
               }
@@ -415,23 +422,33 @@ document.addEventListener("DOMContentLoaded", function() {
       "{{ l }}",
     {% endfor %}
   ];
+
   var genderValuesTotal = [
     {% for v in gender_values_total %}
       {{ v }},
     {% endfor %}
   ];
-  var genderPieTotal = buildPieChart("genderPieTotal", genderLabelsTotal, genderValuesTotal, "", true);
+
+  var genderPieTotal = buildPieChart(
+    "genderPieTotal",
+    genderLabelsTotal,
+    genderValuesTotal,
+    "",
+    true
+  );
 
   var cityLabelsTotal = [
     {% for l in city_labels_total %}
       "{{ l }}",
     {% endfor %}
   ];
+
   var cityValuesTotal = [
     {% for v in city_values_total %}
       {{ v }},
     {% endfor %}
   ];
+
   var cityPieTotal = buildPieChart(
     "cityPieTotal",
     cityLabelsTotal,
@@ -446,15 +463,23 @@ document.addEventListener("DOMContentLoaded", function() {
       "{{ l }}",
     {% endfor %}
   ];
+
   var timeValuesTotal = [
     {% for v in time_values_total %}
       {{ v }},
     {% endfor %}
   ];
-  var timePieTotal = buildPieChart("timePieTotal", timeLabelsTotal, timeValuesTotal, "", false);
+
+  var timePieTotal = buildPieChart(
+    "timePieTotal",
+    timeLabelsTotal,
+    timeValuesTotal,
+    "",
+    false
+  );
 
   // ======================
-  // LINE CHART FACTORY
+  // LINE CHART FACTORY FOR CHANNEL CHARTS
   // ======================
   function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix, hexColor) {
     var canvas = document.getElementById(canvasId);
@@ -490,8 +515,18 @@ document.addEventListener("DOMContentLoaded", function() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: "top" } },
-        scales: { y: { ticks: { callback: formatYTick } } }
+        plugins: {
+          legend: {
+            position: "top"
+          }
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: formatYTick
+            }
+          }
+        }
       }
     });
 
@@ -505,41 +540,209 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // ======================
-  // TOTAL LINE CHART
+  // COMBINED TOTAL SALES + ALL REPURCHASES LINE CHART
   // ======================
-  var dailySalesChart = buildLineChart(
-    "dailySalesChart",
-    [
-      {% for r in daily_sales_trend %}"{{ r['Date'] }}",{% endfor %}
-      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
-    ],
-    [{% for r in daily_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
-    [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
-    "Historical Total Sales",
-    null
-  );
+  function buildCombinedSalesRepurchasesChart(
+    canvasId,
+    totalHistRows,
+    totalForecastRows,
+    repurchaseHistRows,
+    repurchaseForecastRows
+  ) {
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
 
-  // ======================
-  // ALL REPURCHASES LINE CHART
-  // ======================
-  var dailyAllRepurchasesChart = buildLineChart(
-    "dailyAllRepurchasesChart",
+    var TOTAL_COLOR = "#4e79a7";
+    var REPURCHASE_COLOR = "#e15759";
+
+    function makeMap(rows) {
+      var out = {};
+
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+
+        if (!row || !row.date) {
+          continue;
+        }
+
+        out[row.date] = Number(row.value) || 0;
+      }
+
+      return out;
+    }
+
+    function collectLabels() {
+      var labelMap = {};
+      var allRows = []
+        .concat(totalHistRows)
+        .concat(totalForecastRows)
+        .concat(repurchaseHistRows)
+        .concat(repurchaseForecastRows);
+
+      for (var i = 0; i < allRows.length; i++) {
+        if (allRows[i] && allRows[i].date) {
+          labelMap[allRows[i].date] = true;
+        }
+      }
+
+      return Object.keys(labelMap).sort();
+    }
+
+    function alignValues(labels, valueMap) {
+      return labels.map(function(label) {
+        return Object.prototype.hasOwnProperty.call(valueMap, label)
+          ? valueMap[label]
+          : null;
+      });
+    }
+
+    var labels = collectLabels();
+
+    var totalHistMap = makeMap(totalHistRows);
+    var totalForecastMap = makeMap(totalForecastRows);
+    var repurchaseHistMap = makeMap(repurchaseHistRows);
+    var repurchaseForecastMap = makeMap(repurchaseForecastRows);
+
+    var datasets = [
+      {
+        label: "Historical Total Sales (COP)",
+        data: alignValues(labels, totalHistMap),
+        borderColor: TOTAL_COLOR,
+        backgroundColor: hexToRgba(TOTAL_COLOR, 0.12),
+        fill: false,
+        tension: 0.25,
+        spanGaps: true
+      },
+      {
+        label: "Forecasted Total Sales (COP)",
+        data: alignValues(labels, totalForecastMap),
+        borderColor: TOTAL_COLOR,
+        backgroundColor: hexToRgba(TOTAL_COLOR, 0.08),
+        borderDash: [6, 6],
+        fill: false,
+        tension: 0.25,
+        spanGaps: true
+      },
+      {
+        label: "Historical All Repurchases (COP)",
+        data: alignValues(labels, repurchaseHistMap),
+        borderColor: REPURCHASE_COLOR,
+        backgroundColor: hexToRgba(REPURCHASE_COLOR, 0.12),
+        fill: false,
+        tension: 0.25,
+        spanGaps: true
+      },
+      {
+        label: "Forecasted All Repurchases (COP)",
+        data: alignValues(labels, repurchaseForecastMap),
+        borderColor: REPURCHASE_COLOR,
+        backgroundColor: hexToRgba(REPURCHASE_COLOR, 0.08),
+        borderDash: [6, 6],
+        fill: false,
+        tension: 0.25,
+        spanGaps: true
+      }
+    ];
+
+    var ctx = canvas.getContext("2d");
+
+    var chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: "top"
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                var label = context.dataset.label || "";
+                var value = context.parsed.y;
+
+                if (value === null || value === undefined) {
+                  return label + ": no data";
+                }
+
+                var formattedValue = useUSD
+                  ? "$" + Number(value).toFixed(2) + " USD"
+                  : new Intl.NumberFormat("es-CO", {
+                      style: "currency",
+                      currency: "COP"
+                    }).format(value);
+
+                return label + ": " + formattedValue;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: formatYTick
+            }
+          }
+        }
+      }
+    });
+
+    chart._rawDatasetsCOP = datasets.map(function(dataset) {
+      return dataset.data.slice();
+    });
+
+    chart._datasetLabelPrefixes = [
+      "Historical Total Sales",
+      "Forecasted Total Sales",
+      "Historical All Repurchases",
+      "Forecasted All Repurchases"
+    ];
+
+    return chart;
+  }
+
+  var dailySalesAndRepurchasesChart = buildCombinedSalesRepurchasesChart(
+    "dailySalesAndRepurchasesChart",
     [
-      {% for r in daily_repurchases_trend %}"{{ r['Day'] }}",{% endfor %}
-      {% for r in daily_repurchases_forecast_data %}"{{ r['Day'] }}",{% endfor %}
+      {% for r in daily_sales_trend %}
+        {
+          date: "{{ r['Date'] }}",
+          value: {{ r['Total Sales']|default('0') }}
+        },
+      {% endfor %}
+    ],
+    [
+      {% for r in forecast_data %}
+        {
+          date: "{{ r['Date'] }}",
+          value: {{ r['Projected Total Sales']|default(0) }}
+        },
+      {% endfor %}
     ],
     [
       {% for r in daily_repurchases_trend %}
-        {{ r['Repurchase Total Value']|default('0') }},
+        {
+          date: "{{ r['Day'] }}",
+          value: {{ r['Repurchase Total Value']|default('0') }}
+        },
       {% endfor %}
     ],
     [
       {% for r in daily_repurchases_forecast_data %}
-        {{ r['Projected Repurchase Sales']|default(0) }},
+        {
+          date: "{{ r['Day'] }}",
+          value: {{ r['Projected Repurchase Sales']|default(0) }}
+        },
       {% endfor %}
-    ],
-    "Historical All Repurchases",
-    null
+    ]
   );
 
   // ======================
@@ -555,39 +758,50 @@ document.addEventListener("DOMContentLoaded", function() {
       var key = "{{ ch.key }}".toLowerCase();
       var color = channelColorMap[key] || null;
 
-      // Gender pie
       var gLabels = [];
       var gValues = [];
+
       {% if gender_pies_by_channel.get(ch.key) %}
         gLabels = [
           {% for l in gender_pies_by_channel.get(ch.key)["labels"] %}
             "{{ l }}",
           {% endfor %}
         ];
+
         gValues = [
           {% for v in gender_pies_by_channel.get(ch.key)["values"] %}
             {{ v }},
           {% endfor %}
         ];
       {% endif %}
-      var gp = buildPieChart("{{ ch.gender_canvas_id }}", gLabels, gValues, "", true);
+
+      var gp = buildPieChart(
+        "{{ ch.gender_canvas_id }}",
+        gLabels,
+        gValues,
+        "",
+        true
+      );
+
       if (gp) channelGenderPies.push(gp);
 
-      // City pie (force Other color)
       var cLabels = [];
       var cValues = [];
+
       {% if city_pies_by_channel.get(ch.key) %}
         cLabels = [
           {% for l in city_pies_by_channel.get(ch.key)["labels"] %}
             "{{ l }}",
           {% endfor %}
         ];
+
         cValues = [
           {% for v in city_pies_by_channel.get(ch.key)["values"] %}
             {{ v }},
           {% endfor %}
         ];
       {% endif %}
+
       var cp = buildPieChart(
         "{{ ch.city_canvas_id }}",
         cLabels,
@@ -596,34 +810,52 @@ document.addEventListener("DOMContentLoaded", function() {
         false,
         { "other": CITY_OTHER_COLOR }
       );
+
       if (cp) channelCityPies.push(cp);
 
-      // Time pie (3-hour)
       var tLabels = [];
       var tValues = [];
+
       {% if time_pies_by_channel.get(ch.key) %}
         tLabels = [
           {% for l in time_pies_by_channel.get(ch.key)["labels"] %}
             "{{ l }}",
           {% endfor %}
         ];
+
         tValues = [
           {% for v in time_pies_by_channel.get(ch.key)["values"] %}
             {{ v }},
           {% endfor %}
         ];
       {% endif %}
-      var tp = buildPieChart("{{ ch.time_canvas_id }}", tLabels, tValues, "", false);
+
+      var tp = buildPieChart(
+        "{{ ch.time_canvas_id }}",
+        tLabels,
+        tValues,
+        "",
+        false
+      );
+
       if (tp) channelTimePies.push(tp);
 
-      // Line chart
       var labels = [
         {% for r in ch.trend %}"{{ r['Date'] }}",{% endfor %}
         {% for r in ch.forecast %}"{{ r['Date'] }}",{% endfor %}
       ];
 
-      var hist = [{% for r in ch.trend %}{{ r['Total Sales']|default('0') }},{% endfor %}];
-      var fcst = [{% for r in ch.forecast %}{{ r['Projected Total Sales'] }},{% endfor %}];
+      var hist = [
+        {% for r in ch.trend %}
+          {{ r['Total Sales']|default('0') }},
+        {% endfor %}
+      ];
+
+      var fcst = [
+        {% for r in ch.forecast %}
+          {{ r['Projected Total Sales'] }},
+        {% endfor %}
+      ];
 
       var cLine = buildLineChart(
         "{{ ch.canvas_id }}",
@@ -647,12 +879,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function updatePie(pie) {
       if (!pie || !pie._rawCOP) return;
+
       pie.data.datasets[0].data = useUSD ? convertToUSD(pie._rawCOP) : pie._rawCOP;
       pie.update();
     }
 
     updatePie(pieChart);
-
     updatePie(genderPieTotal);
     updatePie(cityPieTotal);
     updatePie(timePieTotal);
@@ -670,7 +902,10 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.data.datasets[0].data = hist;
       chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
+      chart.data.datasets[0].label = useUSD
+        ? chart._titlePrefix + " (USD)"
+        : chart._titlePrefix + " (COP)";
+
       chart.data.datasets[1].label = useUSD
         ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
         : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
@@ -678,10 +913,31 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.update();
     }
 
-    applyLine(dailySalesChart);
-    applyLine(dailyAllRepurchasesChart);
+    function applyCombinedLine(chart) {
+      if (!chart || !chart._rawDatasetsCOP) return;
 
-    for (var i = 0; i < channelCharts.length; i++) applyLine(channelCharts[i]);
+      for (var i = 0; i < chart.data.datasets.length; i++) {
+        var rawData = chart._rawDatasetsCOP[i] || [];
+
+        chart.data.datasets[i].data = useUSD
+          ? convertToUSD(rawData)
+          : rawData.slice();
+
+        var prefix = chart._datasetLabelPrefixes[i] || chart.data.datasets[i].label;
+
+        chart.data.datasets[i].label = useUSD
+          ? prefix + " (USD)"
+          : prefix + " (COP)";
+      }
+
+      chart.update();
+    }
+
+    applyCombinedLine(dailySalesAndRepurchasesChart);
+
+    for (var i = 0; i < channelCharts.length; i++) {
+      applyLine(channelCharts[i]);
+    }
   };
 
 });
