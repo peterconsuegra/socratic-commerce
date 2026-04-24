@@ -88,6 +88,29 @@ Daily Sales
       <canvas id="dailySalesChart"></canvas>
     </div>
 
+    <div class="mt-5">
+      <h2 class="text-center">Daily All Repurchases Trend and Forecast</h2>
+      <p class="text-center text-muted mb-3">
+        This chart uses all orders to identify repeat customers, then applies the selected date range.
+      </p>
+
+      {% if daily_repurchases_error %}
+        <div class="alert alert-warning mt-3">
+          {{ daily_repurchases_error }}
+        </div>
+      {% endif %}
+
+      {% if daily_repurchases_trend %}
+        <div class="mt-4" style="height: 520px;">
+          <canvas id="dailyAllRepurchasesChart"></canvas>
+        </div>
+      {% else %}
+        <div class="alert alert-warning mt-3">
+          No all repurchases data available for this selection.
+        </div>
+      {% endif %}
+    </div>
+
     <hr class="my-5">
 
     <h2 class="text-center">Daily Sales Trend and Forecast by Channel</h2>
@@ -497,6 +520,29 @@ document.addEventListener("DOMContentLoaded", function() {
   );
 
   // ======================
+  // ALL REPURCHASES LINE CHART
+  // ======================
+  var dailyAllRepurchasesChart = buildLineChart(
+    "dailyAllRepurchasesChart",
+    [
+      {% for r in daily_repurchases_trend %}"{{ r['Day'] }}",{% endfor %}
+      {% for r in daily_repurchases_forecast_data %}"{{ r['Day'] }}",{% endfor %}
+    ],
+    [
+      {% for r in daily_repurchases_trend %}
+        {{ r['Repurchase Total Value']|default('0') }},
+      {% endfor %}
+    ],
+    [
+      {% for r in daily_repurchases_forecast_data %}
+        {{ r['Projected Repurchase Sales']|default(0) }},
+      {% endfor %}
+    ],
+    "Historical All Repurchases",
+    null
+  );
+
+  // ======================
   // CHANNEL CHARTS + PIES
   // ======================
   var channelCharts = [];
@@ -633,6 +679,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     applyLine(dailySalesChart);
+    applyLine(dailyAllRepurchasesChart);
+
     for (var i = 0; i < channelCharts.length; i++) applyLine(channelCharts[i]);
   };
 
