@@ -123,6 +123,10 @@ def daily_sales():
     facebook_daily_repurchases_forecast_data = []
     facebook_daily_repurchases_error = None
 
+    google_daily_repurchases_trend = []
+    google_daily_repurchases_forecast_data = []
+    google_daily_repurchases_error = None
+
     try:
         all_orders_file = current_app.config["ALL_ORDERS_CSV"]
 
@@ -130,6 +134,7 @@ def daily_sales():
             daily_repurchases_error = f"{all_orders_file} not found. Please generate all orders first."
             wati_daily_repurchases_error = daily_repurchases_error
             facebook_daily_repurchases_error = daily_repurchases_error
+            google_daily_repurchases_error = daily_repurchases_error
         else:
             daily_repurchases_trend, daily_repurchases_forecast_data = get_daily_repurchases_trend(
                 output_file="daily_sales_all_repurchases_trend.csv",
@@ -161,11 +166,22 @@ def daily_sales():
                 utm_source_filter="facebook",
             )
 
+            google_daily_repurchases_trend, google_daily_repurchases_forecast_data = get_daily_repurchases_trend(
+                output_file="daily_sales_google_repurchases_trend.csv",
+                forecast_periods=30,
+                return_forecast=True,
+                orders_csv_path=all_orders_file,
+                start_date=start_date,
+                end_date=end_date,
+                utm_source_filter="google",
+            )
+
     except Exception as exc:
         current_app.logger.exception("Failed building daily repurchases trends for daily_sales")
         daily_repurchases_error = str(exc)
         wati_daily_repurchases_error = str(exc)
         facebook_daily_repurchases_error = str(exc)
+        google_daily_repurchases_error = str(exc)
 
     context.update({
         "date_range": date_range,
@@ -183,6 +199,10 @@ def daily_sales():
         "facebook_daily_repurchases_trend": facebook_daily_repurchases_trend,
         "facebook_daily_repurchases_forecast_data": facebook_daily_repurchases_forecast_data,
         "facebook_daily_repurchases_error": facebook_daily_repurchases_error,
+
+        "google_daily_repurchases_trend": google_daily_repurchases_trend,
+        "google_daily_repurchases_forecast_data": google_daily_repurchases_forecast_data,
+        "google_daily_repurchases_error": google_daily_repurchases_error,
     })
 
     return render_template("daily_sales.html", **context)
