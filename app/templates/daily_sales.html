@@ -1,3 +1,4 @@
+<!-- app/templates/daily_sales.html -->
 {% extends "layout.html" %}
 
 {% block title %}
@@ -107,7 +108,17 @@ Daily Sales
       </div>
     {% else %}
       {% for ch in channel_charts %}
-        <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+        {% if ch.key|lower == "wati" %}
+          <h3 class="text-center mt-5">
+            WATI Daily Sales and Repurchase Sales Trend and Forecast
+          </h3>
+        {% elif ch.key|lower == "facebook" %}
+          <h3 class="text-center mt-5">
+            FACEBOOK Daily Sales and Repurchase Sales Trend and Forecast
+          </h3>
+        {% else %}
+          <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+        {% endif %}
 
         <div class="row mt-3">
           <div class="col-12 col-lg-4">
@@ -130,9 +141,45 @@ Daily Sales
           </div>
         </div>
 
-        <div class="mt-4" style="height: 520px;">
-          <canvas id="{{ ch.canvas_id }}"></canvas>
-        </div>
+        {% if ch.key|lower == "wati" %}
+          {% if wati_daily_repurchases_error %}
+            <div class="alert alert-warning mt-3">
+              {{ wati_daily_repurchases_error }}
+            </div>
+          {% endif %}
+
+          {% if not wati_daily_repurchases_trend %}
+            <div class="alert alert-warning mt-3">
+              No WATI repurchase sales data available for this selection.
+            </div>
+          {% endif %}
+
+          <div class="mt-4" style="height: 560px;">
+            <canvas id="watiSalesAndRepurchasesChannelChart"></canvas>
+          </div>
+
+        {% elif ch.key|lower == "facebook" %}
+          {% if facebook_daily_repurchases_error %}
+            <div class="alert alert-warning mt-3">
+              {{ facebook_daily_repurchases_error }}
+            </div>
+          {% endif %}
+
+          {% if not facebook_daily_repurchases_trend %}
+            <div class="alert alert-warning mt-3">
+              No FACEBOOK repurchase sales data available for this selection.
+            </div>
+          {% endif %}
+
+          <div class="mt-4" style="height: 560px;">
+            <canvas id="{{ ch.canvas_id }}"></canvas>
+          </div>
+
+        {% else %}
+          <div class="mt-4" style="height: 520px;">
+            <canvas id="{{ ch.canvas_id }}"></canvas>
+          </div>
+        {% endif %}
 
         {% if not loop.last %}
           <hr class="my-5">
@@ -485,6 +532,24 @@ document.addEventListener("DOMContentLoaded", function() {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
+    function stripHistoricalPrefix(value) {
+      return String(value || "").replace(/^Historical\s+/i, "");
+    }
+
+    function historicalDatasetLabel(value, currencyCode) {
+      var clean = String(value || "");
+
+      if (/^Historical\s+/i.test(clean)) {
+        return clean + " (" + currencyCode + ")";
+      }
+
+      return "Historical " + clean + " (" + currencyCode + ")";
+    }
+
+    function forecastDatasetLabel(value, currencyCode) {
+      return "Forecasted " + stripHistoricalPrefix(value) + " (" + currencyCode + ")";
+    }
+
     var ctx = canvas.getContext("2d");
 
     var fillColor = hexToRgba(hexColor, 0.15) || undefined;
@@ -496,14 +561,14 @@ document.addEventListener("DOMContentLoaded", function() {
         labels: labels,
         datasets: [
           {
-            label: titlePrefix + " (COP)",
+            label: historicalDatasetLabel(titlePrefix, "COP"),
             data: histCOP,
             fill: true,
             borderColor: lineColor,
             backgroundColor: fillColor
           },
           {
-            label: "Forecasted " + titlePrefix + " (COP)",
+            label: forecastDatasetLabel(titlePrefix, "COP"),
             data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
             borderDash: [5, 5],
             fill: true,
@@ -534,26 +599,38 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._rawForecastCOP = fcstCOP;
     chart._histLen = histCOP.length;
     chart._titlePrefix = titlePrefix;
+    chart._historicalDatasetLabel = historicalDatasetLabel;
+    chart._forecastDatasetLabel = forecastDatasetLabel;
     chart._hexColor = hexColor;
 
     return chart;
   }
 
   // ======================
-  // COMBINED TOTAL SALES + ALL REPURCHASES LINE CHART
+  // COMBINED SALES + REPURCHASES LINE CHART FACTORY
   // ======================
   function buildCombinedSalesRepurchasesChart(
     canvasId,
     totalHistRows,
     totalForecastRows,
     repurchaseHistRows,
-    repurchaseForecastRows
+    repurchaseForecastRows,
+    opts
   ) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
-    var TOTAL_COLOR = "#4e79a7";
-    var REPURCHASE_COLOR = "#e15759";
+    opts = opts || {};
+
+    var TOTAL_COLOR = opts.totalColor || "#4e79a7";
+    var REPURCHASE_COLOR = opts.repurchaseColor || "#e15759";
+
+    var labelPrefixes = opts.labelPrefixes || [
+      "Historical Total Sales",
+      "Forecasted Total Sales",
+      "Historical All Repurchases",
+      "Forecasted All Repurchases"
+    ];
 
     function makeMap(rows) {
       var out = {};
@@ -605,7 +682,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var datasets = [
       {
-        label: "Historical Total Sales (COP)",
+        label: labelPrefixes[0] + " (COP)",
         data: alignValues(labels, totalHistMap),
         borderColor: TOTAL_COLOR,
         backgroundColor: hexToRgba(TOTAL_COLOR, 0.12),
@@ -614,7 +691,7 @@ document.addEventListener("DOMContentLoaded", function() {
         spanGaps: true
       },
       {
-        label: "Forecasted Total Sales (COP)",
+        label: labelPrefixes[1] + " (COP)",
         data: alignValues(labels, totalForecastMap),
         borderColor: TOTAL_COLOR,
         backgroundColor: hexToRgba(TOTAL_COLOR, 0.08),
@@ -624,7 +701,7 @@ document.addEventListener("DOMContentLoaded", function() {
         spanGaps: true
       },
       {
-        label: "Historical All Repurchases (COP)",
+        label: labelPrefixes[2] + " (COP)",
         data: alignValues(labels, repurchaseHistMap),
         borderColor: REPURCHASE_COLOR,
         backgroundColor: hexToRgba(REPURCHASE_COLOR, 0.12),
@@ -633,7 +710,7 @@ document.addEventListener("DOMContentLoaded", function() {
         spanGaps: true
       },
       {
-        label: "Forecasted All Repurchases (COP)",
+        label: labelPrefixes[3] + " (COP)",
         data: alignValues(labels, repurchaseForecastMap),
         borderColor: REPURCHASE_COLOR,
         backgroundColor: hexToRgba(REPURCHASE_COLOR, 0.08),
@@ -699,15 +776,12 @@ document.addEventListener("DOMContentLoaded", function() {
       return dataset.data.slice();
     });
 
-    chart._datasetLabelPrefixes = [
-      "Historical Total Sales",
-      "Forecasted Total Sales",
-      "Historical All Repurchases",
-      "Forecasted All Repurchases"
-    ];
+    chart._datasetLabelPrefixes = labelPrefixes;
 
     return chart;
   }
+
+  var combinedLineCharts = [];
 
   var dailySalesAndRepurchasesChart = buildCombinedSalesRepurchasesChart(
     "dailySalesAndRepurchasesChart",
@@ -744,6 +818,10 @@ document.addEventListener("DOMContentLoaded", function() {
       {% endfor %}
     ]
   );
+
+  if (dailySalesAndRepurchasesChart) {
+    combinedLineCharts.push(dailySalesAndRepurchasesChart);
+  }
 
   // ======================
   // CHANNEL CHARTS + PIES
@@ -857,16 +935,127 @@ document.addEventListener("DOMContentLoaded", function() {
         {% endfor %}
       ];
 
-      var cLine = buildLineChart(
-        "{{ ch.canvas_id }}",
-        labels,
-        hist,
-        fcst,
-        "Historical {{ ch.label }} Sales",
-        color
-      );
+      {% if ch.key|lower == "wati" %}
+        var watiCombinedChart = buildCombinedSalesRepurchasesChart(
+          "watiSalesAndRepurchasesChannelChart",
+          [
+            {% for r in ch.trend %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Total Sales']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in ch.forecast %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Projected Total Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in wati_daily_repurchases_trend %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Repurchase Total Value']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in wati_daily_repurchases_forecast_data %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Projected Repurchase Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          {
+            totalColor: color || "#4e79a7",
+            repurchaseColor: "#e15759",
+            labelPrefixes: [
+              "Historical WATI Sales",
+              "Forecasted WATI Sales",
+              "Historical WATI Repurchase Sales",
+              "Forecasted WATI Repurchase Sales"
+            ]
+          }
+        );
 
-      if (cLine) channelCharts.push(cLine);
+        if (watiCombinedChart) {
+          combinedLineCharts.push(watiCombinedChart);
+        }
+
+      {% elif ch.key|lower == "facebook" %}
+        var facebookSalesColor = color || "#4e79a7";
+        var facebookRepurchaseColor = "#e15759";
+
+        if (String(facebookSalesColor).toLowerCase() === facebookRepurchaseColor.toLowerCase()) {
+          facebookSalesColor = "#4e79a7";
+        }
+
+        var facebookCombinedChart = buildCombinedSalesRepurchasesChart(
+          "{{ ch.canvas_id }}",
+          [
+            {% for r in ch.trend %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Total Sales']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in ch.forecast %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Projected Total Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in facebook_daily_repurchases_trend %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Repurchase Total Value']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in facebook_daily_repurchases_forecast_data %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Projected Repurchase Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          {
+            totalColor: facebookSalesColor,
+            repurchaseColor: facebookRepurchaseColor,
+            labelPrefixes: [
+              "Historical FACEBOOK Sales",
+              "Forecasted FACEBOOK Sales",
+              "Historical FACEBOOK Repurchase Sales",
+              "Forecasted FACEBOOK Repurchase Sales"
+            ]
+          }
+        );
+
+        if (facebookCombinedChart) {
+          combinedLineCharts.push(facebookCombinedChart);
+        }
+
+      {% else %}
+        var cLine = buildLineChart(
+          "{{ ch.canvas_id }}",
+          labels,
+          hist,
+          fcst,
+          "{{ ch.label }} Sales",
+          color
+        );
+
+        if (cLine) channelCharts.push(cLine);
+      {% endif %}
     })();
   {% endfor %}
 
@@ -902,13 +1091,15 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.data.datasets[0].data = hist;
       chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-      chart.data.datasets[0].label = useUSD
-        ? chart._titlePrefix + " (USD)"
-        : chart._titlePrefix + " (COP)";
+      var currencyCode = useUSD ? "USD" : "COP";
 
-      chart.data.datasets[1].label = useUSD
-        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+      chart.data.datasets[0].label = chart._historicalDatasetLabel
+        ? chart._historicalDatasetLabel(chart._titlePrefix, currencyCode)
+        : chart._titlePrefix + " (" + currencyCode + ")";
+
+      chart.data.datasets[1].label = chart._forecastDatasetLabel
+        ? chart._forecastDatasetLabel(chart._titlePrefix, currencyCode)
+        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (" + currencyCode + ")";
 
       chart.update();
     }
@@ -933,7 +1124,9 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.update();
     }
 
-    applyCombinedLine(dailySalesAndRepurchasesChart);
+    for (var c = 0; c < combinedLineCharts.length; c++) {
+      applyCombinedLine(combinedLineCharts[c]);
+    }
 
     for (var i = 0; i < channelCharts.length; i++) {
       applyLine(channelCharts[i]);
