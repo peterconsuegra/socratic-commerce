@@ -13,3 +13,6 @@ data/*
 /data/*
 prompt.txt
 prompt_helper.txt
+.env
+venv/
+instance/

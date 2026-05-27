@@ -16,8 +16,8 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    app.config["DEBUG"] = True
-    app.config["ENV"] = "development"
+    app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.config["ENV"] = os.getenv("FLASK_ENV", "production")
 
     from .helpers import format_cop
     app.jinja_env.filters["cop"] = format_cop
@@ -38,7 +38,14 @@ def create_app():
     app.config["ALL_ORDERS_CSV"] = os.path.join(data_dir, "all_orders.csv")
     app.config["ALL_ORDERS_CACHE_FILE"] = os.path.join(data_dir, ".all_orders_cache_ts")
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_path
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        # Railway ships `postgres://`; SQLAlchemy 1.4+ requires `postgresql://`.
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    else:
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_path
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     os.makedirs(data_dir, exist_ok=True)

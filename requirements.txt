@@ -5,10 +5,9 @@ python-dotenv
 flask-login 
 flask-bcrypt
 gunicorn
+psycopg2-binary
 flask_sqlalchemy
 flask_migrate
 gender_guesser
 statsmodels
-Prophet
-scikit-learn
 shapely
