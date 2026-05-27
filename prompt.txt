@@ -775,6 +775,10 @@ def daily_sales():
     facebook_daily_repurchases_forecast_data = []
     facebook_daily_repurchases_error = None
 
+    google_daily_repurchases_trend = []
+    google_daily_repurchases_forecast_data = []
+    google_daily_repurchases_error = None
+
     try:
         all_orders_file = current_app.config["ALL_ORDERS_CSV"]
 
@@ -782,6 +786,7 @@ def daily_sales():
             daily_repurchases_error = f"{all_orders_file} not found. Please generate all orders first."
             wati_daily_repurchases_error = daily_repurchases_error
             facebook_daily_repurchases_error = daily_repurchases_error
+            google_daily_repurchases_error = daily_repurchases_error
         else:
             daily_repurchases_trend, daily_repurchases_forecast_data = get_daily_repurchases_trend(
                 output_file="daily_sales_all_repurchases_trend.csv",
@@ -813,11 +818,22 @@ def daily_sales():
                 utm_source_filter="facebook",
             )
 
+            google_daily_repurchases_trend, google_daily_repurchases_forecast_data = get_daily_repurchases_trend(
+                output_file="daily_sales_google_repurchases_trend.csv",
+                forecast_periods=30,
+                return_forecast=True,
+                orders_csv_path=all_orders_file,
+                start_date=start_date,
+                end_date=end_date,
+                utm_source_filter="google",
+            )
+
     except Exception as exc:
         current_app.logger.exception("Failed building daily repurchases trends for daily_sales")
         daily_repurchases_error = str(exc)
         wati_daily_repurchases_error = str(exc)
         facebook_daily_repurchases_error = str(exc)
+        google_daily_repurchases_error = str(exc)
 
     context.update({
         "date_range": date_range,
@@ -835,6 +851,10 @@ def daily_sales():
         "facebook_daily_repurchases_trend": facebook_daily_repurchases_trend,
         "facebook_daily_repurchases_forecast_data": facebook_daily_repurchases_forecast_data,
         "facebook_daily_repurchases_error": facebook_daily_repurchases_error,
+
+        "google_daily_repurchases_trend": google_daily_repurchases_trend,
+        "google_daily_repurchases_forecast_data": google_daily_repurchases_forecast_data,
+        "google_daily_repurchases_error": google_daily_repurchases_error,
     })
 
     return render_template("daily_sales.html", **context)
@@ -2130,6 +2150,10 @@ Daily Sales
           <h3 class="text-center mt-5">
             FACEBOOK Daily Sales and Repurchase Sales Trend and Forecast
           </h3>
+        {% elif ch.key|lower == "google" %}
+          <h3 class="text-center mt-5">
+            GOOGLE Daily Sales and Repurchase Sales Trend and Forecast
+          </h3>
         {% else %}
           <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
         {% endif %}
@@ -2182,6 +2206,23 @@ Daily Sales
           {% if not facebook_daily_repurchases_trend %}
             <div class="alert alert-warning mt-3">
               No FACEBOOK repurchase sales data available for this selection.
+            </div>
+          {% endif %}
+
+          <div class="mt-4" style="height: 560px;">
+            <canvas id="{{ ch.canvas_id }}"></canvas>
+          </div>
+
+        {% elif ch.key|lower == "google" %}
+          {% if google_daily_repurchases_error %}
+            <div class="alert alert-warning mt-3">
+              {{ google_daily_repurchases_error }}
+            </div>
+          {% endif %}
+
+          {% if not google_daily_repurchases_trend %}
+            <div class="alert alert-warning mt-3">
+              No GOOGLE repurchase sales data available for this selection.
             </div>
           {% endif %}
 
@@ -2379,9 +2420,6 @@ document.addEventListener("DOMContentLoaded", function() {
     return chart;
   }
 
-  // ======================
-  // PIE CHART: UTM SOURCE
-  // ======================
   var pieCanvas = document.getElementById("utmSourcePieChartDaily");
   var pieChart = null;
   var channelColorMap = {};
@@ -2475,9 +2513,6 @@ document.addEventListener("DOMContentLoaded", function() {
     pieChart._rawCOP = filteredPieValuesCOP;
   }
 
-  // ======================
-  // TOTAL PIES
-  // ======================
   var genderLabelsTotal = [
     {% for l in gender_labels_total %}
       "{{ l }}",
@@ -2539,9 +2574,6 @@ document.addEventListener("DOMContentLoaded", function() {
     false
   );
 
-  // ======================
-  // LINE CHART FACTORY FOR CHANNEL CHARTS
-  // ======================
   function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix, hexColor) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
@@ -2620,9 +2652,6 @@ document.addEventListener("DOMContentLoaded", function() {
     return chart;
   }
 
-  // ======================
-  // COMBINED SALES + REPURCHASES LINE CHART FACTORY
-  // ======================
   function buildCombinedSalesRepurchasesChart(
     canvasId,
     totalHistRows,
@@ -2837,9 +2866,6 @@ document.addEventListener("DOMContentLoaded", function() {
     combinedLineCharts.push(dailySalesAndRepurchasesChart);
   }
 
-  // ======================
-  // CHANNEL CHARTS + PIES
-  // ======================
   var channelCharts = [];
   var channelGenderPies = [];
   var channelCityPies = [];
@@ -3058,6 +3084,64 @@ document.addEventListener("DOMContentLoaded", function() {
           combinedLineCharts.push(facebookCombinedChart);
         }
 
+      {% elif ch.key|lower == "google" %}
+        var googleSalesColor = color || "#4e79a7";
+        var googleRepurchaseColor = "#e15759";
+
+        if (String(googleSalesColor).toLowerCase() === googleRepurchaseColor.toLowerCase()) {
+          googleSalesColor = "#4e79a7";
+        }
+
+        var googleCombinedChart = buildCombinedSalesRepurchasesChart(
+          "{{ ch.canvas_id }}",
+          [
+            {% for r in ch.trend %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Total Sales']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in ch.forecast %}
+              {
+                date: "{{ r['Date'] }}",
+                value: {{ r['Projected Total Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in google_daily_repurchases_trend %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Repurchase Total Value']|default('0') }}
+              },
+            {% endfor %}
+          ],
+          [
+            {% for r in google_daily_repurchases_forecast_data %}
+              {
+                date: "{{ r['Day'] }}",
+                value: {{ r['Projected Repurchase Sales']|default(0) }}
+              },
+            {% endfor %}
+          ],
+          {
+            totalColor: googleSalesColor,
+            repurchaseColor: googleRepurchaseColor,
+            labelPrefixes: [
+              "Historical GOOGLE Sales",
+              "Forecasted GOOGLE Sales",
+              "Historical GOOGLE Repurchase Sales",
+              "Forecasted GOOGLE Repurchase Sales"
+            ]
+          }
+        );
+
+        if (googleCombinedChart) {
+          combinedLineCharts.push(googleCombinedChart);
+        }
+
       {% else %}
         var cLine = buildLineChart(
           "{{ ch.canvas_id }}",
@@ -3073,9 +3157,6 @@ document.addEventListener("DOMContentLoaded", function() {
     })();
   {% endfor %}
 
-  // ======================
-  // CURRENCY TOGGLE
-  // ======================
   window.toggleCurrencyDailySales = function() {
     exchangeRate = parseFloat(exchangeRateEl.value || "4000");
     useUSD = !useUSD;
