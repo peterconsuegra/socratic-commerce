@@ -25,6 +25,165 @@
         </div>
     </div>
 
+    <!-- API Tokens (for ROAS Link / MCP integrations) -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4>API Tokens</h4>
+            <p class="text-muted mb-3">
+                Bearer tokens that let external systems (e.g. the <strong>ROAS Link</strong> platform and its
+                MCP methods) call the JSON API without a login session. The full token is shown only once,
+                right after you generate it.
+            </p>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.options_api_tokens_new') }}"
+                          class="row g-2 align-items-end">
+                        <div class="col-sm-8">
+                            <label class="form-label small text-muted mb-1">Name / purpose</label>
+                            <input type="text" name="token_name" class="form-control"
+                                   placeholder="e.g. ROAS Link production" required>
+                        </div>
+                        <div class="col-sm-4">
+                            <button type="submit" class="btn btn-success w-100">Generate token</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if tokens %}
+            <table class="table table-bordered table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Prefix</th>
+                        <th>Status</th>
+                        <th>Created (Bogotá)</th>
+                        <th>Last used (Bogotá)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tokens %}
+                    <tr>
+                        <td>{{ t.name }}</td>
+                        <td><code>{{ t.token_prefix }}…</code></td>
+                        <td>
+                            {% if t.revoked %}
+                                <span class="badge bg-danger">Revoked</span>
+                            {% else %}
+                                <span class="badge bg-success">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ t.created_at_bogota.strftime("%Y-%m-%d %H:%M") if t.created_at_bogota else "-" }}</td>
+                        <td>{{ t.last_used_at_bogota.strftime("%Y-%m-%d %H:%M") if t.last_used_at_bogota else "Never" }}</td>
+                        <td>
+                            {% if not t.revoked %}
+                            <form action="{{ url_for('main.options_api_tokens_revoke', token_id=t.id) }}"
+                                  method="POST" class="d-inline"
+                                  onsubmit="return confirm('Revoke this token? Integrations using it will stop working.');">
+                                <button type="submit" class="btn btn-warning btn-sm">Revoke</button>
+                            </form>
+                            {% endif %}
+                            <form action="{{ url_for('main.options_api_tokens_delete', token_id=t.id) }}"
+                                  method="POST" class="d-inline"
+                                  onsubmit="return confirm('Permanently delete this token?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted">No API tokens yet. Generate one above to connect ROAS Link.</p>
+            {% endif %}
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body small">
+                    <p class="mb-2">Use the token in the <code>Authorization</code> header:</p>
+                    <pre class="bg-light p-3 mb-2" style="white-space:pre-wrap;">curl -H "Authorization: Bearer &lt;your-token&gt;" \
+  "{{ request.url_root }}api/utm_campaign_summary?period=last_30d"</pre>
+                    <p class="mb-0 text-muted">
+                        Health check (no auth): <code>GET {{ request.url_root }}api/health</code> ·
+                        Verify token: <code>GET {{ request.url_root }}api/me</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Playground -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4>API Playground</h4>
+            <p class="text-muted mb-3">
+                Try any API endpoint live. Leave the token blank to test with your current login session,
+                or paste a token to test exactly how <strong>ROAS Link</strong> will call it.
+            </p>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted mb-1">Endpoint</label>
+                            <select id="pgEndpoint" class="form-select"></select>
+                        </div>
+
+                        <div class="col-md-3 pg-param" data-param="period">
+                            <label class="form-label small text-muted mb-1">Period</label>
+                            <select id="pgPeriod" class="form-select">
+                                <option value="all">All periods</option>
+                                <option value="today">Today</option>
+                                <option value="last_7d">Last 7 days</option>
+                                <option value="last_30d" selected>Last 30 days</option>
+                                <option value="last_90d">Last 90 days</option>
+                                <option value="last_180d">Last 180 days</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 pg-param" data-param="limit">
+                            <label class="form-label small text-muted mb-1">Top N campaigns</label>
+                            <input type="number" id="pgLimit" class="form-control" value="50" min="0" step="5">
+                        </div>
+
+                        <div class="col-md-3 pg-param" data-param="min_share_percent">
+                            <label class="form-label small text-muted mb-1">Min share %</label>
+                            <input type="number" id="pgMinShare" class="form-control" value="2" min="0" max="100" step="0.5">
+                        </div>
+
+                        <div class="col-md-9">
+                            <label class="form-label small text-muted mb-1">
+                                API token <span class="text-muted">(optional — blank = use session)</span>
+                            </label>
+                            <input type="text" id="pgToken" class="form-control" placeholder="slp_…">
+                        </div>
+
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" id="pgSend" class="btn btn-primary w-100">Send request</button>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                        <span class="badge bg-secondary">GET</span>
+                        <code id="pgUrl" class="text-muted small" style="word-break:break-all;"></code>
+                        <span id="pgStatus" class="ms-auto small"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">Response</span>
+                    <button type="button" id="pgCopy" class="btn btn-sm btn-outline-secondary">Copy</button>
+                </div>
+                <div class="card-body p-0">
+                    <pre id="pgResponse" class="mb-0 p-3" style="max-height:420px; overflow:auto; font-size:0.8rem;">No request sent yet.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row mt-5">
         <div class="col-md-12">
             <a href="/options/new" class="btn btn-primary mb-3">Add New Option</a>
@@ -179,5 +338,103 @@
           );
       }
   });
+</script>
+
+<!-- API Playground -->
+<script>
+(function () {
+  const ENDPOINTS = {
+    health:            { label: "GET /api/health  (no auth)",          url: "{{ url_for('main.api_health') }}",                params: [] },
+    me:                { label: "GET /api/me  (verify token)",         url: "{{ url_for('main.api_me') }}",                    params: [] },
+    source:            { label: "GET /api/utm_source_summary",          url: "{{ url_for('main.api_utm_source_summary') }}",     params: ["period"] },
+    campaign_summary:  { label: "GET /api/utm_campaign_summary",       url: "{{ url_for('main.api_utm_campaign_summary') }}",  params: ["period", "limit"] },
+    campaign_insights: { label: "GET /api/utm_campaign_insights",      url: "{{ url_for('main.api_utm_campaign_insights') }}", params: ["period", "min_share_percent"] },
+  };
+
+  const $endpoint = document.getElementById("pgEndpoint");
+  const $period   = document.getElementById("pgPeriod");
+  const $limit    = document.getElementById("pgLimit");
+  const $minShare = document.getElementById("pgMinShare");
+  const $token    = document.getElementById("pgToken");
+  const $send     = document.getElementById("pgSend");
+  const $url      = document.getElementById("pgUrl");
+  const $status   = document.getElementById("pgStatus");
+  const $response = document.getElementById("pgResponse");
+  const $copy     = document.getElementById("pgCopy");
+
+  // Populate endpoint dropdown
+  Object.keys(ENDPOINTS).forEach(key => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = ENDPOINTS[key].label;
+    $endpoint.appendChild(opt);
+  });
+  $endpoint.value = "campaign_summary";
+
+  function currentParams() {
+    const cfg = ENDPOINTS[$endpoint.value];
+    const params = {};
+    if (cfg.params.includes("period"))            params.period = $period.value;
+    if (cfg.params.includes("limit"))             params.limit = $limit.value === "" ? "50" : $limit.value;
+    if (cfg.params.includes("min_share_percent")) params.min_share_percent = $minShare.value === "" ? "2" : $minShare.value;
+    return params;
+  }
+
+  function buildUrl() {
+    const cfg = ENDPOINTS[$endpoint.value];
+    const qs = new URLSearchParams(currentParams()).toString();
+    return cfg.url + (qs ? "?" + qs : "");
+  }
+
+  function syncParamVisibility() {
+    const cfg = ENDPOINTS[$endpoint.value];
+    document.querySelectorAll(".pg-param").forEach(el => {
+      el.style.display = cfg.params.includes(el.dataset.param) ? "" : "none";
+    });
+    $url.textContent = buildUrl();
+  }
+
+  [$endpoint, $period, $limit, $minShare].forEach(el =>
+    el.addEventListener("input", syncParamVisibility));
+
+  async function send() {
+    $send.disabled = true;
+    $status.innerHTML = '<span class="text-primary">Loading…</span>';
+    const url = buildUrl();
+    $url.textContent = url;
+
+    const headers = { "Accept": "application/json" };
+    const tok = $token.value.trim();
+    if (tok) headers["Authorization"] = "Bearer " + tok;
+
+    const started = performance.now();
+    try {
+      const resp = await fetch(url, { headers, credentials: "same-origin" });
+      const ms = Math.round(performance.now() - started);
+      let body;
+      try { body = await resp.json(); $response.textContent = JSON.stringify(body, null, 2); }
+      catch (e) { $response.textContent = await resp.text(); }
+
+      const cls = resp.ok ? "text-success" : "text-danger";
+      const authNote = tok ? "token" : "session";
+      $status.innerHTML = `<span class="${cls}">${resp.status} ${resp.statusText} · ${ms} ms · auth: ${authNote}</span>`;
+    } catch (err) {
+      $status.innerHTML = '<span class="text-danger">Network error</span>';
+      $response.textContent = String(err);
+    } finally {
+      $send.disabled = false;
+    }
+  }
+
+  $send.addEventListener("click", send);
+  $copy.addEventListener("click", () => {
+    navigator.clipboard.writeText($response.textContent).then(() => {
+      $copy.textContent = "Copied!";
+      setTimeout(() => ($copy.textContent = "Copy"), 1500);
+    });
+  });
+
+  syncParamVisibility();
+})();
 </script>
 {% endblock %}

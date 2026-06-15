@@ -1,11 +1,22 @@
 # app/routes/options.py
+from datetime import timezone
+from zoneinfo import ZoneInfo
+
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from app import db
-from app.models import Option
+from app.models import ApiToken, Option
 
 from . import main
+
+
+def _to_bogota(dt):
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("America/Bogota"))
 
 
 @main.route("/settings")
@@ -18,7 +29,55 @@ def settings():
 @login_required
 def list_options():
     options = Option.query.all()
-    return render_template("options_list.html", options=options)
+
+    tokens = ApiToken.query.order_by(ApiToken.id.desc()).all()
+    for t in tokens:
+        t.created_at_bogota = _to_bogota(t.created_at)
+        t.last_used_at_bogota = _to_bogota(t.last_used_at)
+
+    return render_template("options_list.html", options=options, tokens=tokens)
+
+
+@main.route("/options/api_tokens/new", methods=["POST"])
+@login_required
+def options_api_tokens_new():
+    name = (request.form.get("token_name") or "").strip()
+    if not name:
+        flash("Token name is required.", "danger")
+        return redirect(url_for("main.list_options"))
+
+    token, raw = ApiToken.generate(name)
+    db.session.add(token)
+    db.session.commit()
+
+    flash(
+        "API token created. Copy it now — it will not be shown again:<br>"
+        f"<code style='font-size:1rem; word-break:break-all;'>{raw}</code>",
+        "success",
+    )
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/api_tokens/<int:token_id>/revoke", methods=["POST"])
+@login_required
+def options_api_tokens_revoke(token_id):
+    token = ApiToken.query.get_or_404(token_id)
+    token.revoked = True
+    db.session.commit()
+
+    flash(f"Token '{token.name}' revoked.", "success")
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/api_tokens/<int:token_id>/delete", methods=["POST"])
+@login_required
+def options_api_tokens_delete(token_id):
+    token = ApiToken.query.get_or_404(token_id)
+    db.session.delete(token)
+    db.session.commit()
+
+    flash(f"Token '{token.name}' deleted.", "success")
+    return redirect(url_for("main.list_options"))
 
 
 @main.route("/options/new", methods=["GET", "POST"])

@@ -1,0 +1,219 @@
+{% extends "layout.html" %}
+
+{% block title %}API Test · UTM Campaign Insights{% endblock %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1100px;">
+
+  <h2 class="text-center mb-1">API Test — UTM Campaign Insights</h2>
+  <p class="text-center text-muted mb-4">
+    <code>GET /api/utm_campaign_insights</code> — same data as <code>/facebook_insights</code>, grouped by <code>utm_campaign</code>.
+  </p>
+
+  <!-- Period selector -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label fw-bold mb-2">Date range</label>
+      <div class="btn-group flex-wrap mb-3" role="group" aria-label="Period selector" id="periodButtons">
+        <button type="button" class="btn btn-outline-primary active" data-period="all">All periods</button>
+        <button type="button" class="btn btn-outline-primary" data-period="today">Today</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_7d">Last 7 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_30d">Last 30 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_90d">Last 90 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_180d">Last 180 days</button>
+      </div>
+
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <label class="small text-muted mb-0">Min share %
+          <input type="number" id="minShare" class="form-control form-control-sm d-inline-block ms-1"
+                 style="width:90px;" value="2" step="0.5" min="0" max="100">
+        </label>
+        <button type="button" id="sendBtn" class="btn btn-primary">
+          <span class="material-icons align-middle" style="font-size:18px;">send</span> Send request
+        </button>
+        <code id="requestUrl" class="text-muted small"></code>
+        <span id="status" class="ms-auto small"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <!-- Raw JSON -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-bold">Raw JSON response</span>
+      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+    </div>
+    <div class="card-body p-0">
+      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">No request sent yet.</pre>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+  const ENDPOINT = "{{ url_for('main.api_utm_campaign_insights') }}";
+
+  let selectedPeriod = "all";
+
+  const $buttons = document.getElementById("periodButtons");
+  const $minShare = document.getElementById("minShare");
+  const $sendBtn  = document.getElementById("sendBtn");
+  const $reqUrl   = document.getElementById("requestUrl");
+  const $status   = document.getElementById("status");
+  const $results  = document.getElementById("results");
+  const $rawJson  = document.getElementById("rawJson");
+  const $copyBtn  = document.getElementById("copyJsonBtn");
+
+  function buildUrl() {
+    const ms = encodeURIComponent($minShare.value || "2");
+    return ENDPOINT + "?period=" + encodeURIComponent(selectedPeriod) + "&min_share_percent=" + ms;
+  }
+  function refreshUrlPreview() { $reqUrl.textContent = buildUrl(); }
+
+  $buttons.addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-period]");
+    if (!btn) return;
+    selectedPeriod = btn.dataset.period;
+    $buttons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    refreshUrlPreview();
+  });
+  $minShare.addEventListener("input", refreshUrlPreview);
+
+  const copFmt = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+  const numFmt = new Intl.NumberFormat("es-CO");
+  function money(n) { return copFmt.format(Number(n || 0)); }
+  function num(n)   { return numFmt.format(Number(n || 0)); }
+  function pct(n)   { return (Number(n || 0)).toFixed(2) + "%"; }
+
+  // Render a pie {labels, values} as a compact inline list
+  function pieList(pie) {
+    if (!pie || !pie.labels || !pie.labels.length) return '<span class="text-muted">—</span>';
+    return pie.labels.map((lab, i) =>
+      `<span class="badge bg-light text-dark border me-1 mb-1">${lab}: ${money(pie.values[i])}</span>`
+    ).join("");
+  }
+
+  let rowSeq = 0;
+  function campaignRow(c) {
+    const id = "camp_" + (rowSeq++);
+    return `
+      <tr role="button" data-bs-toggle="collapse" data-bs-target="#${id}" style="cursor:pointer;">
+        <td>${c.utm_campaign}</td>
+        <td class="text-end">${money(c.total_sales)}</td>
+        <td class="text-end">${num(c.total_orders)}</td>
+        <td class="text-end">${pct(c.sales_share_percentage)}</td>
+        <td class="text-center"><span class="material-icons" style="font-size:18px;">expand_more</span></td>
+      </tr>
+      <tr class="collapse" id="${id}">
+        <td colspan="5" class="bg-light">
+          <div class="row small g-2">
+            <div class="col-md-6"><strong>By hour:</strong><br>${pieList(c.hour_pie)}</div>
+            <div class="col-md-6"><strong>By gender:</strong><br>${pieList(c.gender_pie)}</div>
+            <div class="col-md-6"><strong>By city:</strong><br>${pieList(c.city_pie)}</div>
+            <div class="col-md-6"><strong>By content:</strong><br>${pieList(c.content_pie)}</div>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  function periodCard(p) {
+    const t = p.totals;
+    const rows = p.by_utm_campaign.map(campaignRow).join("");
+    const other = p.other_campaigns;
+    const otherNote = (other && other.labels.length)
+      ? `<div class="text-muted small mt-2">Other campaigns (&lt;${other.min_share_percent}% share): ${other.labels.length} campaigns · ${pct(other.pct)} of sales</div>`
+      : "";
+
+    return `
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-light d-flex justify-content-between flex-wrap">
+          <span class="fw-bold">${p.label}</span>
+          <span class="text-muted small">${p.start_date} → ${p.end_date}</span>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3 g-2">
+            <div class="col"><div class="text-muted small">Total FB sales</div><div class="fw-bold">${money(t.total_sales)}</div></div>
+            <div class="col"><div class="text-muted small">Orders</div><div class="fw-bold">${num(t.total_orders)}</div></div>
+            <div class="col"><div class="text-muted small">Campaigns</div><div class="fw-bold">${num(t.distinct_campaigns)}</div></div>
+            <div class="col"><div class="text-muted small">Trend days</div><div class="fw-bold">${num(p.daily_trend.length)}</div></div>
+          </div>
+
+          <div class="row small mb-3 g-2">
+            <div class="col-md-6"><strong>Total by gender:</strong> ${pieList(p.total_gender_pie)}</div>
+            <div class="col-md-6"><strong>Total by hour:</strong> ${pieList(p.total_hour_pie)}</div>
+            <div class="col-md-6"><strong>Total by city:</strong> ${pieList(p.total_city_pie)}</div>
+            <div class="col-md-6"><strong>Total by content:</strong> ${pieList(p.total_content_pie)}</div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>utm_campaign</th>
+                  <th class="text-end">Total sales</th>
+                  <th class="text-end">Orders</th>
+                  <th class="text-end">Sales share</th>
+                  <th class="text-center">Details</th>
+                </tr>
+              </thead>
+              <tbody>${rows || `<tr><td colspan="5" class="text-center text-muted">No facebook orders in this period.</td></tr>`}</tbody>
+            </table>
+          </div>
+          ${otherNote}
+        </div>
+      </div>`;
+  }
+
+  function render(data) {
+    if (!data || !data.periods) { $results.innerHTML = ""; return; }
+    const order = ["today", "last_7d", "last_30d", "last_90d", "last_180d"];
+    const keys = Object.keys(data.periods).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    $results.innerHTML = keys.map(k => periodCard(data.periods[k])).join("");
+  }
+
+  async function send() {
+    refreshUrlPreview();
+    $sendBtn.disabled = true;
+    $status.innerHTML = `<span class="text-primary">Loading…</span>`;
+    const started = performance.now();
+    try {
+      const resp = await fetch(buildUrl(), { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const ms = Math.round(performance.now() - started);
+      const data = await resp.json();
+      $rawJson.textContent = JSON.stringify(data, null, 2);
+
+      if (resp.ok && data.status === "success") {
+        $status.innerHTML = `<span class="text-success">${resp.status} OK · ${ms} ms</span>`;
+        render(data);
+      } else {
+        $status.innerHTML = `<span class="text-danger">${resp.status} · ${ms} ms</span>`;
+        $results.innerHTML = `<div class="alert alert-danger">${data.message || "Request failed."}</div>`;
+      }
+    } catch (err) {
+      $status.innerHTML = `<span class="text-danger">Network error</span>`;
+      $results.innerHTML = `<div class="alert alert-danger">${err}</div>`;
+      $rawJson.textContent = String(err);
+    } finally {
+      $sendBtn.disabled = false;
+    }
+  }
+
+  $sendBtn.addEventListener("click", send);
+  $copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText($rawJson.textContent).then(() => {
+      $copyBtn.textContent = "Copied!";
+      setTimeout(() => ($copyBtn.textContent = "Copy"), 1500);
+    });
+  });
+
+  refreshUrlPreview();
+})();
+</script>
+{% endblock %}

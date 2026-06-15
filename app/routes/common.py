@@ -1,12 +1,13 @@
 # app/routes/common.py
 import os
 import time
+from datetime import datetime, timezone
 from functools import wraps
 
-from flask import current_app, flash, redirect, url_for
+from flask import current_app, flash, jsonify, redirect, request, url_for
 from flask_login import current_user
 
-from app.models import Option
+from app.models import ApiToken, Option
 from app import db
 from app.services.get_data import fetch_orders_and_write_csv
 
@@ -154,5 +155,50 @@ def admin_required(view_func):
             return redirect(url_for("main.monthly_sales"))
 
         return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def _extract_api_token() -> str | None:
+    """Pull a raw API token from the Authorization/X-API-Key headers (or query)."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[len("Bearer "):].strip()
+
+    header_key = request.headers.get("X-API-Key")
+    if header_key:
+        return header_key.strip()
+
+    # Convenience for quick testing; header is strongly preferred.
+    qp = request.args.get("api_token")
+    return qp.strip() if qp else None
+
+
+def api_access_required(view_func):
+    """
+    Allow access to JSON API endpoints via EITHER an authenticated browser
+    session OR a valid API token (Authorization: Bearer <token> / X-API-Key).
+
+    Used for integrations such as ROAS Link and its MCP methods.
+    """
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        # Logged-in users (the in-app API test pages) pass through.
+        if current_user.is_authenticated:
+            return view_func(*args, **kwargs)
+
+        raw = _extract_api_token()
+        if raw:
+            token = ApiToken.verify(raw)
+            if token:
+                token.last_used_at = datetime.now(timezone.utc)
+                db.session.commit()
+                return view_func(*args, **kwargs)
+
+        return jsonify({
+            "status": "error",
+            "message": "Unauthorized. Provide a valid API token via the "
+                       "'Authorization: Bearer <token>' header.",
+        }), 401
 
     return wrapped

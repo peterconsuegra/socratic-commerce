@@ -1,13 +1,13 @@
 {% extends "layout.html" %}
 
-{% block title %}API Test · UTM Sales Summary{% endblock %}
+{% block title %}API Test · UTM Source Summary{% endblock %}
 
 {% block content %}
 <div class="container mt-2" style="max-width: 1100px;">
 
-  <h2 class="text-center mb-1">API Test — UTM Sales Summary</h2>
+  <h2 class="text-center mb-1">API Test — UTM Source Summary</h2>
   <p class="text-center text-muted mb-4">
-    <code>GET /api/utm_sales_summary</code> — total sales &amp; repurchase % grouped by <code>utm_source</code>.
+    <code>GET /api/utm_source_summary</code> — total sales &amp; repurchase % grouped by <code>utm_source</code>.
   </p>
 
   <!-- Period selector -->
@@ -53,7 +53,7 @@
 {% block page_scripts %}
 <script>
 (function () {
-  const ENDPOINT = "{{ url_for('main.api_utm_sales_summary') }}";
+  const ENDPOINT = "{{ url_for('main.api_utm_source_summary') }}";
 
   let selectedPeriod = "all";
 

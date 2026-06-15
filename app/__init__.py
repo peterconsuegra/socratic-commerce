@@ -68,4 +68,14 @@ def create_app():
     from .cli import register_cli
     register_cli(app)
 
+    @app.after_request
+    def add_api_cors_headers(response):
+        # Allow external integrations (ROAS Link / MCP) to call the JSON API.
+        from flask import request
+        if request.path.startswith("/api/"):
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-API-Key"
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        return response
+
     return app

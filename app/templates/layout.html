@@ -465,8 +465,20 @@
         </a>
       </li>
       <li>
-        <a href="/api_test/utm_sales_summary" class="{% if request.path == '/api_test/utm_sales_summary' %}active{% endif %}">
-          API Test (UTM Sales)
+        <a href="/api_test/utm_source_summary" class="{% if request.path == '/api_test/utm_source_summary' %}active{% endif %}">
+          API Test (UTM Source)
+        </a>
+      </li>
+
+      <li>
+        <a href="/api_test/utm_campaign_insights" class="{% if request.path == '/api_test/utm_campaign_insights' %}active{% endif %}">
+          API Test (UTM Campaign)
+        </a>
+      </li>
+
+      <li>
+        <a href="/api_test/utm_campaign_summary" class="{% if request.path == '/api_test/utm_campaign_summary' %}active{% endif %}">
+          API Test (UTM Campaign Sales)
         </a>
       </li>
 
@@ -478,6 +490,7 @@
 
       {% if current_user.is_authenticated and current_user.role == 'admin' %}
         <a href="{{ url_for('main.admin_users_index') }}" class="{% if request.path == '/admin/users' %}active{% endif %}" >Users</a>
+        <a href="{{ url_for('main.admin_api_tokens_index') }}" class="{% if request.path == '/admin/api_tokens' %}active{% endif %}" >API Tokens</a>
       {% endif %}
 
       <!-- Add the logout link here, shown only if user is authenticated -->

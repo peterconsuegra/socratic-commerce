@@ -1,4 +1,4 @@
-# app/services/utm_sales_summary.py
+# app/services/utm_source_summary.py
 """
 Total sales and repurchase percentage grouped by utm_source, for a set of
 trailing time windows (Today, Last 7/30/90/180 days).
@@ -124,7 +124,7 @@ def _summarize_window(window: pd.DataFrame) -> dict:
     return {"totals": totals, "by_utm_source": by_source}
 
 
-def get_utm_sales_summary(
+def get_utm_source_summary(
     period: str = "all",
     orders_csv_path: str = "data/all_orders.csv",
 ) -> dict:
