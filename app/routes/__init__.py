@@ -18,3 +18,4 @@ from . import top  # noqa: E402,F401
 from . import insights  # noqa: E402,F401
 from . import rankings  # noqa: E402,F401
 from . import options  # noqa: E402,F401
+from . import api  # noqa: E402,F401
