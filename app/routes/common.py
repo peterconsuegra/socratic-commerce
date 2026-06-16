@@ -12,7 +12,14 @@ from app import db
 from app.services.get_data import fetch_orders_and_write_csv
 
 
-CACHE_TTL_SECONDS = 60 * 60 * 24
+# How long a cached all_orders.csv is considered fresh for the in-app views
+# (override with ALL_ORDERS_CACHE_TTL_SECONDS).
+CACHE_TTL_SECONDS = int(os.getenv("ALL_ORDERS_CACHE_TTL_SECONDS", str(60 * 60 * 24)))
+
+# Freshness threshold for the JSON API endpoints. Shorter so the current day's
+# orders show up within the hour without forcing a re-fetch on every call
+# (override with API_ORDERS_MAX_AGE_SECONDS).
+API_ORDERS_MAX_AGE_SECONDS = int(os.getenv("API_ORDERS_MAX_AGE_SECONDS", str(60 * 60)))
 
 
 def get_option_value(meta_key: str, default=None):
@@ -20,7 +27,10 @@ def get_option_value(meta_key: str, default=None):
     return row.meta_value if row and row.meta_value is not None else default
 
 
-def should_refresh_all_orders() -> bool:
+def should_refresh_all_orders(max_age_seconds: int | None = None) -> bool:
+    if max_age_seconds is None:
+        max_age_seconds = CACHE_TTL_SECONDS
+
     csv_path = current_app.config["ALL_ORDERS_CSV"]
     cache_file = current_app.config["ALL_ORDERS_CACHE_FILE"]
 
@@ -47,7 +57,7 @@ def should_refresh_all_orders() -> bool:
         current_app.logger.info("all_orders cache timestamp invalid; refresh required")
         return True
 
-    expired = (time.time() - last_ts) > CACHE_TTL_SECONDS
+    expired = (time.time() - last_ts) > max_age_seconds
 
     if expired:
         current_app.logger.info("all_orders cache expired; refresh required")
@@ -120,19 +130,31 @@ def generate_all_orders_csv() -> str:
     return output_csv
 
 
-def refresh_all_orders_if_needed():
+def refresh_all_orders_if_needed(force: bool = False, max_age_seconds: int | None = None):
     csv_path = current_app.config["ALL_ORDERS_CSV"]
 
-    if not should_refresh_all_orders():
+    if not force and not should_refresh_all_orders(max_age_seconds=max_age_seconds):
         current_app.logger.info("Using cached all_orders.csv")
         return
 
+    if force:
+        current_app.logger.info("Forced refresh of all_orders.csv requested")
+
     current_app.logger.info("Refreshing all_orders.csv from API")
+
+    have_usable_cache = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
 
     try:
         generate_all_orders_csv()
     except Exception as e:
         current_app.logger.exception("Failed to refresh all_orders.csv")
+        # If we already have a usable (if slightly stale) CSV, serve it rather
+        # than failing the request — important now that the TTL is short.
+        if have_usable_cache:
+            current_app.logger.warning(
+                "Refresh failed; serving existing all_orders.csv. Reason: %s", e
+            )
+            return
         raise FileNotFoundError(
             f"Could not generate required file: {csv_path}. Reason: {e}"
         ) from e

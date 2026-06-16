@@ -9,9 +9,26 @@ from app.services.utm_campaign_summary import get_utm_campaign_summary
 from app.services.utm_source_summary import PERIODS, get_utm_source_summary
 
 from . import main
-from .common import api_access_required, refresh_all_orders_if_needed
+from .common import (
+    API_ORDERS_MAX_AGE_SECONDS,
+    api_access_required,
+    refresh_all_orders_if_needed,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _wants_fresh() -> bool:
+    """True when the caller asks to bypass the orders cache (?refresh=true)."""
+    return (request.args.get("refresh", "") or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _refresh_orders():
+    """Refresh orders for an API call: force on ?refresh=true, else 1h freshness."""
+    refresh_all_orders_if_needed(
+        force=_wants_fresh(),
+        max_age_seconds=API_ORDERS_MAX_AGE_SECONDS,
+    )
 
 
 @main.route("/api/health", methods=["GET"])
@@ -71,6 +88,9 @@ def api_utm_source_summary():
         period: one of "today", "last_7d", "last_30d", "last_90d",
                 "last_180d", or "all" (default) to return every period.
 
+        refresh: "true" to bypass the orders cache and fetch the latest
+                orders before computing (default: use cache, ~1h TTL).
+
     Example: GET /api/utm_source_summary?period=last_30d
     """
     period = (request.args.get("period", "all") or "all").strip().lower()
@@ -83,7 +103,7 @@ def api_utm_source_summary():
         }), 400
 
     try:
-        refresh_all_orders_if_needed()
+        _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_source_summary(period=period, orders_csv_path=orders_csv)
 
@@ -107,6 +127,9 @@ def api_utm_campaign_insights():
         min_share_percent: campaigns below this share of the period's facebook
                 sales are folded into "other_campaigns" (default 2.0).
 
+        refresh: "true" to bypass the orders cache and fetch the latest
+                orders before computing (default: use cache, ~1h TTL).
+
     Example: GET /api/utm_campaign_insights?period=last_30d
     """
     period = (request.args.get("period", "all") or "all").strip().lower()
@@ -127,7 +150,7 @@ def api_utm_campaign_insights():
         }), 400
 
     try:
-        refresh_all_orders_if_needed()
+        _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_campaign_insights(
             period=period,
@@ -155,6 +178,9 @@ def api_utm_campaign_summary():
         limit: max campaigns per period (top N by sales); the rest are rolled
                 up into "others". Pass 0 for all campaigns. Default 50.
 
+        refresh: "true" to bypass the orders cache and fetch the latest
+                orders before computing (default: use cache, ~1h TTL).
+
     Example: GET /api/utm_campaign_summary?period=last_30d&limit=20
     """
     period = (request.args.get("period", "all") or "all").strip().lower()
@@ -175,7 +201,7 @@ def api_utm_campaign_summary():
         }), 400
 
     try:
-        refresh_all_orders_if_needed()
+        _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_campaign_summary(
             period=period,
