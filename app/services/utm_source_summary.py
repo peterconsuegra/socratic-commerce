@@ -16,9 +16,10 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# period key -> number of trailing days (today inclusive)
+# period key -> days subtracted from today for the window start: window is
+# [today - N, now], today-inclusive (PYS "last N days" convention). "today" = 0.
 PERIODS: dict[str, int] = {
-    "today": 1,
+    "today": 0,
     "last_7d": 7,
     "last_30d": 30,
     "last_90d": 90,
@@ -177,7 +178,7 @@ def get_utm_source_summary(
     out: dict = {"generated_at": now.isoformat(), "periods": {}}
     for key in selected:
         days = PERIODS[key]
-        start = today - pd.Timedelta(days=days - 1)
+        start = today - pd.Timedelta(days=days)
         window = data[(data["order_date"] >= start) & (data["order_date"] <= now)].copy()
 
         summary = _summarize_window(window)

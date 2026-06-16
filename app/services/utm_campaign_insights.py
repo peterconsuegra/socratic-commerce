@@ -32,9 +32,10 @@ logger = logging.getLogger(__name__)
 
 TZ = "America/Bogota"
 
-# period key -> number of trailing days (today inclusive)
+# period key -> days subtracted from today for the window start: window is
+# [today - N, now], today-inclusive (PYS "last N days" convention). "today" = 0.
 PERIODS: dict[str, int] = {
-    "today": 1,
+    "today": 0,
     "last_7d": 7,
     "last_30d": 30,
     "last_90d": 90,
@@ -255,7 +256,7 @@ def get_utm_campaign_insights(
     }
     for key in selected:
         days = PERIODS[key]
-        start = today - pd.Timedelta(days=days - 1)
+        start = today - pd.Timedelta(days=days)
         window = df[(df["order_date"] >= start) & (df["order_date"] <= now)].copy()
 
         out["periods"][key] = {
