@@ -63,78 +63,77 @@ def _round2(x: float) -> float:
     return round(float(x), 2)
 
 
-def _time_slot_sales(window_subset: pd.DataFrame) -> dict:
+def _time_slot_sales(window_subset: pd.DataFrame) -> list[dict]:
     """
     Sales grouped into 3-hour time slots (00:00-02:59, 03:00-05:59, ...),
     same bucketing as the /facebook_insights view. Empty slots are omitted.
+    Returns a list of {"time_slot": str, "sales": float}.
     """
     if window_subset.empty:
-        return {"labels": [], "values": []}
+        return []
 
     hours = window_subset["order_date"].dt.hour.astype(int)
     bucket = (hours // 3) * 3
     grouped = window_subset.assign(_b=bucket).groupby("_b")["total_value"].sum().sort_index()
 
-    labels, values = [], []
+    rows = []
     for start_hour, val in grouped.items():
         v = float(val)
         if v <= 0:
             continue
-        labels.append(f"{int(start_hour):02d}:00-{int(start_hour) + 2:02d}:59")
-        values.append(_round2(v))
-    return {"labels": labels, "values": values}
+        rows.append({
+            "time_slot": f"{int(start_hour):02d}:00-{int(start_hour) + 2:02d}:59",
+            "sales": _round2(v),
+        })
+    return rows
 
 
-def _gender_share_sales(window_subset: pd.DataFrame) -> dict:
+def _gender_share_sales(window_subset: pd.DataFrame) -> list[dict]:
     """
     Sales share by gender (Female / Male / Other-Unknown), same approach as
     the /facebook_insights view. Empty groups are omitted.
+    Returns a list of {"gender": str, "sales": float}.
     """
     if window_subset.empty or "gender" not in window_subset.columns:
-        return {"labels": [], "values": []}
+        return []
 
     g = window_subset["gender"].apply(_normalize_gender)
     grouped = window_subset.assign(_g=g).groupby("_g")["total_value"].sum().sort_values(ascending=False)
 
     name = {"female": "Female", "male": "Male"}
-    labels, values = [], []
+    rows = []
     for key, val in grouped.items():
         v = float(val)
         if v <= 0:
             continue
-        labels.append(name.get(key, "Other/Unknown"))
-        values.append(_round2(v))
-    return {"labels": labels, "values": values}
+        rows.append({"gender": name.get(key, "Other/Unknown"), "sales": _round2(v)})
+    return rows
 
 
-def _city_share_sales(window_subset: pd.DataFrame, top_n: int = 12) -> dict:
+def _city_share_sales(window_subset: pd.DataFrame, top_n: int = 12) -> list[dict]:
     """
     Sales share by city, top N + "Other", same approach as the
     /facebook_insights view. Empty groups are omitted.
+    Returns a list of {"city": str, "sales": float}.
     """
     if window_subset.empty or "city" not in window_subset.columns:
-        return {"labels": [], "values": []}
+        return []
 
     norm = window_subset["city"].apply(_normalize_city)
     grouped = window_subset.assign(_k=norm).groupby("_k")["total_value"].sum().sort_values(ascending=False)
     grouped = grouped[grouped > 0]
     if grouped.empty:
-        return {"labels": [], "values": []}
+        return []
 
     if top_n and len(grouped) > top_n:
         top = grouped.iloc[:top_n]
         other_sum = float(grouped.iloc[top_n:].sum())
-        labels = [str(x) for x in top.index.tolist()]
-        values = [_round2(float(x)) for x in top.values.tolist()]
+        rows = [{"city": str(k), "sales": _round2(float(v))} for k, v in top.items()]
         if other_sum > 0:
-            labels.append("Other")
-            values.append(_round2(other_sum))
-        return {"labels": labels, "values": values}
+            rows.append({"city": "Other", "sales": _round2(other_sum)})
+        return rows
 
-    return {
-        "labels": [str(x) for x in grouped.index.tolist()],
-        "values": [_round2(float(x)) for x in grouped.values.tolist()],
-    }
+    return [{"city": str(k), "sales": _round2(float(v))} for k, v in grouped.items()]
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:

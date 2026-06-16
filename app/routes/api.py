@@ -171,10 +171,10 @@ def api_utm_campaign_summary():
     """
     Total sales and repurchase percentage grouped by utm_campaign for the
     selected trailing period. Each campaign also includes, same as the
-    /facebook_insights view:
-      - time_slot_sales:   sales in 3-hour slots (00:00-02:59, ...)
-      - gender_share_sales: sales by gender (Female / Male / Other-Unknown)
-      - city_share_sales:   sales by city (top 12 + "Other")
+    /facebook_insights view (each a list of {dimension, sales} objects):
+      - time_slot_sales:    [{"time_slot": "00:00-02:59", "sales": N}, ...]
+      - gender_share_sales: [{"gender": "Female", "sales": N}, ...]
+      - city_share_sales:   [{"city": "Bogota (C/Marca)", "sales": N}, ...] (top 12 + "Other")
 
     Query params:
         period: one of "today", "last_7d", "last_30d", "last_90d",

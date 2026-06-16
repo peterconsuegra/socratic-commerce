@@ -93,10 +93,11 @@
   function num(n)   { return numFmt.format(Number(n || 0)); }
   function pct(n)   { return (Number(n || 0)).toFixed(2) + "%"; }
 
-  function pieList(p) {
-    if (!p || !p.labels || !p.labels.length) return '<span class="text-muted">—</span>';
-    return p.labels.map((lab, i) =>
-      `<span class="badge bg-light text-dark border me-1 mb-1">${lab}: ${money(p.values[i])}</span>`
+  // Render an array of {<dimKey>: label, sales: number} objects as badges.
+  function shareList(items, dimKey) {
+    if (!items || !items.length) return '<span class="text-muted">—</span>';
+    return items.map(it =>
+      `<span class="badge bg-light text-dark border me-1 mb-1">${it[dimKey]}: ${money(it.sales)}</span>`
     ).join("");
   }
 
@@ -120,9 +121,9 @@
       <tr class="collapse" id="${id}">
         <td colspan="7" class="bg-light">
           <div class="row small g-2">
-            <div class="col-md-12"><strong>Time slot sales:</strong><br>${pieList(c.time_slot_sales)}</div>
-            <div class="col-md-6"><strong>Gender share:</strong><br>${pieList(c.gender_share_sales)}</div>
-            <div class="col-md-6"><strong>City share:</strong><br>${pieList(c.city_share_sales)}</div>
+            <div class="col-md-12"><strong>Time slot sales:</strong><br>${shareList(c.time_slot_sales, "time_slot")}</div>
+            <div class="col-md-6"><strong>Gender share:</strong><br>${shareList(c.gender_share_sales, "gender")}</div>
+            <div class="col-md-6"><strong>City share:</strong><br>${shareList(c.city_share_sales, "city")}</div>
           </div>
         </td>
       </tr>`;
