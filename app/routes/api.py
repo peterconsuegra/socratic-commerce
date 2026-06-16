@@ -170,7 +170,9 @@ def api_utm_campaign_insights():
 def api_utm_campaign_summary():
     """
     Total sales and repurchase percentage grouped by utm_campaign for the
-    selected trailing period.
+    selected trailing period. Each campaign also includes "time_slot_sales":
+    sales bucketed into 3-hour slots (00:00-02:59, ...), same as the
+    /facebook_insights view.
 
     Query params:
         period: one of "today", "last_7d", "last_30d", "last_90d",

@@ -93,19 +93,32 @@
   function num(n)   { return numFmt.format(Number(n || 0)); }
   function pct(n)   { return (Number(n || 0)).toFixed(2) + "%"; }
 
+  function timeSlots(ts) {
+    if (!ts || !ts.labels || !ts.labels.length) return '<span class="text-muted">—</span>';
+    return ts.labels.map((lab, i) =>
+      `<span class="badge bg-light text-dark border me-1 mb-1">${lab}: ${money(ts.values[i])}</span>`
+    ).join("");
+  }
+
+  let rowSeq = 0;
   function bodyRow(c, isOther) {
+    const id = "slot_" + (rowSeq++);
     const name = isOther
       ? `<em class="text-muted">others (${num(c.campaigns_count)} campaigns)</em>`
       : `<span class="badge bg-secondary">${c.utm_campaign}</span>`;
     const cls = isOther ? ' class="table-secondary"' : "";
     return `
-      <tr${cls}>
+      <tr${cls} role="button" data-bs-toggle="collapse" data-bs-target="#${id}" style="cursor:pointer;">
         <td>${name}</td>
         <td class="text-end">${money(c.total_sales)}</td>
         <td class="text-end">${num(c.total_orders)}</td>
         <td class="text-end">${pct(c.repurchase_sales_percentage)}</td>
         <td class="text-end">${pct(c.repurchase_orders_percentage)}</td>
         <td class="text-end text-muted">${money(c.repurchase_sales)} · ${num(c.repurchase_orders)}</td>
+        <td class="text-center"><span class="material-icons" style="font-size:18px;">schedule</span></td>
+      </tr>
+      <tr class="collapse" id="${id}">
+        <td colspan="7" class="bg-light"><strong class="small">Time slot sales:</strong><br>${timeSlots(c.time_slot_sales)}</td>
       </tr>`;
   }
 
@@ -142,9 +155,10 @@
                   <th class="text-end">Repurchase % (sales)</th>
                   <th class="text-end">Repurchase % (orders)</th>
                   <th class="text-end">Repurchase (sales · orders)</th>
+                  <th class="text-center">Time slots</th>
                 </tr>
               </thead>
-              <tbody>${rows || `<tr><td colspan="6" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
+              <tbody>${rows || `<tr><td colspan="7" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
             </table>
           </div>
         </div>

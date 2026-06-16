@@ -61,6 +61,28 @@ def _round2(x: float) -> float:
     return round(float(x), 2)
 
 
+def _time_slot_sales(window_subset: pd.DataFrame) -> dict:
+    """
+    Sales grouped into 3-hour time slots (00:00-02:59, 03:00-05:59, ...),
+    same bucketing as the /facebook_insights view. Empty slots are omitted.
+    """
+    if window_subset.empty:
+        return {"labels": [], "values": []}
+
+    hours = window_subset["order_date"].dt.hour.astype(int)
+    bucket = (hours // 3) * 3
+    grouped = window_subset.assign(_b=bucket).groupby("_b")["total_value"].sum().sort_index()
+
+    labels, values = [], []
+    for start_hour, val in grouped.items():
+        v = float(val)
+        if v <= 0:
+            continue
+        labels.append(f"{int(start_hour):02d}:00-{int(start_hour) + 2:02d}:59")
+        values.append(_round2(v))
+    return {"labels": labels, "values": values}
+
+
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     if not os.path.exists(orders_csv_path):
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
@@ -133,14 +155,21 @@ def _summarize_window(window: pd.DataFrame, limit: int) -> dict:
     for campaign, row in top.iterrows():
         m = _metrics(row["total_sales"], row["total_orders"],
                      row["repurchase_sales"], row["repurchase_orders"])
-        by_campaign.append({"utm_campaign": campaign, **m})
+        subset = window[window["utm_campaign_norm"] == campaign]
+        by_campaign.append({
+            "utm_campaign": campaign,
+            **m,
+            "time_slot_sales": _time_slot_sales(subset),
+        })
 
     others = None
     if len(rest) > 0:
+        rest_subset = window[window["utm_campaign_norm"].isin(set(rest.index))]
         others = {
             "campaigns_count": int(len(rest)),
             **_metrics(rest["total_sales"].sum(), rest["total_orders"].sum(),
                        rest["repurchase_sales"].sum(), rest["repurchase_orders"].sum()),
+            "time_slot_sales": _time_slot_sales(rest_subset),
         }
 
     totals = _metrics(
