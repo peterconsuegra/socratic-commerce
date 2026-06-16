@@ -18,6 +18,8 @@ import os
 
 import pandas as pd
 
+from app.services.facebook_insights import _normalize_city, _normalize_gender
+
 logger = logging.getLogger(__name__)
 
 # period key -> days subtracted from today for the window start: window is
@@ -81,6 +83,58 @@ def _time_slot_sales(window_subset: pd.DataFrame) -> dict:
         labels.append(f"{int(start_hour):02d}:00-{int(start_hour) + 2:02d}:59")
         values.append(_round2(v))
     return {"labels": labels, "values": values}
+
+
+def _gender_share_sales(window_subset: pd.DataFrame) -> dict:
+    """
+    Sales share by gender (Female / Male / Other-Unknown), same approach as
+    the /facebook_insights view. Empty groups are omitted.
+    """
+    if window_subset.empty or "gender" not in window_subset.columns:
+        return {"labels": [], "values": []}
+
+    g = window_subset["gender"].apply(_normalize_gender)
+    grouped = window_subset.assign(_g=g).groupby("_g")["total_value"].sum().sort_values(ascending=False)
+
+    name = {"female": "Female", "male": "Male"}
+    labels, values = [], []
+    for key, val in grouped.items():
+        v = float(val)
+        if v <= 0:
+            continue
+        labels.append(name.get(key, "Other/Unknown"))
+        values.append(_round2(v))
+    return {"labels": labels, "values": values}
+
+
+def _city_share_sales(window_subset: pd.DataFrame, top_n: int = 12) -> dict:
+    """
+    Sales share by city, top N + "Other", same approach as the
+    /facebook_insights view. Empty groups are omitted.
+    """
+    if window_subset.empty or "city" not in window_subset.columns:
+        return {"labels": [], "values": []}
+
+    norm = window_subset["city"].apply(_normalize_city)
+    grouped = window_subset.assign(_k=norm).groupby("_k")["total_value"].sum().sort_values(ascending=False)
+    grouped = grouped[grouped > 0]
+    if grouped.empty:
+        return {"labels": [], "values": []}
+
+    if top_n and len(grouped) > top_n:
+        top = grouped.iloc[:top_n]
+        other_sum = float(grouped.iloc[top_n:].sum())
+        labels = [str(x) for x in top.index.tolist()]
+        values = [_round2(float(x)) for x in top.values.tolist()]
+        if other_sum > 0:
+            labels.append("Other")
+            values.append(_round2(other_sum))
+        return {"labels": labels, "values": values}
+
+    return {
+        "labels": [str(x) for x in grouped.index.tolist()],
+        "values": [_round2(float(x)) for x in grouped.values.tolist()],
+    }
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
@@ -160,6 +214,8 @@ def _summarize_window(window: pd.DataFrame, limit: int) -> dict:
             "utm_campaign": campaign,
             **m,
             "time_slot_sales": _time_slot_sales(subset),
+            "gender_share_sales": _gender_share_sales(subset),
+            "city_share_sales": _city_share_sales(subset),
         })
 
     others = None
@@ -170,6 +226,8 @@ def _summarize_window(window: pd.DataFrame, limit: int) -> dict:
             **_metrics(rest["total_sales"].sum(), rest["total_orders"].sum(),
                        rest["repurchase_sales"].sum(), rest["repurchase_orders"].sum()),
             "time_slot_sales": _time_slot_sales(rest_subset),
+            "gender_share_sales": _gender_share_sales(rest_subset),
+            "city_share_sales": _city_share_sales(rest_subset),
         }
 
     totals = _metrics(

@@ -93,10 +93,10 @@
   function num(n)   { return numFmt.format(Number(n || 0)); }
   function pct(n)   { return (Number(n || 0)).toFixed(2) + "%"; }
 
-  function timeSlots(ts) {
-    if (!ts || !ts.labels || !ts.labels.length) return '<span class="text-muted">—</span>';
-    return ts.labels.map((lab, i) =>
-      `<span class="badge bg-light text-dark border me-1 mb-1">${lab}: ${money(ts.values[i])}</span>`
+  function pieList(p) {
+    if (!p || !p.labels || !p.labels.length) return '<span class="text-muted">—</span>';
+    return p.labels.map((lab, i) =>
+      `<span class="badge bg-light text-dark border me-1 mb-1">${lab}: ${money(p.values[i])}</span>`
     ).join("");
   }
 
@@ -118,7 +118,13 @@
         <td class="text-center"><span class="material-icons" style="font-size:18px;">schedule</span></td>
       </tr>
       <tr class="collapse" id="${id}">
-        <td colspan="7" class="bg-light"><strong class="small">Time slot sales:</strong><br>${timeSlots(c.time_slot_sales)}</td>
+        <td colspan="7" class="bg-light">
+          <div class="row small g-2">
+            <div class="col-md-12"><strong>Time slot sales:</strong><br>${pieList(c.time_slot_sales)}</div>
+            <div class="col-md-6"><strong>Gender share:</strong><br>${pieList(c.gender_share_sales)}</div>
+            <div class="col-md-6"><strong>City share:</strong><br>${pieList(c.city_share_sales)}</div>
+          </div>
+        </td>
       </tr>`;
   }
 
