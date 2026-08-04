@@ -6,6 +6,7 @@ from flask_login import current_user, login_required
 
 from app.services.utm_campaign_insights import get_utm_campaign_insights
 from app.services.utm_campaign_summary import get_utm_campaign_summary
+from app.services.utm_content_summary import CampaignNotFound, get_utm_content_summary
 from app.services.utm_source_summary import PERIODS, get_utm_source_summary
 
 from . import main
@@ -217,4 +218,72 @@ def api_utm_campaign_summary():
 
     except Exception as e:
         logger.exception("Failed to build utm campaign summary")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@main.route("/api/utm_content_summary", methods=["GET"])
+@api_access_required
+def api_utm_content_summary():
+    """
+    Total sales and repurchase percentage grouped by utm_content for a single
+    campaign (the drill-down of /api/utm_campaign_summary).
+
+    Query params:
+        campaign_name: REQUIRED. The campaign to break down, matched
+                case-insensitively against utm_campaign (use the value returned
+                by /api/utm_campaign_summary).
+        period: one of "today", "last_7d", "last_30d", "last_90d",
+                "last_180d", or "all" (default) to return every period.
+        limit: max utm_content rows per period (top N by sales); the rest are
+                rolled up into "others". Pass 0 for all. Default 50.
+        refresh: "true" to bypass the orders cache and fetch the latest
+                orders before computing (default: use cache, ~1h TTL).
+
+    Example: GET /api/utm_content_summary?campaign_name=wati&period=last_30d
+    """
+    campaign_name = (request.args.get("campaign_name", "") or "").strip()
+    if not campaign_name:
+        return jsonify({
+            "status": "error",
+            "message": "campaign_name is required.",
+        }), 400
+
+    period = (request.args.get("period", "all") or "all").strip().lower()
+
+    valid = ["all"] + list(PERIODS)
+    if period not in valid:
+        return jsonify({
+            "status": "error",
+            "message": f"Invalid period '{period}'. Valid values: {valid}",
+        }), 400
+
+    try:
+        limit = int(request.args.get("limit", 50))
+    except (TypeError, ValueError):
+        return jsonify({
+            "status": "error",
+            "message": "limit must be an integer.",
+        }), 400
+
+    try:
+        _refresh_orders()
+        orders_csv = current_app.config["ALL_ORDERS_CSV"]
+        result = get_utm_content_summary(
+            campaign_name=campaign_name,
+            period=period,
+            orders_csv_path=orders_csv,
+            limit=limit,
+        )
+
+        return jsonify({"status": "success", **result}), 200
+
+    except CampaignNotFound as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "suggestions": e.suggestions,
+        }), 404
+
+    except Exception as e:
+        logger.exception("Failed to build utm content summary")
         return jsonify({"status": "error", "message": str(e)}), 500

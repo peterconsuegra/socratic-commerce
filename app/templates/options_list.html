@@ -152,6 +152,11 @@
                             <input type="number" id="pgMinShare" class="form-control" value="2" min="0" max="100" step="0.5">
                         </div>
 
+                        <div class="col-md-6 pg-param" data-param="campaign_name">
+                            <label class="form-label small text-muted mb-1">Campaign name</label>
+                            <input type="text" id="pgCampaign" class="form-control" placeholder="e.g. RetargetingSaveaplaya2026">
+                        </div>
+
                         <div class="col-md-9">
                             <label class="form-label small text-muted mb-1">
                                 API token <span class="text-muted">(optional — blank = use session)</span>
@@ -356,12 +361,14 @@
     source:            { label: "GET /api/utm_source_summary",          url: "{{ url_for('main.api_utm_source_summary') }}",     params: ["period", "refresh"] },
     campaign_summary:  { label: "GET /api/utm_campaign_summary",       url: "{{ url_for('main.api_utm_campaign_summary') }}",  params: ["period", "limit", "refresh"] },
     campaign_insights: { label: "GET /api/utm_campaign_insights",      url: "{{ url_for('main.api_utm_campaign_insights') }}", params: ["period", "min_share_percent", "refresh"] },
+    content_summary:   { label: "GET /api/utm_content_summary",        url: "{{ url_for('main.api_utm_content_summary') }}",   params: ["campaign_name", "period", "limit", "refresh"] },
   };
 
   const $endpoint = document.getElementById("pgEndpoint");
   const $period   = document.getElementById("pgPeriod");
   const $limit    = document.getElementById("pgLimit");
   const $minShare = document.getElementById("pgMinShare");
+  const $campaign = document.getElementById("pgCampaign");
   const $refresh  = document.getElementById("pgRefresh");
   const $token    = document.getElementById("pgToken");
   const $send     = document.getElementById("pgSend");
@@ -385,6 +392,7 @@
     if (cfg.params.includes("period"))            params.period = $period.value;
     if (cfg.params.includes("limit"))             params.limit = $limit.value === "" ? "50" : $limit.value;
     if (cfg.params.includes("min_share_percent")) params.min_share_percent = $minShare.value === "" ? "2" : $minShare.value;
+    if (cfg.params.includes("campaign_name") && $campaign.value.trim()) params.campaign_name = $campaign.value.trim();
     if (cfg.params.includes("refresh") && $refresh.checked) params.refresh = "true";
     return params;
   }
@@ -403,7 +411,7 @@
     $url.textContent = buildUrl();
   }
 
-  [$endpoint, $period, $limit, $minShare, $refresh].forEach(el =>
+  [$endpoint, $period, $limit, $minShare, $campaign, $refresh].forEach(el =>
     el.addEventListener("input", syncParamVisibility));
   $refresh.addEventListener("change", syncParamVisibility);
 
