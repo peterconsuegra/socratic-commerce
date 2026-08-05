@@ -141,6 +141,18 @@
   });
 
   // --- Rendering ------------------------------------------------------------
+  const GENDER_STYLE = { "Female": "bg-female", "Male": "bg-male" };
+
+  function genderCell(items, totalSales) {
+    if (!items || !items.length) return '<span class="text-muted">—</span>';
+    return items.map(g => {
+      const share = totalSales > 0 ? (g.sales / totalSales * 100) : 0;
+      const cls = GENDER_STYLE[g.gender] || "bg-light text-dark border";
+      return `<span class="badge ${cls} me-1 mb-1" title="${money(g.sales)} · ${num(g.orders)} orders">`
+           + `${esc(g.gender)}: ${share.toFixed(1)}%</span>`;
+    }).join("");
+  }
+
   function bodyRow(c, isOther) {
     const name = isOther
       ? `<em class="text-muted">others (${num(c.contents_count)} contents)</em>`
@@ -154,6 +166,7 @@
         <td class="text-end">${pct(c.repurchase_sales_percentage)}</td>
         <td class="text-end">${pct(c.repurchase_orders_percentage)}</td>
         <td class="text-end text-muted">${money(c.repurchase_sales)} · ${num(c.repurchase_orders)}</td>
+        <td style="min-width:190px;">${genderCell(c.gender_share_sales, c.total_sales)}</td>
       </tr>`;
   }
 
@@ -179,6 +192,10 @@
             <div class="col"><div class="text-muted small">Repurchase % (sales)</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
             <div class="col"><div class="text-muted small">Repurchase % (orders)</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
           </div>
+          <div class="text-center mb-3">
+            <div class="text-muted small mb-1">Gender share (all content)</div>
+            ${genderCell(t.gender_share_sales, t.total_sales)}
+          </div>
           <div class="mb-2">${limitNote}</div>
           <div class="table-responsive">
             <table class="table table-sm table-hover align-middle mb-0">
@@ -190,9 +207,10 @@
                   <th class="text-end">Repurchase % (sales)</th>
                   <th class="text-end">Repurchase % (orders)</th>
                   <th class="text-end">Repurchase (sales · orders)</th>
+                  <th>Gender (share of sales)</th>
                 </tr>
               </thead>
-              <tbody>${rows || `<tr><td colspan="6" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
+              <tbody>${rows || `<tr><td colspan="7" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
             </table>
           </div>
         </div>

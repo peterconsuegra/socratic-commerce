@@ -238,6 +238,11 @@ def api_utm_content_summary():
     Total sales and repurchase percentage grouped by utm_content for a single
     campaign (the drill-down of /api/utm_campaign_summary).
 
+    Each utm_content row (plus "others" and the period totals) also includes
+    gender_share_sales: [{"gender": "Female"|"Male"|"Other/Unknown",
+    "sales": N, "orders": N}, ...], using the same gender normalization as
+    the /facebook_insights view.
+
     Query params:
         campaign_name: REQUIRED. The campaign to break down, matched
                 case-insensitively against utm_campaign (use the value returned

@@ -15,6 +15,8 @@ import os
 
 import pandas as pd
 
+from app.services.facebook_insights import _normalize_gender
+
 logger = logging.getLogger(__name__)
 
 # period key -> days subtracted from today for the window start: window is
@@ -108,6 +110,33 @@ def _metrics(total_sales, total_orders, rep_sales, rep_orders) -> dict:
     }
 
 
+def _gender_share_sales(subset: pd.DataFrame) -> list[dict]:
+    """
+    Sales and orders by gender (Female / Male / Other-Unknown), same
+    normalization as the /facebook_insights view. Empty groups are omitted.
+    Returns a list of {"gender": str, "sales": float, "orders": int}.
+    """
+    if subset.empty or "gender" not in subset.columns:
+        return []
+
+    g = subset["gender"].apply(_normalize_gender)
+    grouped = subset.assign(_g=g).groupby("_g")["total_value"].agg(["sum", "size"])
+    grouped = grouped.sort_values("sum", ascending=False)
+
+    name = {"female": "Female", "male": "Male"}
+    rows = []
+    for key, row in grouped.iterrows():
+        v = float(row["sum"])
+        if v <= 0:
+            continue
+        rows.append({
+            "gender": name.get(key, "Other/Unknown"),
+            "sales": _round2(v),
+            "orders": int(row["size"]),
+        })
+    return rows
+
+
 def _resolve_campaign(data: pd.DataFrame, campaign_name: str) -> str:
     """
     Resolve the requested campaign to its canonical label (case-insensitive
@@ -159,16 +188,20 @@ def _summarize_window(window: pd.DataFrame, limit: int) -> dict:
     by_content = [
         {"utm_content": content,
          **_metrics(row["total_sales"], row["total_orders"],
-                    row["repurchase_sales"], row["repurchase_orders"])}
+                    row["repurchase_sales"], row["repurchase_orders"]),
+         "gender_share_sales": _gender_share_sales(
+             window[window["utm_content_norm"] == content])}
         for content, row in top.iterrows()
     ]
 
     others = None
     if len(rest) > 0:
+        rest_subset = window[window["utm_content_norm"].isin(set(rest.index))]
         others = {
             "contents_count": int(len(rest)),
             **_metrics(rest["total_sales"].sum(), rest["total_orders"].sum(),
                        rest["repurchase_sales"].sum(), rest["repurchase_orders"].sum()),
+            "gender_share_sales": _gender_share_sales(rest_subset),
         }
 
     totals = _metrics(
@@ -178,6 +211,7 @@ def _summarize_window(window: pd.DataFrame, limit: int) -> dict:
         int(window["is_repurchase"].sum()),
     )
     totals["distinct_contents"] = distinct_contents
+    totals["gender_share_sales"] = _gender_share_sales(window)
 
     return {
         "totals": totals,
