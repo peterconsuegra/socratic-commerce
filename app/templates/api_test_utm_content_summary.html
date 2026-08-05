@@ -141,16 +141,43 @@
   });
 
   // --- Rendering ------------------------------------------------------------
-  const GENDER_STYLE = { "Female": "bg-female", "Male": "bg-male" };
+  // The API labels the third bucket "Other/Unknown"; it is shown as "Unknown".
+  const GENDERS = [
+    { key: "Female",        label: "Female" },
+    { key: "Male",          label: "Male" },
+    { key: "Other/Unknown", label: "Unknown" },
+  ];
 
-  function genderCell(items, totalSales) {
-    if (!items || !items.length) return '<span class="text-muted">—</span>';
-    return items.map(g => {
-      const share = totalSales > 0 ? (g.sales / totalSales * 100) : 0;
-      const cls = GENDER_STYLE[g.gender] || "bg-light text-dark border";
-      return `<span class="badge ${cls} me-1 mb-1" title="${money(g.sales)} · ${num(g.orders)} orders">`
-           + `${esc(g.gender)}: ${share.toFixed(1)}%</span>`;
+  function genderLookup(items) {
+    const by = {};
+    (items || []).forEach(g => { by[g.gender] = g; });
+    return by;
+  }
+
+  // One <td> per gender: share of sales, with sales · orders underneath.
+  function genderCells(items, totalSales) {
+    const by = genderLookup(items);
+    return GENDERS.map(g => {
+      const hit = by[g.key];
+      if (!hit || !hit.sales) return '<td class="text-end text-muted">—</td>';
+      const share = totalSales > 0 ? (hit.sales / totalSales * 100) : 0;
+      return `<td class="text-end">
+                <div class="fw-bold">${share.toFixed(1)}%</div>
+                <div class="text-muted" style="font-size:0.75rem;">${money(hit.sales)} · ${num(hit.orders)}</div>
+              </td>`;
     }).join("");
+  }
+
+  // Compact inline summary used for the period-level totals strip.
+  function genderSummary(items, totalSales) {
+    const by = genderLookup(items);
+    const parts = GENDERS.map(g => {
+      const hit = by[g.key];
+      const share = hit && totalSales > 0 ? (hit.sales / totalSales * 100) : 0;
+      return `<span class="me-3"><strong>${g.label}:</strong> ${share.toFixed(1)}%`
+           + `<span class="text-muted small"> (${hit ? num(hit.orders) : 0} orders)</span></span>`;
+    });
+    return parts.join("");
   }
 
   function bodyRow(c, isOther) {
@@ -166,7 +193,7 @@
         <td class="text-end">${pct(c.repurchase_sales_percentage)}</td>
         <td class="text-end">${pct(c.repurchase_orders_percentage)}</td>
         <td class="text-end text-muted">${money(c.repurchase_sales)} · ${num(c.repurchase_orders)}</td>
-        <td style="min-width:190px;">${genderCell(c.gender_share_sales, c.total_sales)}</td>
+        ${genderCells(c.gender_share_sales, c.total_sales)}
       </tr>`;
   }
 
@@ -194,7 +221,7 @@
           </div>
           <div class="text-center mb-3">
             <div class="text-muted small mb-1">Gender share (all content)</div>
-            ${genderCell(t.gender_share_sales, t.total_sales)}
+            ${genderSummary(t.gender_share_sales, t.total_sales)}
           </div>
           <div class="mb-2">${limitNote}</div>
           <div class="table-responsive">
@@ -207,10 +234,12 @@
                   <th class="text-end">Repurchase % (sales)</th>
                   <th class="text-end">Repurchase % (orders)</th>
                   <th class="text-end">Repurchase (sales · orders)</th>
-                  <th>Gender (share of sales)</th>
+                  <th class="text-end bg-female">Female</th>
+                  <th class="text-end bg-male">Male</th>
+                  <th class="text-end">Unknown</th>
                 </tr>
               </thead>
-              <tbody>${rows || `<tr><td colspan="7" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
+              <tbody>${rows || `<tr><td colspan="9" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
             </table>
           </div>
         </div>
