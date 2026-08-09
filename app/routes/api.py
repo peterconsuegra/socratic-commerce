@@ -88,6 +88,16 @@ def api_test_utm_content_summary():
     )
 
 
+@main.route("/api_test/wati_summary", methods=["GET"])
+@login_required
+def api_test_wati_summary():
+    """Interactive page to test the /api/wati_summary endpoint."""
+    return render_template(
+        "api_test_wati_summary.html",
+        periods=list(PERIODS),
+    )
+
+
 @main.route("/api/utm_source_summary", methods=["GET"])
 @api_access_required
 def api_utm_source_summary():

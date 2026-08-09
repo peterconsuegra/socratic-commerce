@@ -1,0 +1,242 @@
+{% extends "layout.html" %}
+
+{% block title %}API Test · WATI Summary{% endblock %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1100px;">
+
+  <h2 class="text-center mb-1">API Test — WATI Summary</h2>
+  <p class="text-center text-muted mb-4">
+    <code>GET /api/wati_summary</code> — total sales &amp; repurchase % for
+    <code>utm_campaign = "wati"</code> only, with all other campaigns stripped out.
+  </p>
+
+  <!-- Selector -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <label class="form-label fw-bold mb-2">Date range</label>
+      <div class="btn-group flex-wrap mb-3" role="group" aria-label="Period selector" id="periodButtons">
+        <button type="button" class="btn btn-outline-primary active" data-period="all">All periods</button>
+        <button type="button" class="btn btn-outline-primary" data-period="today">Today</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_7d">Last 7 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_30d">Last 30 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_90d">Last 90 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_180d">Last 180 days</button>
+      </div>
+
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="checkbox" id="refresh">
+          <label class="form-check-label small text-muted" for="refresh">
+            Force fresh data (re-fetch latest orders — slower)
+          </label>
+        </div>
+        <button type="button" id="sendBtn" class="btn btn-primary">
+          <span class="material-icons align-middle" style="font-size:18px;">send</span> Send request
+        </button>
+        <code id="requestUrl" class="text-muted small" style="word-break:break-all;"></code>
+        <span id="status" class="ms-auto small"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+
+  <!-- Raw JSON -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-bold">Raw JSON response</span>
+      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+    </div>
+    <div class="card-body p-0">
+      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">No request sent yet.</pre>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+  const ENDPOINT = "{{ url_for('main.api_wati_summary') }}";
+
+  let selectedPeriod = "all";
+
+  const $buttons = document.getElementById("periodButtons");
+  const $refresh = document.getElementById("refresh");
+  const $sendBtn = document.getElementById("sendBtn");
+  const $reqUrl  = document.getElementById("requestUrl");
+  const $status  = document.getElementById("status");
+  const $results = document.getElementById("results");
+  const $rawJson = document.getElementById("rawJson");
+  const $copyBtn = document.getElementById("copyJsonBtn");
+
+  function buildUrl() {
+    return ENDPOINT + "?period=" + encodeURIComponent(selectedPeriod)
+         + ($refresh.checked ? "&refresh=true" : "");
+  }
+  function refreshUrlPreview() { $reqUrl.textContent = buildUrl(); }
+
+  $buttons.addEventListener("click", function (e) {
+    const btn = e.target.closest("button[data-period]");
+    if (!btn) return;
+    selectedPeriod = btn.dataset.period;
+    $buttons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    refreshUrlPreview();
+  });
+  $refresh.addEventListener("change", refreshUrlPreview);
+
+  const copFmt = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+  const numFmt = new Intl.NumberFormat("es-CO");
+  function money(n) { return copFmt.format(Number(n || 0)); }
+  function num(n)   { return numFmt.format(Number(n || 0)); }
+  function pct(n)   { return (Number(n || 0)).toFixed(2) + "%"; }
+  function esc(s)   { const d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  // --- Rendering ------------------------------------------------------------
+  // The API labels the third gender bucket "Other/Unknown"; shown as "Unknown".
+  const GENDERS = [
+    { key: "Female",        label: "Female" },
+    { key: "Male",          label: "Male" },
+    { key: "Other/Unknown", label: "Unknown" },
+  ];
+
+  // Generic breakdown table: rows of {<dimKey>: label, sales: n}, with share.
+  function breakdownTable(items, dimKey, headLabel, totalSales) {
+    if (!items || !items.length) {
+      return `<div class="text-muted small">No data for this period.</div>`;
+    }
+    const rows = items.map(it => {
+      const share = totalSales > 0 ? (it.sales / totalSales * 100) : 0;
+      return `<tr>
+                <td>${esc(it[dimKey])}</td>
+                <td class="text-end">${money(it.sales)}</td>
+                <td class="text-end text-muted">${share.toFixed(1)}%</td>
+              </tr>`;
+    }).join("");
+    return `
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>${headLabel}</th>
+            <th class="text-end">Sales</th>
+            <th class="text-end">Share</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  // Gender as three fixed columns, matching the content test page.
+  function genderColumns(items, totalSales) {
+    const by = {};
+    (items || []).forEach(g => { by[g.gender] = g; });
+    const cells = GENDERS.map(g => {
+      const hit = by[g.key];
+      const share = hit && totalSales > 0 ? (hit.sales / totalSales * 100) : 0;
+      const body = hit
+        ? `<div class="fw-bold">${share.toFixed(1)}%</div>
+           <div class="text-muted" style="font-size:0.78rem;">${money(hit.sales)}</div>`
+        : `<div class="text-muted">—</div>`;
+      return `<div class="col text-center">
+                <div class="text-muted small">${g.label}</div>${body}
+              </div>`;
+    }).join("");
+    return `<div class="row g-2">${cells}</div>`;
+  }
+
+  function periodCard(p) {
+    const t = p.totals;
+    return `
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-light d-flex justify-content-between flex-wrap">
+          <span class="fw-bold">${p.label}</span>
+          <span class="text-muted small">${p.start_date} → ${p.end_date}</span>
+        </div>
+        <div class="card-body">
+
+          <div class="row text-center mb-3 g-2">
+            <div class="col"><div class="text-muted small">Total sales</div><div class="fw-bold">${money(t.total_sales)}</div></div>
+            <div class="col"><div class="text-muted small">Orders</div><div class="fw-bold">${num(t.total_orders)}</div></div>
+            <div class="col"><div class="text-muted small">Repurchase % (sales)</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">Repurchase % (orders)</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">Repurchase (sales · orders)</div><div class="fw-bold">${money(t.repurchase_sales)} · ${num(t.repurchase_orders)}</div></div>
+          </div>
+
+          <div class="border rounded p-2 mb-3">
+            <div class="text-muted small text-center mb-2">Gender share (of sales)</div>
+            ${genderColumns(p.gender_share_sales, t.total_sales)}
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="fw-bold small mb-1">Time slot sales</div>
+              <div class="table-responsive">
+                ${breakdownTable(p.time_slot_sales, "time_slot", "Time slot", t.total_sales)}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="fw-bold small mb-1">City share sales</div>
+              <div class="table-responsive">
+                ${breakdownTable(p.city_share_sales, "city", "City", t.total_sales)}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>`;
+  }
+
+  function render(data) {
+    if (!data || !data.periods) { $results.innerHTML = ""; return; }
+    const order = ["today", "last_7d", "last_30d", "last_90d", "last_180d"];
+    const keys = Object.keys(data.periods).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const header = `<div class="alert alert-light border mb-3">
+        Campaign: <strong>${esc(data.utm_campaign)}</strong>
+        <span class="text-muted small">(all other campaigns excluded)</span>
+      </div>`;
+    $results.innerHTML = header + keys.map(k => periodCard(data.periods[k])).join("");
+  }
+
+  async function send() {
+    refreshUrlPreview();
+    $sendBtn.disabled = true;
+    $status.innerHTML = `<span class="text-primary">Loading…</span>`;
+    const started = performance.now();
+    try {
+      const resp = await fetch(buildUrl(), { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+      const ms = Math.round(performance.now() - started);
+      const data = await resp.json();
+      $rawJson.textContent = JSON.stringify(data, null, 2);
+
+      if (resp.ok && data.status === "success") {
+        $status.innerHTML = `<span class="text-success">${resp.status} OK · ${ms} ms</span>`;
+        render(data);
+      } else {
+        $status.innerHTML = `<span class="text-danger">${resp.status} · ${ms} ms</span>`;
+        $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || "Request failed.")}</div>`;
+      }
+    } catch (err) {
+      $status.innerHTML = `<span class="text-danger">Network error</span>`;
+      $results.innerHTML = `<div class="alert alert-danger">${esc(String(err))}</div>`;
+      $rawJson.textContent = String(err);
+    } finally {
+      $sendBtn.disabled = false;
+    }
+  }
+
+  $sendBtn.addEventListener("click", send);
+  $copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText($rawJson.textContent).then(() => {
+      $copyBtn.textContent = "Copied!";
+      setTimeout(() => ($copyBtn.textContent = "Copy"), 1500);
+    });
+  });
+
+  refreshUrlPreview();
+})();
+</script>
+{% endblock %}
