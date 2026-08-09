@@ -285,3 +285,71 @@ def get_utm_campaign_summary(
         }
 
     return out
+
+
+# --- Single-campaign variant: WATI -------------------------------------------
+
+WATI_CAMPAIGN = "wati"
+
+
+def get_wati_summary(
+    period: str = "all",
+    orders_csv_path: str = "data/all_orders.csv",
+) -> dict:
+    """
+    Same metrics as get_utm_campaign_summary but scoped to the single
+    utm_campaign "wati", with every other campaign stripped out.
+
+    Per period it returns the wati totals (sales, orders, repurchase sales and
+    orders plus both repurchase percentages) and the same breakdowns used by
+    /api/utm_campaign_summary: time_slot_sales, gender_share_sales and
+    city_share_sales. There is no by_utm_campaign list and no "others" bucket,
+    because only one campaign is in scope.
+
+    Numbers match the "wati" row of /api/utm_campaign_summary exactly: the same
+    loader, window and helpers are reused.
+
+    Args:
+        period: one of PERIODS keys or "all".
+        orders_csv_path: path to the all-orders CSV.
+    """
+    period = (period or "all").strip().lower()
+    if period != "all" and period not in PERIODS:
+        raise ValueError(
+            f"Invalid period '{period}'. Valid values: {['all'] + list(PERIODS)}"
+        )
+
+    data = _load_orders(orders_csv_path)
+    # Case-insensitive match, consistent with how the campaign labels are shown.
+    data = data[data["utm_campaign_norm"].str.lower() == WATI_CAMPAIGN].copy()
+
+    now = _now_bogota_naive()
+    today = now.normalize()
+    selected = list(PERIODS) if period == "all" else [period]
+
+    out: dict = {
+        "generated_at": now.isoformat(),
+        "utm_campaign": WATI_CAMPAIGN,
+        "periods": {},
+    }
+    for key in selected:
+        days = PERIODS[key]
+        start = today - pd.Timedelta(days=days)
+        window = data[(data["order_date"] >= start) & (data["order_date"] <= now)].copy()
+
+        out["periods"][key] = {
+            "label": LABELS[key],
+            "start_date": start.strftime("%Y-%m-%d"),
+            "end_date": today.strftime("%Y-%m-%d"),
+            "totals": _metrics(
+                window["total_value"].sum(),
+                len(window),
+                window.loc[window["is_repurchase"], "total_value"].sum(),
+                int(window["is_repurchase"].sum()),
+            ),
+            "time_slot_sales": _time_slot_sales(window),
+            "gender_share_sales": _gender_share_sales(window),
+            "city_share_sales": _city_share_sales(window),
+        }
+
+    return out

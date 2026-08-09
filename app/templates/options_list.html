@@ -362,6 +362,7 @@
     campaign_summary:  { label: "GET /api/utm_campaign_summary",       url: "{{ url_for('main.api_utm_campaign_summary') }}",  params: ["period", "limit", "refresh"] },
     campaign_insights: { label: "GET /api/utm_campaign_insights",      url: "{{ url_for('main.api_utm_campaign_insights') }}", params: ["period", "min_share_percent", "refresh"] },
     content_summary:   { label: "GET /api/utm_content_summary",        url: "{{ url_for('main.api_utm_content_summary') }}",   params: ["campaign_name", "period", "limit", "refresh"] },
+    wati_summary:      { label: "GET /api/wati_summary  (wati only)",  url: "{{ url_for('main.api_wati_summary') }}",          params: ["period", "refresh"] },
   };
 
   const $endpoint = document.getElementById("pgEndpoint");

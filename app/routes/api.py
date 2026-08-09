@@ -5,7 +5,7 @@ from flask import current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from app.services.utm_campaign_insights import get_utm_campaign_insights
-from app.services.utm_campaign_summary import get_utm_campaign_summary
+from app.services.utm_campaign_summary import get_utm_campaign_summary, get_wati_summary
 from app.services.utm_content_summary import CampaignNotFound, get_utm_content_summary
 from app.services.utm_source_summary import PERIODS, get_utm_source_summary
 
@@ -228,6 +228,47 @@ def api_utm_campaign_summary():
 
     except Exception as e:
         logger.exception("Failed to build utm campaign summary")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@main.route("/api/wati_summary", methods=["GET"])
+@api_access_required
+def api_wati_summary():
+    """
+    Total sales and repurchase percentage for the utm_campaign "wati" only,
+    with all other campaigns stripped out.
+
+    Same metrics and breakdowns as /api/utm_campaign_summary (time_slot_sales,
+    gender_share_sales, city_share_sales), but scoped to a single campaign, so
+    there is no by_utm_campaign list and no "others" bucket. Values match the
+    "wati" row of /api/utm_campaign_summary exactly.
+
+    Query params:
+        period: one of "today", "last_7d", "last_30d", "last_90d",
+                "last_180d", or "all" (default) to return every period.
+        refresh: "true" to bypass the orders cache and fetch the latest
+                orders before computing (default: use cache, ~1h TTL).
+
+    Example: GET /api/wati_summary?period=last_30d
+    """
+    period = (request.args.get("period", "all") or "all").strip().lower()
+
+    valid = ["all"] + list(PERIODS)
+    if period not in valid:
+        return jsonify({
+            "status": "error",
+            "message": f"Invalid period '{period}'. Valid values: {valid}",
+        }), 400
+
+    try:
+        _refresh_orders()
+        orders_csv = current_app.config["ALL_ORDERS_CSV"]
+        result = get_wati_summary(period=period, orders_csv_path=orders_csv)
+
+        return jsonify({"status": "success", **result}), 200
+
+    except Exception as e:
+        logger.exception("Failed to build wati summary")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
