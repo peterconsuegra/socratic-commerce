@@ -128,6 +128,12 @@ DAILY_SALES_SCHEMA = [
     "order_lng",
     "total_value",
     "product",
+    # sku can hold several comma-separated values for a multi-item order
+    # ("una_unidad, pack_ecostand"), so it is not safe as a grouping key
+    # without splitting and exploding first. It is also not a second view of
+    # "product": product reports one arbitrary line item for a multi-item
+    # order, sku reports all of them, so the two must not be zipped together.
+    "sku",
     "utm_source",
     "utm_medium",
     "utm_campaign",
@@ -166,6 +172,10 @@ def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict)
         "order_lng": _clean_str(item.get("order_lng")),
         "total_value": _clean_str(item.get("total_value")),
         "product": _clean_str(item.get("product")),
+        # _clean_optional, not _clean_str: the API sends the literal "N/A"
+        # when an order resolves to no SKU, and that sentinel must not reach
+        # the CSV as if it were a real SKU.
+        "sku": _clean_optional(item.get("sku")),
         "utm_source": utm_source,
         "utm_medium": utm_medium,
         "utm_campaign": utm_campaign,
