@@ -1,0 +1,200 @@
+{% extends "layout.html" %}
+
+{% block title %}Lapsed Customers{% endblock %}
+
+{% macro page_url(page=None, sort=None, direction=None) -%}
+{{ url_for('main.lapsed_customers',
+           page=page or result.pagination.page,
+           per_page=result.pagination.per_page,
+           sort=sort or result.sort.key,
+           direction=direction or result.sort.direction,
+           months=months, min_orders=min_orders, sku=selected_skus,
+           q=result.search or None) }}
+{%- endmacro %}
+
+{% macro sort_link(key, label) -%}
+  {% set active = result.sort.key == key %}
+  {% set next_dir = 'asc' if (active and result.sort.direction == 'desc') else 'desc' %}
+  <a href="{{ page_url(page=1, sort=key, direction=next_dir) }}"
+     class="text-decoration-none {% if active %}fw-bold{% endif %}">
+    {{ label }}{% if active %} <span class="material-icons align-middle" style="font-size:14px;">{{ 'arrow_downward' if result.sort.direction == 'desc' else 'arrow_upward' }}</span>{% endif %}
+  </a>
+{%- endmacro %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+
+  <h2 class="text-center mb-1">Lapsed Customers</h2>
+  <p class="text-center text-muted mb-4">
+    Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose
+    last order (UTC) was more than {{ months }} months ago — a win-back list.
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif result %}
+
+    {% set s = result.summary %}
+    {% set p = result.pagination %}
+
+    <div class="row text-center g-2 mb-3">
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Lapsed customers</div>
+          <div class="fw-bold">{{ "{:,}".format(s.recurrent_customers) }}</div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Of all customers</div>
+          <div class="fw-bold">{{ "{:,}".format(s.total_customers) }}
+            <span class="text-muted small">({{ "%.1f"|format(s.recurrent_customers / s.total_customers * 100 if s.total_customers else 0) }}%)</span>
+          </div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Their orders</div>
+          <div class="fw-bold">{{ "{:,}".format(s.recurrent_orders) }}</div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Revenue at stake</div>
+          <div class="fw-bold">{{ s.recurrent_revenue | cop }}</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- Segment controls -->
+    <form method="get" action="{{ url_for('main.lapsed_customers') }}" class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-12">
+            <label class="form-label small text-muted mb-1">Last purchase SKU</label><br>
+            {% for sku in result.available_skus %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="sku" value="{{ sku }}"
+                       id="sku_{{ loop.index }}" {% if sku in selected_skus %}checked{% endif %}>
+                <label class="form-check-label small" for="sku_{{ loop.index }}">{{ sku }}</label>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Inactive for more than</label>
+            <select name="months" class="form-select">
+              {% for m in months_choices %}
+                <option value="{{ m }}" {% if m == months %}selected{% endif %}>{{ m }} months</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Include</label>
+            <select name="min_orders" class="form-select">
+              <option value="1" {% if min_orders == 1 %}selected{% endif %}>All customers</option>
+              <option value="2" {% if min_orders == 2 %}selected{% endif %}>Repeat buyers only</option>
+            </select>
+          </div>
+
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Search name or email</label>
+            <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="e.g. maria">
+          </div>
+
+          <div class="col-sm-2">
+            <label class="form-label small text-muted mb-1">Per page</label>
+            <select name="per_page" class="form-select">
+              {% for n in per_page_choices %}
+                <option value="{{ n }}" {% if n == p.per_page %}selected{% endif %}>{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-sm-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Apply</button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
+      <span class="text-muted small">
+        {% if p.total_rows %}
+          Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
+        {% else %}
+          No customers match this segment
+        {% endif %}
+      </span>
+      <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:70px;">#</th>
+            <th>{{ sort_link('name', 'Name') }}</th>
+            <th>Phone</th>
+            <th>{{ sort_link('email', 'Email') }}</th>
+            <th class="text-end">{{ sort_link('orders', 'Orders') }}</th>
+            <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
+            <th>Last purchase (SKU)</th>
+            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
+            <th class="text-end">Days since</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in result.rows %}
+            <tr>
+              <td class="text-muted">{{ c.rank }}</td>
+              <td>{{ c.name or '—' }}</td>
+              <td>{% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}</td>
+              <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
+              <td class="text-end">{{ c.orders_count }}</td>
+              <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
+              <td style="min-width:150px;">
+                {%- for sku in c.last_skus %}
+                  <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>
+                {%- endfor %}
+              </td>
+              <td class="text-muted small">{{ c.last_order_utc }}</td>
+              <td class="text-end">{% if c.days_since_last_order is not none %}{{ c.days_since_last_order }}{% endif %}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="9" class="text-center text-muted">No customers found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if p.total_pages > 1 %}
+      <nav class="mt-3">
+        <ul class="pagination pagination-sm justify-content-center flex-wrap">
+          <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=1) }}">&laquo; First</a>
+          </li>
+          <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=p.page - 1) }}">Prev</a>
+          </li>
+          {% set win_start = [1, p.page - 2] | max %}
+          {% set win_end = [p.total_pages, win_start + 4] | min %}
+          {% for n in range(win_start, win_end + 1) %}
+            <li class="page-item {% if n == p.page %}active{% endif %}">
+              <a class="page-link" href="{{ page_url(page=n) }}">{{ n }}</a>
+            </li>
+          {% endfor %}
+          <li class="page-item {% if not p.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=p.page + 1) }}">Next</a>
+          </li>
+          <li class="page-item {% if not p.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=p.total_pages) }}">Last &raquo;</a>
+          </li>
+        </ul>
+      </nav>
+    {% endif %}
+
+  {% endif %}
+</div>
+{% endblock %}

@@ -103,6 +103,16 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     return data
 
 
+def _days_since(utc_iso: str):
+    """Whole days between an ISO-8601 "Z" timestamp and now, or None."""
+    if not utc_iso:
+        return None
+    ts = pd.to_datetime(utc_iso, errors="coerce", utc=True)
+    if pd.isna(ts):
+        return None
+    return int((pd.Timestamp.now(tz="UTC") - ts).days)
+
+
 def _pick_name(series: pd.Series) -> str:
     """Most frequent non-empty name for the customer, else empty."""
     vals = series[series.astype(str).str.strip() != ""]
@@ -119,6 +129,8 @@ def get_recurrent_customers(
     direction: str | None = None,
     search: str = "",
     min_orders: int = 2,
+    sku_filter: set | list | None = None,
+    inactive_months: int | None = None,
 ) -> dict:
     """
     Returns a page of customers with more than one order.
@@ -130,7 +142,15 @@ def get_recurrent_customers(
         sort: one of SORT_COLUMNS keys.
         direction: "asc" or "desc"; defaults to the sort key's natural order.
         search: optional case-insensitive filter on name or email.
-        min_orders: minimum orders to count as recurrent (default 2).
+        min_orders: minimum orders to count as recurrent (default 2). Pass 1
+            to include one-time buyers.
+        sku_filter: if given, keep only customers whose LAST purchase included
+            one of these SKUs.
+        inactive_months: if given, keep only customers whose last order (UTC)
+            is older than this many months - a lapsed / win-back segment.
+
+    Both filters default to None, leaving the returned figures identical to a
+    call without them.
 
     Returns a dict with the page rows plus pagination and summary metadata.
     """
@@ -210,7 +230,29 @@ def get_recurrent_customers(
     grouped["last_skus"] = grouped["last_skus"].apply(lambda v: v if isinstance(v, list) else [])
 
     total_customers = int(len(grouped))
+    available_skus = sorted({sku for lst in grouped["last_skus"] for sku in lst})
     recurrent = grouped[grouped["orders_count"] >= int(min_orders)].copy()
+
+    # Optional segment filters. Applied before the summary so the tiles
+    # describe the segment being listed, and skipped entirely when not asked
+    # for, which keeps the plain recurrent-customers figures unchanged.
+    if sku_filter:
+        wanted = {str(x).strip() for x in sku_filter if str(x).strip()}
+        recurrent = recurrent[
+            recurrent["last_skus"].apply(lambda L: bool(set(L) & wanted))
+        ].copy()
+
+    if inactive_months:
+        # last_order_utc is an ISO-8601 "Z" string, so a string comparison is
+        # chronological and no tz-aware/naive timestamps are created. Customers
+        # with no UTC timestamp are excluded rather than treated as ancient.
+        cutoff = (
+            pd.Timestamp.now(tz="UTC") - pd.DateOffset(months=int(inactive_months))
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        recurrent = recurrent[
+            (recurrent["last_order_utc"] != "")
+            & (recurrent["last_order_utc"] < cutoff)
+        ].copy()
 
     # Summary over ALL recurrent customers, before search/pagination.
     summary = {
@@ -247,6 +289,7 @@ def get_recurrent_customers(
             "phone": r["phone"],
             "last_order_utc": r["last_order_utc"],
             "last_skus": list(r["last_skus"]),
+            "days_since_last_order": _days_since(r["last_order_utc"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),
@@ -257,6 +300,9 @@ def get_recurrent_customers(
 
     return {
         "rows": rows,
+        # Distinct last-purchase SKUs across all customers, so a filter UI can
+        # offer real catalogue values instead of a hardcoded list.
+        "available_skus": available_skus,
         "pagination": {
             "page": page,
             "per_page": per_page,
