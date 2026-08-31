@@ -91,7 +91,7 @@
            per_page=result.pagination.per_page,
            sort=sort or result.sort.key,
            direction=direction or result.sort.direction,
-           months=months, min_orders=min_orders, max_orders=max_orders, sku=selected_skus,
+           months=months, customer_type=customer_type, sku=selected_skus,
            q=result.search or None) }}
 {%- endmacro %}
 
@@ -174,14 +174,12 @@
           </div>
 
           <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Number of orders</label>
-            <div class="input-group">
-              <span class="input-group-text small">min</span>
-              <input type="number" name="min_orders" class="form-control" min="1" value="{{ min_orders }}">
-              <span class="input-group-text small">max</span>
-              <input type="number" name="max_orders" class="form-control" min="1"
-                     value="{{ max_orders if max_orders else '' }}" placeholder="any">
-            </div>
+            <label class="form-label small text-muted mb-1">Customers</label>
+            <select name="customer_type" class="form-select">
+              {% for key, cfg in customer_types.items() %}
+                <option value="{{ key }}" {% if key == customer_type %}selected{% endif %}>{{ cfg.label }}</option>
+              {% endfor %}
+            </select>
           </div>
 
           <div class="col-sm-3">

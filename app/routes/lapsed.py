@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 PER_PAGE_CHOICES = [50, 100, 250, 500]
 MONTHS_CHOICES = [3, 6, 9, 12]
 
+# key -> label and the (min_orders, max_orders) bounds it maps to.
+CUSTOMER_TYPES = {
+    "all":        {"label": "All customers",        "bounds": (1, None)},
+    "first_time": {"label": "First-time customers", "bounds": (1, 1)},
+    "repeat":     {"label": "Repeated customers",   "bounds": (2, None)},
+}
+
 # Selection is bounded by one page, and pages cap at MAX_PER_PAGE, so a single
 # lookup covering that many customers is enough to resolve any selection.
 MAX_PER_PAGE_LOOKUP = MAX_PER_PAGE
@@ -45,21 +52,11 @@ def lapsed_customers():
     if months not in MONTHS_CHOICES:
         months = DEFAULT_MONTHS
 
-    # Order-count range. min defaults to 1 so one-time buyers are included;
-    # max is optional and blank means no upper bound.
-    def _int_arg(name, default=None):
-        raw = (request.args.get(name, "") or "").strip()
-        if raw == "":
-            return default
-        try:
-            return max(1, int(raw))
-        except (TypeError, ValueError):
-            return default
-
-    min_orders = _int_arg("min_orders", 1) or 1
-    max_orders = _int_arg("max_orders", None)
-    if max_orders is not None and max_orders < min_orders:
-        max_orders = min_orders
+    # Customer type collapses the order-count bounds into one choice.
+    customer_type = (request.args.get("customer_type", "all") or "all").strip().lower()
+    if customer_type not in CUSTOMER_TYPES:
+        customer_type = "all"
+    min_orders, max_orders = CUSTOMER_TYPES[customer_type]["bounds"]
 
     error = None
     result = None
@@ -93,8 +90,8 @@ def lapsed_customers():
         months_choices=MONTHS_CHOICES,
         selected_skus=skus,
         months=months,
-        min_orders=min_orders,
-        max_orders=max_orders,
+        customer_type=customer_type,
+        customer_types=CUSTOMER_TYPES,
     )
 
 
