@@ -18,6 +18,11 @@ matching on the raw string would split one customer into several. Any
 phone-based matching would need E.164 normalisation first, as a separate
 decision.
 
+sku can list several comma-separated SKUs for a multi-item order, so it is
+always split and exploded before counting - never grouped on raw. It is shown
+per customer as the distinct SKUs they have bought and, like phone, is display
+only: it is not part of customer identity and does not affect any total.
+
 order_date_utc is the same instant as order_date expressed in UTC. It is kept
 as a plain ISO-8601 string rather than parsed, so tz-aware values can never
 meet the tz-naive order_date timestamps (pandas raises when they are compared).
@@ -58,7 +63,7 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     # turns into 573008007384.0, losing the "+" and any leading zero. Only
     # columns actually present are named, so a pre-schema CSV still loads.
     header = pd.read_csv(orders_csv_path, nrows=0).columns
-    text_cols = {c: str for c in ("phone", "order_date_utc") if c in header}
+    text_cols = {c: str for c in ("phone", "order_date_utc", "sku") if c in header}
 
     data = pd.read_csv(orders_csv_path, dtype=text_cols or None)
 
@@ -85,7 +90,7 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     # schema change will not have them, so default to empty rather than
     # treating them as required - a stale cache should render blank cells,
     # not crash the page.
-    for col in ("phone", "order_date_utc"):
+    for col in ("phone", "order_date_utc", "sku"):
         if col in data.columns:
             data[col] = data[col].fillna("").astype(str).str.strip()
             # "N/A" is the API sentinel; blank it here too in case an older
@@ -180,9 +185,32 @@ def get_recurrent_customers(
         with_utc.groupby("email_key")["order_date_utc"].max().rename("last_order_utc")
     )
 
-    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer)
+    # A single order's sku field can list several SKUs ("una_unidad,
+    # pack_favorito"), so it is split and exploded to one row per SKU before
+    # counting. Grouping on the raw string would invent a phantom product and
+    # under-count both real ones. Per customer we keep the distinct SKUs they
+    # have bought, most-bought first, so the column answers "what does this
+    # customer actually repurchase".
+    with_sku = data[data["sku"] != ""]
+    if len(with_sku):
+        exploded = with_sku.assign(_sku=with_sku["sku"].str.split(",")).explode("_sku")
+        exploded["_sku"] = exploded["_sku"].str.strip()
+        exploded = exploded[exploded["_sku"] != ""]
+        skus_by_customer = (
+            exploded.groupby(["email_key", "_sku"]).size()
+            .sort_values(ascending=False, kind="mergesort")
+            .reset_index(name="n")
+            .groupby("email_key")["_sku"]
+            .apply(list)
+            .rename("skus")
+        )
+    else:
+        skus_by_customer = pd.Series(dtype=object, name="skus")
+
+    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer).join(skus_by_customer)
     grouped["phone"] = grouped["phone"].fillna("")
     grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
+    grouped["skus"] = grouped["skus"].apply(lambda v: v if isinstance(v, list) else [])
 
     total_customers = int(len(grouped))
     recurrent = grouped[grouped["orders_count"] >= int(min_orders)].copy()
@@ -221,6 +249,7 @@ def get_recurrent_customers(
             "name": r["name"],
             "phone": r["phone"],
             "last_order_utc": r["last_order_utc"],
+            "skus": list(r["skus"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),

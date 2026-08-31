@@ -109,6 +109,7 @@
             <th>{{ sort_link('email', 'Email') }}</th>
             <th class="text-end">{{ sort_link('orders', 'Number of orders') }}</th>
             <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
+            <th>Products (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
           </tr>
         </thead>
@@ -122,10 +123,17 @@
               <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
               <td class="text-end">{{ c.orders_count }}</td>
               <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
+              {# Distinct SKUs this customer has bought, most-bought first.
+                 Blank when the order had no SKU (the API's "N/A"). #}
+              <td style="min-width:170px;">
+                {%- for sku in c.skus %}
+                  <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>
+                {%- endfor %}
+              </td>
               <td class="text-muted small">{{ c.last_order_utc }}</td>
             </tr>
           {% else %}
-            <tr><td colspan="7" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted">No customers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
