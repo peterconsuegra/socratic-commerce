@@ -7,9 +7,22 @@ across the app (see utm_campaign_summary and daily_repurchases), so a customer
 counted as recurrent here is exactly one whose orders are classified as
 repurchases elsewhere.
 
-Note on available fields: the orders source only carries a first name and an
-email per order - there is no last name or phone number in the upstream orders
-API, so those cannot be listed here.
+Note on available fields: the orders source carries a first name, an email and
+a billing phone per order. There is still no last name in the upstream orders
+API, so that cannot be listed here.
+
+Phone is a display column only. It is never used to identify or de-duplicate
+customers: the upstream values are not normalised (both "+573008007384" and
+"3165391777" occur for Colombian numbers, sometimes for the same person), so
+matching on the raw string would split one customer into several. Any
+phone-based matching would need E.164 normalisation first, as a separate
+decision.
+
+order_date_utc is the same instant as order_date expressed in UTC. It is kept
+as a plain ISO-8601 string rather than parsed, so tz-aware values can never
+meet the tz-naive order_date timestamps (pandas raises when they are compared).
+ISO-8601 with a fixed "Z" suffix sorts lexicographically in chronological
+order, so a plain string max() is a correct "most recent".
 """
 import logging
 import os
@@ -17,6 +30,9 @@ import os
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# The orders API's missing-value sentinel, mirrored from get_data.py.
+MISSING_SENTINELS = {"n/a", "na", "none", "null"}
 
 DEFAULT_PER_PAGE = 100
 MAX_PER_PAGE = 1000
@@ -28,6 +44,7 @@ SORT_COLUMNS = {
     "name": ("name", False),
     "email": ("email", False),
     "last_order": ("last_order", True),
+    "last_order_utc": ("last_order_utc", True),
 }
 DEFAULT_SORT = "spent"
 
@@ -36,7 +53,14 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     if not os.path.exists(orders_csv_path):
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
-    data = pd.read_csv(orders_csv_path)
+    # phone and order_date_utc must be read as text. Left to type inference,
+    # a column of all-digit phone numbers becomes float64 - "+573008007384"
+    # turns into 573008007384.0, losing the "+" and any leading zero. Only
+    # columns actually present are named, so a pre-schema CSV still loads.
+    header = pd.read_csv(orders_csv_path, nrows=0).columns
+    text_cols = {c: str for c in ("phone", "order_date_utc") if c in header}
+
+    data = pd.read_csv(orders_csv_path, dtype=text_cols or None)
 
     required_cols = {"email", "order_date", "total_value"}
     missing = required_cols - set(data.columns)
@@ -56,6 +80,19 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
         data["name"] = data["name"].fillna("").astype(str).str.strip()
     else:
         data["name"] = ""
+
+    # phone and order_date_utc are newer columns. A CSV written before the
+    # schema change will not have them, so default to empty rather than
+    # treating them as required - a stale cache should render blank cells,
+    # not crash the page.
+    for col in ("phone", "order_date_utc"):
+        if col in data.columns:
+            data[col] = data[col].fillna("").astype(str).str.strip()
+            # "N/A" is the API sentinel; blank it here too in case an older
+            # CSV was written before _clean_optional existed.
+            data.loc[data[col].str.lower().isin(MISSING_SENTINELS), col] = ""
+        else:
+            data[col] = ""
 
     return data
 
@@ -123,6 +160,30 @@ def get_recurrent_customers(
         name=("name", _pick_name),
     )
 
+    # Phone and the UTC timestamp are derived separately and joined on, so the
+    # aggregation above - and therefore orders_count, total_spent and the
+    # summary totals - stays exactly as it was.
+    #
+    # A customer's phone can differ per order, so take the most recent
+    # non-empty one: sort that subset by order_date and keep the last.
+    with_phone = data[data["phone"] != ""]
+    phone_by_customer = (
+        with_phone.sort_values("order_date", kind="mergesort")
+        .groupby("email_key")["phone"]
+        .last()
+        .rename("phone")
+    )
+
+    # String max is chronological for ISO-8601 "Z" timestamps (see module docstring).
+    with_utc = data[data["order_date_utc"] != ""]
+    last_utc_by_customer = (
+        with_utc.groupby("email_key")["order_date_utc"].max().rename("last_order_utc")
+    )
+
+    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer)
+    grouped["phone"] = grouped["phone"].fillna("")
+    grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
+
     total_customers = int(len(grouped))
     recurrent = grouped[grouped["orders_count"] >= int(min_orders)].copy()
 
@@ -158,6 +219,8 @@ def get_recurrent_customers(
         rows.append({
             "rank": i,
             "name": r["name"],
+            "phone": r["phone"],
+            "last_order_utc": r["last_order_utc"],
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),

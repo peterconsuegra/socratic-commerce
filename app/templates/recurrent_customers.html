@@ -105,9 +105,11 @@
           <tr>
             <th style="width:70px;">#</th>
             <th>{{ sort_link('name', 'Name') }}</th>
+            <th>Phone</th>
             <th>{{ sort_link('email', 'Email') }}</th>
             <th class="text-end">{{ sort_link('orders', 'Number of orders') }}</th>
             <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
+            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -115,12 +117,15 @@
             <tr>
               <td class="text-muted">{{ c.rank }}</td>
               <td>{{ c.name or '—' }}</td>
+              {# Unknown phone renders as a blank cell, never the API's "N/A". #}
+              <td>{% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}</td>
               <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
               <td class="text-end">{{ c.orders_count }}</td>
               <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
+              <td class="text-muted small">{{ c.last_order_utc }}</td>
             </tr>
           {% else %}
-            <tr><td colspan="5" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="7" class="text-center text-muted">No customers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -46,11 +46,24 @@ def _clean_str(v):
     return str(v).strip()
 
 
+# The orders API uses the literal string "N/A" as its missing-value sentinel
+# (it never sends null or ""). Treat it as absent so it never reaches a report.
+MISSING_SENTINELS = {"n/a", "na", "none", "null"}
+
+
+def _clean_optional(v):
+    """Like _clean_str, but maps the API's "N/A" sentinel to an empty string."""
+    s = _clean_str(v)
+    return "" if s.lower() in MISSING_SENTINELS else s
+
+
 DAILY_SALES_SCHEMA = [
     "order_id",
     "order_date",
+    "order_date_utc",
     "name",
     "email",
+    "phone",
     "city",
     "state",
     "order_lat",
@@ -85,8 +98,10 @@ def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict)
     row = {
         "order_id": _clean_str(item.get("order_id")),
         "order_date": _clean_str(item.get("order_date")),
+        "order_date_utc": _clean_optional(item.get("order_date_utc")),
         "name": name_title,
         "email": _clean_str(item.get("email")),
+        "phone": _clean_optional(item.get("phone")),
         "city": _clean_str(item.get("city")),
         "state": _clean_str(item.get("state")),
         "order_lat": _clean_str(item.get("order_lat")),
