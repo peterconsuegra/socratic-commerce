@@ -18,10 +18,11 @@ matching on the raw string would split one customer into several. Any
 phone-based matching would need E.164 normalisation first, as a separate
 decision.
 
-sku can list several comma-separated SKUs for a multi-item order, so it is
-always split and exploded before counting - never grouped on raw. It is shown
-per customer as the distinct SKUs they have bought and, like phone, is display
-only: it is not part of customer identity and does not affect any total.
+sku can list several comma-separated SKUs when an order had several line
+items, so it is always split - never grouped on raw, which would invent a
+phantom product. The report shows the SKU(s) of the customer's last purchase.
+Like phone it is display only: not part of customer identity, and it does not
+affect any total.
 
 order_date_utc is the same instant as order_date expressed in UTC. It is kept
 as a plain ISO-8601 string rather than parsed, so tz-aware values can never
@@ -185,32 +186,28 @@ def get_recurrent_customers(
         with_utc.groupby("email_key")["order_date_utc"].max().rename("last_order_utc")
     )
 
-    # A single order's sku field can list several SKUs ("una_unidad,
-    # pack_favorito"), so it is split and exploded to one row per SKU before
-    # counting. Grouping on the raw string would invent a phantom product and
-    # under-count both real ones. Per customer we keep the distinct SKUs they
-    # have bought, most-bought first, so the column answers "what does this
-    # customer actually repurchase".
-    with_sku = data[data["sku"] != ""]
-    if len(with_sku):
-        exploded = with_sku.assign(_sku=with_sku["sku"].str.split(",")).explode("_sku")
-        exploded["_sku"] = exploded["_sku"].str.strip()
-        exploded = exploded[exploded["_sku"] != ""]
-        skus_by_customer = (
-            exploded.groupby(["email_key", "_sku"]).size()
-            .sort_values(ascending=False, kind="mergesort")
-            .reset_index(name="n")
-            .groupby("email_key")["_sku"]
-            .apply(list)
-            .rename("skus")
-        )
-    else:
-        skus_by_customer = pd.Series(dtype=object, name="skus")
+    # SKU(s) of the customer's LAST purchase - the most recent order itself,
+    # not the most recent order that happened to carry a SKU. If that order
+    # has no SKU the cell is blank, because showing an older order's SKU under
+    # a "last purchase" heading would misreport it.
+    #
+    # One order can list several comma-separated SKUs when it had several line
+    # items, so the value is split into a list. It must never be grouped on
+    # raw: "una_unidad, pack_favorito" is two products, not a third one.
+    last_order_rows = (
+        data.sort_values("order_date", kind="mergesort")
+        .groupby("email_key")
+        .tail(1)
+        .set_index("email_key")["sku"]
+    )
+    last_skus_by_customer = last_order_rows.apply(
+        lambda v: [p.strip() for p in str(v).split(",") if p.strip()]
+    ).rename("last_skus")
 
-    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer).join(skus_by_customer)
+    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer).join(last_skus_by_customer)
     grouped["phone"] = grouped["phone"].fillna("")
     grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
-    grouped["skus"] = grouped["skus"].apply(lambda v: v if isinstance(v, list) else [])
+    grouped["last_skus"] = grouped["last_skus"].apply(lambda v: v if isinstance(v, list) else [])
 
     total_customers = int(len(grouped))
     recurrent = grouped[grouped["orders_count"] >= int(min_orders)].copy()
@@ -249,7 +246,7 @@ def get_recurrent_customers(
             "name": r["name"],
             "phone": r["phone"],
             "last_order_utc": r["last_order_utc"],
-            "skus": list(r["skus"]),
+            "last_skus": list(r["last_skus"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),

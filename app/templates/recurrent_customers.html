@@ -109,7 +109,7 @@
             <th>{{ sort_link('email', 'Email') }}</th>
             <th class="text-end">{{ sort_link('orders', 'Number of orders') }}</th>
             <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
-            <th>Products (SKU)</th>
+            <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
           </tr>
         </thead>
@@ -123,10 +123,10 @@
               <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
               <td class="text-end">{{ c.orders_count }}</td>
               <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
-              {# Distinct SKUs this customer has bought, most-bought first.
-                 Blank when the order had no SKU (the API's "N/A"). #}
+              {# SKU(s) of the most recent order. Blank when that order had
+                 no SKU (the API's "N/A"); several when it had several items. #}
               <td style="min-width:170px;">
-                {%- for sku in c.skus %}
+                {%- for sku in c.last_skus %}
                   <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>
                 {%- endfor %}
               </td>
