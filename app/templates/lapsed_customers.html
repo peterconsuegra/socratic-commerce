@@ -2,13 +2,96 @@
 
 {% block title %}Lapsed Customers{% endblock %}
 
+{% block page_scripts %}
+<script>
+(function () {
+  var selectAll = document.getElementById("selectAll");
+  var rows      = Array.prototype.slice.call(document.querySelectorAll(".row-select"));
+  var countEl   = document.getElementById("watiCount");
+  var btn       = document.getElementById("watiSendBtn");
+  var statusEl  = document.getElementById("watiStatus");
+  var resultEl  = document.getElementById("watiResult");
+  if (!btn) return;
+
+  function selected() { return rows.filter(function (r) { return r.checked; }); }
+  function refresh()  { countEl.textContent = selected().length; }
+
+  rows.forEach(function (r) { r.addEventListener("change", refresh); });
+  if (selectAll) {
+    selectAll.addEventListener("change", function () {
+      rows.forEach(function (r) { r.checked = selectAll.checked; });
+      refresh();
+    });
+  }
+  refresh();
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  btn.addEventListener("click", async function () {
+    var chosen = selected();
+    var label = document.getElementById("watiLabel").value.trim();
+    var attribute = document.getElementById("watiAttribute").value.trim() || "remarketing";
+
+    if (!chosen.length) { statusEl.innerHTML = '<span class="text-danger">Select at least one customer.</span>'; return; }
+    if (!label) { statusEl.innerHTML = '<span class="text-danger">Enter a remarketing label.</span>'; return; }
+
+    var noPhone = chosen.filter(function (r) { return !r.dataset.phone; }).length;
+    var msg = "Tag " + chosen.length + " customer(s) in WATI with " + attribute + " = \"" + label + "\"?"
+            + (noPhone ? "\n\n" + noPhone + " have no phone and will be skipped." : "")
+            + "\n\nThis creates or updates contacts. No WhatsApp messages are sent.";
+    if (!window.confirm(msg)) return;
+
+    btn.disabled = true;
+    statusEl.innerHTML = '<span class="text-primary">Sending…</span>';
+    resultEl.innerHTML = "";
+    try {
+      var resp = await fetch("{{ url_for('main.lapsed_customers_wati_remarketing') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          emails: chosen.map(function (r) { return r.value; }),
+          label: label, attribute: attribute
+        })
+      });
+      var data = await resp.json();
+      if (resp.ok && data.status === "success") {
+        statusEl.innerHTML = '<span class="text-success">Done</span>';
+        var html = '<div class="alert alert-success mb-2 py-2">'
+                 + '<strong>' + data.tagged + '</strong> tagged with <code>'
+                 + esc(data.attribute) + ' = ' + esc(data.label) + '</code>'
+                 + ' · <strong>' + data.skipped + '</strong> skipped'
+                 + ' · <strong>' + data.failed + '</strong> failed</div>';
+        function list(title, items, kind) {
+          if (!items || !items.length) return "";
+          return '<details class="small mb-1"><summary>' + title + '</summary><ul class="mb-0">'
+               + items.map(function (x) {
+                   return "<li>" + esc(x.email || x.phone) + " — " + esc(x.reason || x.error || "") + "</li>";
+                 }).join("") + "</ul></details>";
+        }
+        html += list("Skipped (" + data.skipped + ")", data.skipped_detail);
+        html += list("Failed (" + data.failed + ")", data.failed_detail);
+        resultEl.innerHTML = html;
+      } else {
+        statusEl.innerHTML = '<span class="text-danger">' + resp.status + '</span>';
+        resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + esc(data.message || "Request failed.") + '</div>';
+      }
+    } catch (e) {
+      statusEl.innerHTML = '<span class="text-danger">Network error</span>';
+      resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + esc(String(e)) + '</div>';
+    } finally { btn.disabled = false; }
+  });
+})();
+</script>
+{% endblock %}
+
 {% macro page_url(page=None, sort=None, direction=None) -%}
 {{ url_for('main.lapsed_customers',
            page=page or result.pagination.page,
            per_page=result.pagination.per_page,
            sort=sort or result.sort.key,
            direction=direction or result.sort.direction,
-           months=months, min_orders=min_orders, sku=selected_skus,
+           months=months, min_orders=min_orders, max_orders=max_orders, sku=selected_skus,
            q=result.search or None) }}
 {%- endmacro %}
 
@@ -91,11 +174,14 @@
           </div>
 
           <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Include</label>
-            <select name="min_orders" class="form-select">
-              <option value="1" {% if min_orders == 1 %}selected{% endif %}>All customers</option>
-              <option value="2" {% if min_orders == 2 %}selected{% endif %}>Repeat buyers only</option>
-            </select>
+            <label class="form-label small text-muted mb-1">Number of orders</label>
+            <div class="input-group">
+              <span class="input-group-text small">min</span>
+              <input type="number" name="min_orders" class="form-control" min="1" value="{{ min_orders }}">
+              <span class="input-group-text small">max</span>
+              <input type="number" name="max_orders" class="form-control" min="1"
+                     value="{{ max_orders if max_orders else '' }}" placeholder="any">
+            </div>
           </div>
 
           <div class="col-sm-3">
@@ -134,6 +220,9 @@
       <table class="table table-sm table-striped table-hover align-middle">
         <thead class="table-light">
           <tr>
+            <th style="width:34px;">
+              <input type="checkbox" class="form-check-input" id="selectAll" title="Select all on this page">
+            </th>
             <th style="width:70px;">#</th>
             <th>{{ sort_link('name', 'Name') }}</th>
             <th>Phone</th>
@@ -148,6 +237,10 @@
         <tbody>
           {% for c in result.rows %}
             <tr>
+              <td>
+                <input type="checkbox" class="form-check-input row-select" value="{{ c.email }}"
+                       data-phone="{{ c.phone }}" {% if not c.phone %}title="No phone - will be skipped"{% endif %}>
+              </td>
               <td class="text-muted">{{ c.rank }}</td>
               <td>{{ c.name or '—' }}</td>
               <td>{% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}</td>
@@ -163,10 +256,53 @@
               <td class="text-end">{% if c.days_since_last_order is not none %}{{ c.days_since_last_order }}{% endif %}</td>
             </tr>
           {% else %}
-            <tr><td colspan="9" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="10" class="text-center text-muted">No customers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <!-- WATI remarketing action -->
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
+          <h6 class="mb-0">Tag selected customers in WATI</h6>
+          <span class="text-muted small">
+            Creates or updates contacts and sets an attribute. <strong>No WhatsApp messages are sent.</strong>
+          </span>
+        </div>
+
+        {% if not wati_ready %}
+          <div class="alert alert-warning mb-2 py-2 small">
+            WATI is not configured yet — add the tenant URL and API token in
+            <a href="{{ url_for('main.list_options') }}">Settings</a>.
+          </div>
+        {% endif %}
+
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Attribute name</label>
+            <input type="text" id="watiAttribute" class="form-control" value="{{ wati_attribute }}">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small text-muted mb-1">Remarketing label <span class="text-danger">*</span></label>
+            <input type="text" id="watiLabel" class="form-control" placeholder="e.g. winback_sept_2026">
+          </div>
+          <div class="col-sm-5 d-flex align-items-end gap-2">
+            <button type="button" id="watiSendBtn" class="btn btn-success" {% if not wati_ready %}disabled{% endif %}>
+              Tag <span id="watiCount">0</span> selected in WATI
+            </button>
+            <span id="watiStatus" class="small"></span>
+          </div>
+        </div>
+
+        <div class="form-text mt-2">
+          Only customers on this page can be selected, up to {{ wati_max }} per run.
+          Rows without a valid phone are skipped and listed in the result.
+        </div>
+
+        <div id="watiResult" class="mt-3"></div>
+      </div>
     </div>
 
     {% if p.total_pages > 1 %}

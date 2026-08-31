@@ -2,11 +2,12 @@
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from app import db
 from app.models import ApiToken, Option
+from app.services.secrets import get_secret, has_secret, mask_secret, set_secret
 
 from . import main
 
@@ -35,7 +36,75 @@ def list_options():
         t.created_at_bogota = _to_bogota(t.created_at)
         t.last_used_at_bogota = _to_bogota(t.last_used_at)
 
-    return render_template("options_list.html", options=options, tokens=tokens)
+    wati_token = get_secret(WATI_TOKEN_KEY)
+
+    return render_template(
+        "options_list.html",
+        options=options,
+        tokens=tokens,
+        wati={
+            "configured": has_secret(WATI_TOKEN_KEY),
+            "token_masked": mask_secret(wati_token),
+            "tenant_url": get_option_value_raw(WATI_TENANT_URL_KEY, ""),
+            "channel_number": get_option_value_raw(WATI_CHANNEL_KEY, ""),
+        },
+    )
+
+
+WATI_TOKEN_KEY = "wati_api_token"
+WATI_TENANT_URL_KEY = "wati_tenant_url"
+WATI_CHANNEL_KEY = "wati_channel_number"
+
+
+def get_option_value_raw(meta_key: str, default=""):
+    row = Option.query.filter_by(meta_key=meta_key).first()
+    return row.meta_value if row and row.meta_value is not None else default
+
+
+def _set_plain_option(meta_key: str, value: str):
+    value = (value or "").strip()
+    row = Option.query.filter_by(meta_key=meta_key).first()
+    if not value:
+        if row:
+            db.session.delete(row)
+        return
+    if row:
+        row.meta_value = value
+    else:
+        db.session.add(Option(meta_key=meta_key, meta_value=value))
+
+
+@main.route("/options/wati", methods=["POST"])
+@login_required
+def options_wati_save():
+    """Save WATI connection settings. The token is stored encrypted."""
+    _set_plain_option(WATI_TENANT_URL_KEY, request.form.get("tenant_url", ""))
+    _set_plain_option(WATI_CHANNEL_KEY, request.form.get("channel_number", ""))
+    db.session.commit()
+
+    # An empty token field means "leave the stored token alone", so the other
+    # fields can be edited without re-pasting the secret. Clearing is explicit.
+    token = (request.form.get("api_token", "") or "").strip()
+    if request.form.get("clear_token"):
+        set_secret(WATI_TOKEN_KEY, "")
+        flash("WATI API token removed.", "success")
+    elif token:
+        set_secret(WATI_TOKEN_KEY, token)
+        flash("WATI settings saved. The token is stored encrypted.", "success")
+    else:
+        flash("WATI settings saved.", "success")
+
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/wati/reveal", methods=["POST"])
+@login_required
+def options_wati_reveal():
+    """Return the decrypted token so the UI can show it on demand."""
+    token = get_secret(WATI_TOKEN_KEY)
+    if not token:
+        return jsonify({"status": "error", "message": "No token stored."}), 404
+    return jsonify({"status": "success", "token": token}), 200
 
 
 @main.route("/options/api_tokens/new", methods=["POST"])

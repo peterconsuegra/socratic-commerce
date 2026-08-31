@@ -11,3 +11,4 @@ flask_migrate
 gender_guesser
 statsmodels
 shapely
+cryptography

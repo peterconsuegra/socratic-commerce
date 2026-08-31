@@ -131,6 +131,7 @@ def get_recurrent_customers(
     min_orders: int = 2,
     sku_filter: set | list | None = None,
     inactive_months: int | None = None,
+    max_orders: int | None = None,
 ) -> dict:
     """
     Returns a page of customers with more than one order.
@@ -148,6 +149,8 @@ def get_recurrent_customers(
             one of these SKUs.
         inactive_months: if given, keep only customers whose last order (UTC)
             is older than this many months - a lapsed / win-back segment.
+        max_orders: if given, keep only customers with at most this many
+            orders, so min_orders/max_orders together bound the range.
 
     Both filters default to None, leaving the returned figures identical to a
     call without them.
@@ -236,6 +239,9 @@ def get_recurrent_customers(
     # Optional segment filters. Applied before the summary so the tiles
     # describe the segment being listed, and skipped entirely when not asked
     # for, which keeps the plain recurrent-customers figures unchanged.
+    if max_orders:
+        recurrent = recurrent[recurrent["orders_count"] <= int(max_orders)].copy()
+
     if sku_filter:
         wanted = {str(x).strip() for x in sku_filter if str(x).strip()}
         recurrent = recurrent[

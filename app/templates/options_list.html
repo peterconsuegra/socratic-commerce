@@ -113,6 +113,60 @@
         </div>
     </div>
 
+    <!-- WATI integration credentials -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4>WATI integration</h4>
+            <p class="text-muted mb-3">
+                Credentials for sending customer segments to WATI. The API token is stored
+                <strong>encrypted</strong>; only its last 4 characters are shown unless you reveal it.
+            </p>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.options_wati_save') }}" class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted mb-1">Tenant API URL</label>
+                            <input type="url" name="tenant_url" class="form-control"
+                                   value="{{ wati.tenant_url }}"
+                                   placeholder="https://live-mt-server.wati.io/123456">
+                            <div class="form-text">From WATI: Connector → API. No trailing slash.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted mb-1">Channel number (sender)</label>
+                            <input type="text" name="channel_number" class="form-control"
+                                   value="{{ wati.channel_number }}" placeholder="+573001112233">
+                        </div>
+
+                        <div class="col-md-9">
+                            <label class="form-label small text-muted mb-1">API token</label>
+                            <div class="input-group">
+                                <input type="password" name="api_token" id="watiToken" class="form-control"
+                                       autocomplete="new-password"
+                                       placeholder="{% if wati.configured %}{{ wati.token_masked }} — leave blank to keep{% else %}paste your WATI token{% endif %}">
+                                <button class="btn btn-outline-secondary" type="button" id="watiRevealBtn"
+                                        {% if not wati.configured %}disabled{% endif %}>Show stored token</button>
+                            </div>
+                            <div class="form-text" id="watiTokenHint">
+                                {% if wati.configured %}A token is stored ({{ wati.token_masked }}). Leave blank to keep it.
+                                {% else %}No token stored yet.{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            {% if wati.configured %}
+                              <button type="submit" name="clear_token" value="1" class="btn btn-outline-danger"
+                                      onclick="return confirm('Remove the stored WATI token?');">Remove</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- API Playground -->
     <div class="row mt-5">
         <div class="col-md-12">
@@ -350,6 +404,37 @@
           );
       }
   });
+</script>
+
+<script>
+// Reveal the stored WATI token on demand (login-gated endpoint).
+(function () {
+  var btn = document.getElementById("watiRevealBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    var input = document.getElementById("watiToken");
+    var hint = document.getElementById("watiTokenHint");
+    if (input.dataset.revealed === "1") {          // hide again
+      input.type = "password"; input.value = "";
+      input.dataset.revealed = "0"; btn.textContent = "Show stored token";
+      return;
+    }
+    btn.disabled = true;
+    try {
+      var resp = await fetch("{{ url_for('main.options_wati_reveal') }}",
+                             { method: "POST", credentials: "same-origin" });
+      var data = await resp.json();
+      if (resp.ok && data.status === "success") {
+        input.type = "text"; input.value = data.token;
+        input.dataset.revealed = "1"; btn.textContent = "Hide";
+      } else {
+        hint.textContent = data.message || "Could not reveal the token.";
+      }
+    } catch (e) {
+      hint.textContent = "Could not reveal the token: " + e;
+    } finally { btn.disabled = false; }
+  });
+})();
 </script>
 
 <!-- API Playground -->
