@@ -2,6 +2,7 @@
 
 import csv
 import os
+import re
 import requests
 from gender_guesser.detector import Detector
 
@@ -57,6 +58,63 @@ def _clean_optional(v):
     return "" if s.lower() in MISSING_SENTINELS else s
 
 
+COLOMBIA_COUNTRY_CODE = "57"
+
+# Separators that indicate the field holds more than one number.
+_MULTI_NUMBER_SEPARATORS = ("/", ",", ";")
+
+
+def sanitize_phone(v):
+    """
+    Normalise a Colombian phone number to E.164, e.g. "310 479 2445" and
+    "3104792445" both become "+573104792445".
+
+    Rules, in order:
+      - the "N/A" sentinel and blanks become "".
+      - a field holding several numbers ("300... / 310...") is left alone;
+        picking one of them would be a guess.
+      - a value that already starts with "+" keeps its country code and only
+        loses its formatting: "+57 300-510-0205" -> "+573005100205". A foreign
+        number such as "+447575061132" is therefore never rewritten as
+        Colombian.
+      - otherwise, digits only. A leading national trunk "0" is dropped, then:
+          12 digits starting 57  -> "+" + digits          (country code, no +)
+          10 digits starting 3   -> "+57" + digits        (mobile)
+          10 digits starting 6   -> "+57" + digits        (landline, post-2022)
+
+    Anything else - truncated numbers, two numbers concatenated into 20 digits,
+    unexpected lengths - is returned unchanged rather than coerced, so a bad
+    value stays visibly bad instead of becoming a plausible wrong number.
+
+    Note this is formatting only. Customers are identified by email; phone is
+    never an identity key (see app/services/recurrent_customers.py).
+    """
+    s = _clean_optional(v)
+    if not s:
+        return ""
+
+    if any(sep in s for sep in _MULTI_NUMBER_SEPARATORS):
+        return s
+
+    has_plus = s.startswith("+")
+    digits = re.sub(r"\D", "", s)
+    if not digits:
+        return s
+
+    if has_plus:
+        return "+" + digits
+
+    core = digits.lstrip("0")
+
+    if len(core) == 12 and core.startswith(COLOMBIA_COUNTRY_CODE):
+        return "+" + core
+
+    if len(core) == 10 and core[0] in ("3", "6"):
+        return "+" + COLOMBIA_COUNTRY_CODE + core
+
+    return s
+
+
 DAILY_SALES_SCHEMA = [
     "order_id",
     "order_date",
@@ -101,7 +159,7 @@ def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict)
         "order_date_utc": _clean_optional(item.get("order_date_utc")),
         "name": name_title,
         "email": _clean_str(item.get("email")),
-        "phone": _clean_optional(item.get("phone")),
+        "phone": sanitize_phone(item.get("phone")),
         "city": _clean_str(item.get("city")),
         "state": _clean_str(item.get("state")),
         "order_lat": _clean_str(item.get("order_lat")),
