@@ -158,6 +158,61 @@ def _list_channels(http, tenant_url, headers) -> dict:
         return {}
 
 
+def _summarise_body(text: str, limit: int = 160) -> str:
+    """
+    Condense an error body for display. Gateways return full HTML pages (nginx
+    405s, Cloudflare blocks); dumping that raw into the UI is unreadable, so
+    the title or first text is extracted instead.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    if "<html" in text[:200].lower() or "<head" in text[:200].lower():
+        m = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
+        if m:
+            return m.group(1).strip()
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+    return text[:limit]
+
+
+def _payload_says_failure(resp) -> str | None:
+    """
+    WATI v1 reports failures inside an HTTP 200 body as {"result": false}.
+    Returns an error string when the body signals failure, else None.
+    """
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    if isinstance(data, dict) and data.get("result") is False:
+        return (
+            data.get("info")
+            or data.get("message")
+            or data.get("error")
+            or "WATI reported result=false"
+        )
+    return None
+
+
+def _post_v3(http, tenant_url, headers, phone, name, params):
+    return http.post(
+        f"{tenant_url}/api/ext/v3/contacts",
+        json={"whatsapp_number": _wa_number(phone), "name": name, "custom_params": params},
+        headers=headers, timeout=REQUEST_TIMEOUT,
+    )
+
+
+def _post_v1(http, tenant_url, headers, phone, name, params):
+    # addContact upserts: it creates the contact or updates an existing one,
+    # and accepts customParams in the same call.
+    return http.post(
+        f"{tenant_url}/api/v1/addContact/{_wa_number(phone)}",
+        json={"name": name, "customParams": params},
+        headers=headers, timeout=REQUEST_TIMEOUT,
+    )
+
+
 def tag_contacts(
     *,
     tenant_url: str,
@@ -192,7 +247,6 @@ def tag_contacts(
             f"{len(customers)} customers selected; the limit is {MAX_CONTACTS_PER_RUN} per run."
         )
 
-    url = f"{tenant_url}/api/ext/v3/contacts"
     headers = {
         "Authorization": f"Bearer {api_token}",
         "Content-Type": "application/json",
@@ -201,6 +255,7 @@ def tag_contacts(
     http = session or requests.Session()
 
     tagged, skipped, failed = [], [], []
+    flavour = None  # "v3" or "v1", decided by the first successful probe
 
     for c in customers:
         phone = (c.get("phone") or "").strip()
@@ -225,22 +280,40 @@ def tag_contacts(
             if email:
                 params.append({"name": "email", "value": email})
 
-        payload = {
-            "whatsapp_number": _wa_number(phone),
-            "name": (c.get("name") or "").strip() or _wa_number(phone),
-            "custom_params": params,
-        }
+        name = (c.get("name") or "").strip() or _wa_number(phone)
 
         try:
-            resp = http.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
-            if resp.status_code < 300:
-                tagged.append({"email": email, "phone": phone})
+            # Tenants differ: some expose the v3 "ext" API, others only v1.
+            # Probe once on the first contact, then reuse whichever answered.
+            if flavour is None:
+                resp = _post_v3(http, tenant_url, headers, phone, name, params)
+                if resp.status_code in (404, 405):
+                    flavour = "v1"
+                    resp = _post_v1(http, tenant_url, headers, phone, name, params)
+                else:
+                    flavour = "v3"
+            elif flavour == "v3":
+                resp = _post_v3(http, tenant_url, headers, phone, name, params)
             else:
-                # Never log the token; log status and a trimmed body only.
-                body = (resp.text or "")[:200]
-                logger.warning("WATI contact upsert failed (%s): %s", resp.status_code, body)
+                resp = _post_v1(http, tenant_url, headers, phone, name, params)
+
+            if resp.status_code >= 300:
+                detail = _summarise_body(resp.text)
+                logger.warning("WATI upsert failed (%s): %s", resp.status_code, detail)
                 failed.append({"email": email, "phone": phone,
-                               "status": resp.status_code, "error": body})
+                               "status": resp.status_code, "error": detail})
+                continue
+
+            # A 2xx is not enough: v1 signals failure inside the body.
+            body_error = _payload_says_failure(resp)
+            if body_error:
+                logger.warning("WATI upsert rejected for %s: %s", email, body_error)
+                failed.append({"email": email, "phone": phone,
+                               "status": resp.status_code, "error": body_error})
+                continue
+
+            tagged.append({"email": email, "phone": phone})
+
         except requests.RequestException as e:
             logger.warning("WATI contact upsert error for %s: %s", email, e)
             failed.append({"email": email, "phone": phone, "status": None, "error": str(e)})
@@ -252,6 +325,7 @@ def tag_contacts(
         "tagged": len(tagged),
         "skipped": len(skipped),
         "failed": len(failed),
+        "api": flavour,
         "skipped_detail": skipped[:50],
         "failed_detail": failed[:50],
     }
