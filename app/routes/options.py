@@ -102,10 +102,10 @@ def options_wati_save():
 
     if _is_dashboard_url(tenant_url):
         flash(
-            "Warning: that Tenant API URL looks like the WATI dashboard, not the API "
-            "endpoint. Requests to it are rejected by the web server. Copy the API "
-            "endpoint from WATI → Connector → API.",
-            "danger",
+            "Note: that URL is the WATI dashboard, not the API endpoint. Requests "
+            "will be sent to live-mt-server.wati.io automatically, but consider "
+            "saving the API endpoint from WATI → Connector → API.",
+            "success",
         )
 
     return redirect(url_for("main.list_options"))

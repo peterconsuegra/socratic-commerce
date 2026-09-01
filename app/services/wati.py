@@ -128,8 +128,6 @@ def test_connection(
         return {"ok": False, "message": "WATI is not configured: set the tenant URL and API token first."}
     if not tenant_url.startswith(("http://", "https://")):
         return {"ok": False, "message": f"Tenant URL must start with https:// (got {tenant_url!r})."}
-    if _is_dashboard_url(tenant_url):
-        return {"ok": False, "message": _DASHBOARD_HINT}
 
     http = session or requests.Session()
     headers = {"Authorization": f"Bearer {api_token}", "Accept": "application/json"}
@@ -233,13 +231,25 @@ DASHBOARD_HOSTS = ("live.wati.io", "app.wati.io")
 # from the single URL the operator configures.
 _TENANT_SUFFIX = re.compile(r"/\d+/?$")
 
+# live.wati.io is the dashboard SPA; the API for the same tenant lives at
+# live-mt-server.wati.io with the same tenant id. Verified live: the dashboard
+# answers GETs with HTML and writes with an nginx 405, while the API host
+# answers 401 without auth. Healing the host here makes a pasted dashboard URL
+# work instead of failing a whole run.
+_DASHBOARD_HOST = re.compile(r"^(https?)://(?:live|app)\.wati\.io", re.I)
+
+
+def _normalise_tenant_url(tenant_url: str) -> str:
+    url = (tenant_url or "").strip().rstrip("/")
+    return _DASHBOARD_HOST.sub(r"\1://live-mt-server.wati.io", url)
+
 
 def _v3_base(tenant_url: str) -> str:
-    return _TENANT_SUFFIX.sub("", (tenant_url or "").strip().rstrip("/"))
+    return _TENANT_SUFFIX.sub("", _normalise_tenant_url(tenant_url))
 
 
 def _v1_base(tenant_url: str) -> str:
-    return (tenant_url or "").strip().rstrip("/")
+    return _normalise_tenant_url(tenant_url)
 
 _DASHBOARD_HINT = (
     "That looks like the WATI dashboard URL, not the API endpoint. The dashboard "
@@ -357,14 +367,17 @@ def tag_contacts(
     customers: list[dict],
     label: str,
     attribute: str = DEFAULT_ATTRIBUTE,
-    extra_attributes: bool = True,
+    extra_attributes: bool = False,
     session: requests.Session | None = None,
 ) -> dict:
     """
     Create/update each customer in WATI with <attribute> = <label>.
 
-    customers: dicts with at least "phone"; "name", "email", "last_skus",
-        "days_since_last_order" and "total_spent" are used as extra attributes.
+    customers: dicts with at least "phone". By default exactly ONE custom
+        attribute is written - the one being set. Attributes are typed per
+        tenant and names that do not exist there can reject the whole write,
+        so extras (last SKU, email, ...) are only sent when explicitly asked
+        for via extra_attributes=True.
 
     Returns a summary: counts plus per-customer skipped/failed detail, so the
     caller can report exactly who was and was not tagged.
@@ -445,7 +458,7 @@ def tag_contacts(
 
             if resp.status_code >= 300:
                 detail = _api_message(resp.text) or _summarise_body(resp.text)
-                if _is_dashboard_url(tenant_url) or _looks_like_html(resp):
+                if _looks_like_html(resp):
                     detail = f"{detail} — {_DASHBOARD_HINT}" if detail else _DASHBOARD_HINT
                 logger.warning("WATI update failed (%s): %s", resp.status_code, detail)
                 return ("failed", {"email": email, "phone": phone, "url": attempted,
@@ -456,7 +469,21 @@ def tag_contacts(
             #  - v3 returns {"contact_list": [...]}; an empty list means no
             #    contact matched the target, so nothing was written even
             #    though the call "succeeded".
-            body_error = _payload_says_failure(resp) or _v3_wrote_nothing(resp, effective)
+            body_error = _payload_says_failure(resp)
+
+            if not body_error and _v3_wrote_nothing(resp, effective):
+                # The v3 update merges onto existing contacts; it cannot
+                # create one. Lapsed customers may not be in WATI at all, so
+                # fall through to the v1 create for just this contact.
+                attempted = f"{_v1_base(tenant_url)}/api/v1/addContact/…"
+                resp = _post_v1(http, tenant_url, headers, phone, name, params)
+                if resp.status_code >= 300:
+                    detail = _api_message(resp.text) or _summarise_body(resp.text)
+                    logger.warning("WATI create failed (%s): %s", resp.status_code, detail)
+                    return ("failed", {"email": email, "phone": phone, "url": attempted,
+                                       "status": resp.status_code, "error": detail})
+                body_error = _payload_says_failure(resp)
+
             if body_error:
                 logger.warning("WATI update rejected for %s: %s", email, body_error)
                 return ("failed", {"email": email, "phone": phone, "url": attempted,
