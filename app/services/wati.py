@@ -46,7 +46,14 @@ def _wa_number(phone: str) -> str:
 
 # Read-only probes used by the connection test. The docs give two spellings for
 # the contact-count path, so both are tried before concluding anything.
-COUNT_PATHS = ("/api/ext/v3/contacts/count", "/api/ext/v3/contacts-count")
+# Read-only probes, tried in order. Tenants differ: some serve the v3 "ext"
+# API, others only v1, so a 404 means "not on this tenant" and we keep going.
+# The docs give two spellings for the v3 count path, hence both.
+PROBES = (
+    ("/api/ext/v3/contacts/count", "v3"),
+    ("/api/ext/v3/contacts-count", "v3"),
+    ("/api/v1/getContacts?pageSize=1", "v1"),
+)
 CHANNELS_PATH = "/api/ext/v3/channels"
 
 
@@ -59,8 +66,9 @@ def _describe_failure(status: int, body: str) -> str:
         return ("Token accepted but not permitted (403). Check the token's scopes in "
                 "WATI: Connector → API → your token.")
     if status == 404:
-        return ("Endpoint not found (404). The tenant API URL is probably wrong - it should look "
-                "like https://live-mt-server.wati.io/123456 with no trailing path.")
+        return ("No known contacts endpoint responded (404) on either the v3 or v1 API. Check the "
+                "tenant API URL in WATI - Connector - API; it should look like "
+                "https://live-mt-server.wati.io/123456 with no trailing path.")
     if status == 429:
         return "Rate limited by WATI (429). Wait a moment and try again."
     if status >= 500:
@@ -96,7 +104,7 @@ def test_connection(
     headers = {"Authorization": f"Bearer {api_token}", "Accept": "application/json"}
 
     last_status, last_body = None, ""
-    for path in COUNT_PATHS:
+    for path, flavour in PROBES:
         url = f"{tenant_url}{path}"
         try:
             resp = http.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
@@ -122,13 +130,27 @@ def test_connection(
                         "message": "The URL returned a non-JSON response, so it is not the WATI API endpoint."}
             if not isinstance(payload, dict):
                 payload = {}
-            count = payload.get("contact_count", payload.get("result"))
+
             result = {
                 "ok": True,
                 "message": "Credentials are valid.",
                 "endpoint": path,
-                "contact_count": count,
+                "api": flavour,
             }
+
+            # Only report a count when it really is one. v1's getContacts
+            # returns result:"success" (a string), which must not be shown as
+            # if it were a number of contacts.
+            raw_count = payload.get("contact_count")
+            if isinstance(raw_count, (int, float)):
+                result["contact_count"] = int(raw_count)
+
+            # v1 echoes the account's own number, which is useful confirmation
+            # that the token belongs to the expected WATI account.
+            account_phone = payload.get("login_user_phone")
+            if account_phone:
+                result["account_phone"] = str(account_phone)
+
             result.update(_list_channels(http, tenant_url, headers))
             return result
 

@@ -432,6 +432,8 @@
         if (d.contact_count !== null && d.contact_count !== undefined) {
           extra += " Account has <strong>" + esc(String(d.contact_count)) + "</strong> contacts.";
         }
+        if (d.account_phone) { extra += " Account number: <strong>" + esc(d.account_phone) + "</strong>."; }
+        if (d.api) { extra += " (API " + esc(d.api) + ")"; }
         if (d.channel_count) {
           extra += " Channels on the account: " + esc(String(d.channel_count));
           if (d.channels && d.channels.length) extra += " (" + esc(d.channels.join(", ")) + ")";
