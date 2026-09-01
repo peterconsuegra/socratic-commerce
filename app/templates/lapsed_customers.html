@@ -279,12 +279,15 @@
 
         <div class="row g-2 align-items-end">
           <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Attribute name</label>
-            <input type="text" id="watiAttribute" class="form-control" value="{{ wati_attribute }}">
+            <label class="form-label small text-muted mb-1">Attribute</label>
+            <input type="text" class="form-control" value="{{ wati_attribute }}" disabled
+                   title="Fixed in code so every campaign writes the same attribute name">
+            <input type="hidden" id="watiAttribute" value="{{ wati_attribute }}">
           </div>
           <div class="col-sm-4">
             <label class="form-label small text-muted mb-1">Remarketing label <span class="text-danger">*</span></label>
-            <input type="text" id="watiLabel" class="form-control" placeholder="e.g. winback_sept_2026">
+            <input type="text" id="watiLabel" class="form-control" maxlength="{{ wati_max_value }}"
+                   placeholder="e.g. winback_sept_2026">
           </div>
           <div class="col-sm-5 d-flex align-items-end gap-2">
             <button type="button" id="watiSendBtn" class="btn btn-success" {% if not wati_ready %}disabled{% endif %}>

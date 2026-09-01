@@ -18,12 +18,22 @@ segment re-labels those customers rather than duplicating them.
 """
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ATTRIBUTE = "remarketing"
+# Fixed in code on purpose. If operators could type the attribute name too,
+# a tenant ends up with "remarketing", "Remarketing" and "remarkting" and no
+# segment is ever complete. One fixed name, free-text value.
+ATTRIBUTE_NAME = "remarketing"
+DEFAULT_ATTRIBUTE = ATTRIBUTE_NAME
+
+MAX_VALUE_CHARS = 60
+
+# Enough to make a full page quick without tripping WATI's rate limits.
+CONCURRENCY = 5
 
 # Cap on one request, so a mis-click cannot fan out unbounded writes.
 MAX_CONTACTS_PER_RUN = 500
@@ -44,14 +54,11 @@ def _wa_number(phone: str) -> str:
     return str(phone).strip().lstrip("+")
 
 
-# Read-only probes used by the connection test. The docs give two spellings for
-# the contact-count path, so both are tried before concluding anything.
-# Read-only probes, tried in order. Tenants differ: some serve the v3 "ext"
-# API, others only v1, so a 404 means "not on this tenant" and we keep going.
-# The docs give two spellings for the v3 count path, hence both.
+# Read-only probes for the connection test, tried in order. Tenants differ in
+# which API they serve and tokens differ in scope, so a 404 (endpoint absent)
+# or 403 (this token lacks that scope) moves on to the next probe.
 PROBES = (
-    ("/api/ext/v3/contacts/count", "v3"),
-    ("/api/ext/v3/contacts-count", "v3"),
+    ("/api/ext/v3/contacts?pageSize=1", "v3"),
     ("/api/v1/getContacts?pageSize=1", "v1"),
     ("/api/v1/getMessageTemplates", "v1"),
 )
@@ -129,7 +136,8 @@ def test_connection(
 
     last_status, last_body = None, ""
     for path, flavour in PROBES:
-        url = f"{tenant_url}{path}"
+        base = _v3_base(tenant_url) if flavour == "v3" else _v1_base(tenant_url)
+        url = f"{base}{path}"
         try:
             resp = http.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
         except requests.Timeout:
@@ -201,7 +209,7 @@ def _list_channels(http, tenant_url, headers) -> dict:
     Never fails the credential test; on any error it simply adds nothing.
     """
     try:
-        resp = http.get(f"{tenant_url}{CHANNELS_PATH}", headers=headers, timeout=REQUEST_TIMEOUT)
+        resp = http.get(f"{_v3_base(tenant_url)}{CHANNELS_PATH}", headers=headers, timeout=REQUEST_TIMEOUT)
         if resp.status_code >= 300:
             return {}
         payload = resp.json()
@@ -218,6 +226,20 @@ def _list_channels(http, tenant_url, headers) -> dict:
 
 
 DASHBOARD_HOSTS = ("live.wati.io", "app.wati.io")
+
+# The v3 "ext" API resolves the tenant from the token, so the numeric tenant id
+# from the dashboard URL must NOT appear in the path - with it every v3 endpoint
+# 404s. The older v1 API is the opposite and requires it. Both bases are derived
+# from the single URL the operator configures.
+_TENANT_SUFFIX = re.compile(r"/\d+/?$")
+
+
+def _v3_base(tenant_url: str) -> str:
+    return _TENANT_SUFFIX.sub("", (tenant_url or "").strip().rstrip("/"))
+
+
+def _v1_base(tenant_url: str) -> str:
+    return (tenant_url or "").strip().rstrip("/")
 
 _DASHBOARD_HINT = (
     "That looks like the WATI dashboard URL, not the API endpoint. The dashboard "
@@ -276,20 +298,34 @@ def _payload_says_failure(resp) -> str | None:
     return None
 
 
-def _post_v3(http, tenant_url, headers, phone, name, params):
-    return http.post(
-        f"{tenant_url}/api/ext/v3/contacts",
-        json={"whatsapp_number": _wa_number(phone), "name": name, "custom_params": params},
+def _put_v3(http, tenant_url, headers, phone, name, params):
+    """
+    Update attributes via the v3 API.
+
+    Field names are not symmetrical with the read shape: reading returns
+    custom_params (snake_case), this write expects customParams (camelCase)
+    plus a "target" key that does not appear when reading. Sending the read
+    shape here fails in ways that look like a permissions problem.
+
+    It merges - other attributes on the contact are left untouched - so there
+    is no need to read-modify-write.
+    """
+    return http.put(
+        f"{_v3_base(tenant_url)}/api/ext/v3/contacts",
+        json={"contacts": [{
+            "target": _wa_number(phone),
+            "customParams": [{"name": str(p["name"]), "value": str(p["value"])} for p in params],
+        }]},
         headers=headers, timeout=REQUEST_TIMEOUT,
     )
 
 
 def _post_v1(http, tenant_url, headers, phone, name, params):
-    # addContact upserts: it creates the contact or updates an existing one,
-    # and accepts customParams in the same call.
+    """v1 addContact: upserts, so it also covers customers not yet in WATI."""
     return http.post(
-        f"{tenant_url}/api/v1/addContact/{_wa_number(phone)}",
-        json={"name": name, "customParams": params},
+        f"{_v1_base(tenant_url)}/api/v1/addContact/{_wa_number(phone)}",
+        json={"name": name,
+              "customParams": [{"name": str(p["name"]), "value": str(p["value"])} for p in params]},
         headers=headers, timeout=REQUEST_TIMEOUT,
     )
 
@@ -321,6 +357,8 @@ def tag_contacts(
         raise ValueError("WATI tenant URL and API token must be configured in Settings.")
     if not label:
         raise ValueError("A remarketing label is required.")
+    if len(label) > MAX_VALUE_CHARS:
+        raise ValueError(f"Label is {len(label)} characters; the limit is {MAX_VALUE_CHARS}.")
     if not customers:
         raise ValueError("No customers selected.")
     if len(customers) > MAX_CONTACTS_PER_RUN:
@@ -336,21 +374,10 @@ def tag_contacts(
     http = session or requests.Session()
 
     tagged, skipped, failed = [], [], []
-    flavour = None  # "v3" or "v1", decided by the first successful probe
+    flavour = None  # "v3" or "v1", decided by one probe on the first contact
 
-    for c in customers:
-        phone = (c.get("phone") or "").strip()
-        email = c.get("email") or ""
-
-        if not is_sendable_phone(phone):
-            skipped.append({
-                "email": email,
-                "phone": phone,
-                "reason": "no usable phone number" if not phone else "phone is not valid E.164",
-            })
-            continue
-
-        params = [{"name": attribute, "value": label}]
+    def build_params(c, email):
+        params = [{"name": attribute, "value": str(label)}]
         if extra_attributes:
             skus = c.get("last_skus") or []
             if skus:
@@ -359,47 +386,78 @@ def tag_contacts(
                 params.append({"name": "days_since_last_order",
                                "value": str(c["days_since_last_order"])})
             if email:
-                params.append({"name": "email", "value": email})
+                params.append({"name": "email", "value": str(email)})
+        return params
 
+    # Split out the rows we cannot send before doing any work.
+    sendable = []
+    for c in customers:
+        phone = (c.get("phone") or "").strip()
+        email = c.get("email") or ""
+        if not is_sendable_phone(phone):
+            skipped.append({
+                "email": email,
+                "phone": phone,
+                "reason": "no usable phone number" if not phone else "phone is not valid E.164",
+            })
+            continue
+        sendable.append((c, phone, email))
+
+    def send_one(entry, force_flavour=None):
+        """One contact per call even though the endpoint takes an array: a bulk
+        call returns one outcome for the batch, and an operator needs to know
+        *which* rows failed so they can retry those."""
+        c, phone, email = entry
+        params = build_params(c, email)
         name = (c.get("name") or "").strip() or _wa_number(phone)
-
+        use = force_flavour or flavour
         try:
-            # Tenants differ: some expose the v3 "ext" API, others only v1.
-            # Probe once on the first contact, then reuse whichever answered.
-            if flavour is None:
-                resp = _post_v3(http, tenant_url, headers, phone, name, params)
-                if resp.status_code in (404, 405):
-                    flavour = "v1"
-                    resp = _post_v1(http, tenant_url, headers, phone, name, params)
-                else:
-                    flavour = "v3"
-            elif flavour == "v3":
-                resp = _post_v3(http, tenant_url, headers, phone, name, params)
-            else:
+            if use == "v1":
                 resp = _post_v1(http, tenant_url, headers, phone, name, params)
+            else:
+                resp = _put_v3(http, tenant_url, headers, phone, name, params)
+                if resp.status_code in (404, 405) and force_flavour is None:
+                    return ("retry_v1", {"email": email, "phone": phone})
 
             if resp.status_code >= 300:
-                detail = _summarise_body(resp.text)
+                detail = _api_message(resp.text) or _summarise_body(resp.text)
                 if _is_dashboard_url(tenant_url) or _looks_like_html(resp):
                     detail = f"{detail} — {_DASHBOARD_HINT}" if detail else _DASHBOARD_HINT
-                logger.warning("WATI upsert failed (%s): %s", resp.status_code, detail)
-                failed.append({"email": email, "phone": phone,
-                               "status": resp.status_code, "error": detail})
-                continue
+                logger.warning("WATI update failed (%s): %s", resp.status_code, detail)
+                return ("failed", {"email": email, "phone": phone,
+                                   "status": resp.status_code, "error": detail})
 
-            # A 2xx is not enough: v1 signals failure inside the body.
+            # A 2xx is not enough: v1 reports failure inside the body.
             body_error = _payload_says_failure(resp)
             if body_error:
-                logger.warning("WATI upsert rejected for %s: %s", email, body_error)
-                failed.append({"email": email, "phone": phone,
-                               "status": resp.status_code, "error": body_error})
-                continue
+                logger.warning("WATI update rejected for %s: %s", email, body_error)
+                return ("failed", {"email": email, "phone": phone,
+                                   "status": resp.status_code, "error": body_error})
 
-            tagged.append({"email": email, "phone": phone})
+            return ("tagged", {"email": email, "phone": phone})
 
         except requests.RequestException as e:
-            logger.warning("WATI contact upsert error for %s: %s", email, e)
-            failed.append({"email": email, "phone": phone, "status": None, "error": str(e)})
+            # Collected, never raised: one dead number must not abandon the rest.
+            logger.warning("WATI update error for %s: %s", email, e)
+            return ("failed", {"email": email, "phone": phone, "status": None, "error": str(e)})
+
+    # Probe with the first contact to learn which API this tenant serves,
+    # then run the remainder concurrently using that answer.
+    if sendable:
+        outcome, detail = send_one(sendable[0])
+        if outcome == "retry_v1":
+            flavour = "v1"
+            outcome, detail = send_one(sendable[0], force_flavour="v1")
+        else:
+            flavour = flavour or "v3"
+        (tagged if outcome == "tagged" else failed).append(detail)
+
+    if len(sendable) > 1:
+        with ThreadPoolExecutor(max_workers=min(CONCURRENCY, len(sendable) - 1)) as pool:
+            for outcome, detail in pool.map(send_one, sendable[1:]):
+                if outcome == "retry_v1":
+                    outcome, detail = send_one(sendable[0], force_flavour="v1")
+                (tagged if outcome == "tagged" else failed).append(detail)
 
     return {
         "attribute": attribute,

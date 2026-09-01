@@ -2,7 +2,7 @@
 import logging
 
 from flask import current_app, jsonify, render_template, request
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from app.services.recurrent_customers import (
     DEFAULT_PER_PAGE,
@@ -11,7 +11,12 @@ from app.services.recurrent_customers import (
 )
 
 from app.services.secrets import get_secret
-from app.services.wati import DEFAULT_ATTRIBUTE, MAX_CONTACTS_PER_RUN, tag_contacts
+from app.services.wati import (
+    ATTRIBUTE_NAME,
+    MAX_CONTACTS_PER_RUN,
+    MAX_VALUE_CHARS,
+    tag_contacts,
+)
 
 from . import main
 from .common import get_option_value, refresh_all_orders_if_needed
@@ -84,7 +89,8 @@ def lapsed_customers():
         error=error,
         result=result,
         per_page_choices=PER_PAGE_CHOICES,
-        wati_attribute=DEFAULT_ATTRIBUTE,
+        wati_attribute=ATTRIBUTE_NAME,
+        wati_max_value=MAX_VALUE_CHARS,
         wati_max=MAX_CONTACTS_PER_RUN,
         wati_ready=bool(get_secret("wati_api_token")),
         months_choices=MONTHS_CHOICES,
@@ -107,12 +113,18 @@ def lapsed_customers_wati_remarketing():
     data = request.get_json(silent=True) or {}
     emails = [e.strip().lower() for e in (data.get("emails") or []) if str(e).strip()]
     label = (data.get("label") or "").strip()
-    attribute = (data.get("attribute") or DEFAULT_ATTRIBUTE).strip() or DEFAULT_ATTRIBUTE
+    # The attribute name is fixed in code: letting operators type it produces
+    # "remarketing"/"Remarketing"/"remarkting" in the tenant and no segment is
+    # ever complete. Only the value is free text.
+    attribute = ATTRIBUTE_NAME
 
     if not emails:
         return jsonify({"status": "error", "message": "No customers selected."}), 400
     if not label:
         return jsonify({"status": "error", "message": "A remarketing label is required."}), 400
+    if len(label) > MAX_VALUE_CHARS:
+        return jsonify({"status": "error",
+                        "message": f"Label is {len(label)} characters; the limit is {MAX_VALUE_CHARS}."}), 400
     if len(emails) > MAX_CONTACTS_PER_RUN:
         return jsonify({
             "status": "error",
@@ -126,6 +138,9 @@ def lapsed_customers_wati_remarketing():
             "status": "error",
             "message": "WATI is not configured. Add the tenant URL and API token in Settings.",
         }), 400
+
+    logger.info("%s is setting %s=%r on %d contacts",
+                getattr(current_user, "username", "unknown"), attribute, label, len(emails))
 
     try:
         # Resolve the selected emails against the customer aggregate, so phone
