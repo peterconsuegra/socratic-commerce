@@ -178,7 +178,18 @@ def lapsed_customers_export():
     logger.info("%s exported %d customers for a Meta custom audience (label filters: sku=%s months=%s type=%s)",
                 getattr(current_user, "username", "unknown"), exported, skus, months, customer_type)
 
-    filename = f"meta_custom_audience_{datetime.now():%Y%m%d}.csv"
+    # Name the file after the segment conditions, so an exported audience is
+    # self-describing when it is uploaded to Meta weeks later, e.g.
+    # inactive_for_more_than_3_months_repeated_customers_2026_09_01.csv
+    type_slug = {
+        "all": "all_customers",
+        "first_time": "first_time_customers",
+        "repeat": "repeated_customers",
+    }[customer_type]
+    filename = (
+        f"inactive_for_more_than_{months}_months_{type_slug}_"
+        f"{datetime.now():%Y_%m_%d}.csv"
+    )
     return Response(
         buf.getvalue(),
         mimetype="text/csv",
