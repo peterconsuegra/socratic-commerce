@@ -61,12 +61,17 @@
                  + '<strong>' + data.tagged + '</strong> tagged with <code>'
                  + esc(data.attribute) + ' = ' + esc(data.label) + '</code>'
                  + ' · <strong>' + data.skipped + '</strong> skipped'
-                 + ' · <strong>' + data.failed + '</strong> failed</div>';
+                 + ' · <strong>' + data.failed + '</strong> failed'
+                 + (data.v3_base ? '<br><small class="text-muted">endpoint base: ' + esc(data.v3_base)
+                                   + ' · configured: ' + esc(data.tenant_url || "") + '</small>' : "")
+                 + '</div>';
         function list(title, items, kind) {
           if (!items || !items.length) return "";
           return '<details class="small mb-1"><summary>' + title + '</summary><ul class="mb-0">'
                + items.map(function (x) {
-                   return "<li>" + esc(x.email || x.phone) + " — " + esc(x.reason || x.error || "") + "</li>";
+                   var line = esc(x.email || x.phone) + " — " + esc(x.reason || x.error || "");
+                   if (x.url) line += '<br><small class="text-muted">called: ' + esc(x.url) + "</small>";
+                   return "<li>" + line + "</li>";
                  }).join("") + "</ul></details>";
         }
         html += list("Skipped (" + data.skipped + ")", data.skipped_detail);

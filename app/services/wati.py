@@ -411,6 +411,8 @@ def tag_contacts(
         params = build_params(c, email)
         name = (c.get("name") or "").strip() or _wa_number(phone)
         use = force_flavour or flavour
+        attempted = (f"{_v1_base(tenant_url)}/api/v1/addContact/…" if use == "v1"
+                     else f"{_v3_base(tenant_url)}/api/ext/v3/contacts")
         try:
             if use == "v1":
                 resp = _post_v1(http, tenant_url, headers, phone, name, params)
@@ -424,14 +426,14 @@ def tag_contacts(
                 if _is_dashboard_url(tenant_url) or _looks_like_html(resp):
                     detail = f"{detail} — {_DASHBOARD_HINT}" if detail else _DASHBOARD_HINT
                 logger.warning("WATI update failed (%s): %s", resp.status_code, detail)
-                return ("failed", {"email": email, "phone": phone,
+                return ("failed", {"email": email, "phone": phone, "url": attempted,
                                    "status": resp.status_code, "error": detail})
 
             # A 2xx is not enough: v1 reports failure inside the body.
             body_error = _payload_says_failure(resp)
             if body_error:
                 logger.warning("WATI update rejected for %s: %s", email, body_error)
-                return ("failed", {"email": email, "phone": phone,
+                return ("failed", {"email": email, "phone": phone, "url": attempted,
                                    "status": resp.status_code, "error": body_error})
 
             return ("tagged", {"email": email, "phone": phone})
@@ -439,7 +441,8 @@ def tag_contacts(
         except requests.RequestException as e:
             # Collected, never raised: one dead number must not abandon the rest.
             logger.warning("WATI update error for %s: %s", email, e)
-            return ("failed", {"email": email, "phone": phone, "status": None, "error": str(e)})
+            return ("failed", {"email": email, "phone": phone, "url": attempted,
+                               "status": None, "error": str(e)})
 
     # Probe with the first contact to learn which API this tenant serves,
     # then run the remainder concurrently using that answer.
@@ -467,6 +470,10 @@ def tag_contacts(
         "skipped": len(skipped),
         "failed": len(failed),
         "api": flavour,
+        # Reported so a failure shows which host was actually contacted, rather
+        # than leaving the operator to guess whether the saved URL took effect.
+        "tenant_url": tenant_url,
+        "v3_base": _v3_base(tenant_url),
         "skipped_detail": skipped[:50],
         "failed_detail": failed[:50],
     }
