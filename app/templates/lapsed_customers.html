@@ -210,7 +210,7 @@
       </div>
     </form>
 
-    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
       <span class="text-muted small">
         {% if p.total_rows %}
           Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
@@ -218,7 +218,17 @@
           No customers match this segment
         {% endif %}
       </span>
-      <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+      <span class="d-flex align-items-center gap-3">
+        <a class="btn btn-outline-success btn-sm"
+           href="{{ url_for('main.lapsed_customers_export',
+                            months=months, customer_type=customer_type, sku=selected_skus,
+                            sort=result.sort.key, direction=result.sort.direction,
+                            q=result.search or None) }}"
+           title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
+          Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
+        </a>
+        <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+      </span>
     </div>
 
     <div class="table-responsive">
@@ -234,6 +244,7 @@
             <th>{{ sort_link('email', 'Email') }}</th>
             <th class="text-end">{{ sort_link('orders', 'Orders') }}</th>
             <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
+            <th class="text-end">{{ sort_link('last_value', 'Last purchase value') }}</th>
             <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
             <th class="text-end">Days since</th>
@@ -252,6 +263,7 @@
               <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
               <td class="text-end">{{ c.orders_count }}</td>
               <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
+              <td class="text-end">{{ c.last_order_value | cop }}</td>
               <td style="min-width:150px;">
                 {%- for sku in c.last_skus %}
                   <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>

@@ -51,6 +51,7 @@ SORT_COLUMNS = {
     "email": ("email", False),
     "last_order": ("last_order", True),
     "last_order_utc": ("last_order_utc", True),
+    "last_value": ("last_order_value", True),
 }
 DEFAULT_SORT = "spent"
 
@@ -133,6 +134,7 @@ def get_recurrent_customers(
     inactive_months: int | None = None,
     max_orders: int | None = None,
     emails: list | None = None,
+    paginate: bool = True,
 ) -> dict:
     """
     Returns a page of customers with more than one order.
@@ -222,20 +224,27 @@ def get_recurrent_customers(
     # One order can list several comma-separated SKUs when it had several line
     # items, so the value is split into a list. It must never be grouped on
     # raw: "una_unidad, pack_favorito" is two products, not a third one.
-    last_order_rows = (
+    last_orders = (
         data.sort_values("order_date", kind="mergesort")
         .groupby("email_key")
         .tail(1)
-        .set_index("email_key")["sku"]
+        .set_index("email_key")
     )
-    last_skus_by_customer = last_order_rows.apply(
+    last_skus_by_customer = last_orders["sku"].apply(
         lambda v: [p.strip() for p in str(v).split(",") if p.strip()]
     ).rename("last_skus")
+    last_value_by_customer = last_orders["total_value"].rename("last_order_value")
 
-    grouped = grouped.join(phone_by_customer).join(last_utc_by_customer).join(last_skus_by_customer)
+    grouped = (
+        grouped.join(phone_by_customer)
+        .join(last_utc_by_customer)
+        .join(last_skus_by_customer)
+        .join(last_value_by_customer)
+    )
     grouped["phone"] = grouped["phone"].fillna("")
     grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
     grouped["last_skus"] = grouped["last_skus"].apply(lambda v: v if isinstance(v, list) else [])
+    grouped["last_order_value"] = grouped["last_order_value"].fillna(0.0)
 
     total_customers = int(len(grouped))
     available_skus = sorted({sku for lst in grouped["last_skus"] for sku in lst})
@@ -291,10 +300,18 @@ def get_recurrent_customers(
     )
 
     total_rows = int(len(recurrent))
-    total_pages = max(1, (total_rows + per_page - 1) // per_page)
-    page = min(page, total_pages)
-    start = (page - 1) * per_page
-    window = recurrent.iloc[start:start + per_page]
+    if paginate:
+        total_pages = max(1, (total_rows + per_page - 1) // per_page)
+        page = min(page, total_pages)
+        start = (page - 1) * per_page
+        window = recurrent.iloc[start:start + per_page]
+    else:
+        # Export mode: every matching row, ignoring the page window. Pagination
+        # metadata still describes what was returned.
+        total_pages = 1
+        page = 1
+        start = 0
+        window = recurrent
 
     rows = []
     for i, (_, r) in enumerate(window.iterrows(), start=start + 1):
@@ -304,6 +321,7 @@ def get_recurrent_customers(
             "phone": r["phone"],
             "last_order_utc": r["last_order_utc"],
             "last_skus": list(r["last_skus"]),
+            "last_order_value": float(r["last_order_value"]),
             "days_since_last_order": _days_since(r["last_order_utc"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),

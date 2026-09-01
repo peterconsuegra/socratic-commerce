@@ -1,7 +1,10 @@
 # app/routes/lapsed.py
+import csv
+import io
 import logging
+from datetime import datetime
 
-from flask import current_app, jsonify, render_template, request
+from flask import Response, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from app.services.recurrent_customers import (
@@ -11,6 +14,7 @@ from app.services.recurrent_customers import (
 )
 
 from app.services.secrets import get_secret
+from app.services.wati import prepare_target
 from app.services.wati import (
     ATTRIBUTE_NAME,
     MAX_CONTACTS_PER_RUN,
@@ -44,10 +48,9 @@ DEFAULT_SKUS = ["una_unidad", "pack_valentin", "pack_favorito"]
 DEFAULT_MONTHS = 3
 
 
-@main.route("/lapsed-customers")
-@login_required
-def lapsed_customers():
-    """Customers whose last purchase was a given SKU and who have since lapsed."""
+def _read_segment_filters():
+    """Parse the segment filters from the query string. Shared by the list view
+    and the CSV export so both always describe the same set of customers."""
     skus = request.args.getlist("sku") or DEFAULT_SKUS
 
     try:
@@ -62,6 +65,15 @@ def lapsed_customers():
     if customer_type not in CUSTOMER_TYPES:
         customer_type = "all"
     min_orders, max_orders = CUSTOMER_TYPES[customer_type]["bounds"]
+
+    return skus, months, customer_type, min_orders, max_orders
+
+
+@main.route("/lapsed-customers")
+@login_required
+def lapsed_customers():
+    """Customers whose last purchase was a given SKU and who have since lapsed."""
+    skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
 
     error = None
     result = None
@@ -98,6 +110,64 @@ def lapsed_customers():
         months=months,
         customer_type=customer_type,
         customer_types=CUSTOMER_TYPES,
+    )
+
+
+@main.route("/lapsed-customers/export.csv")
+@login_required
+def lapsed_customers_export():
+    """
+    The current segment - every matching row, not just the visible page - as a
+    CSV shaped for Meta Ads custom audience uploads.
+
+    Columns follow Meta's customer-list template: email, phone, fn, country,
+    value. country is fixed to CO (the customer base is Colombian) and value is
+    the customer's lifetime spend, which lets Meta build value-based lookalike
+    audiences. Phones reuse the WATI target normalisation, which is also what
+    Meta wants: country code, digits only. Emails and names are lowercased per
+    Meta's matching guidance.
+    """
+    skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
+
+    refresh_all_orders_if_needed()
+    result = get_recurrent_customers(
+        orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
+        sort=request.args.get("sort", "spent"),
+        direction=request.args.get("direction"),
+        search=request.args.get("q", ""),
+        min_orders=min_orders,
+        max_orders=max_orders,
+        sku_filter=set(skus),
+        inactive_months=months,
+        paginate=False,
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["email", "phone", "fn", "country", "value"])
+    exported = 0
+    for row in result["rows"]:
+        email = (row.get("email") or "").strip().lower()
+        target, _reason = prepare_target(row.get("phone"))
+        if not email and not target:
+            continue  # nothing for Meta to match on
+        writer.writerow([
+            email,
+            target or "",
+            (row.get("name") or "").strip().lower(),
+            "CO",
+            int(round(row.get("total_spent") or 0)),
+        ])
+        exported += 1
+
+    logger.info("%s exported %d customers for a Meta custom audience (label filters: sku=%s months=%s type=%s)",
+                getattr(current_user, "username", "unknown"), exported, skus, months, customer_type)
+
+    filename = f"meta_custom_audience_{datetime.now():%Y%m%d}.csv"
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
