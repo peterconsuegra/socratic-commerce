@@ -432,10 +432,10 @@
         if (d.contact_count !== null && d.contact_count !== undefined) {
           extra += " Account has <strong>" + esc(String(d.contact_count)) + "</strong> contacts.";
         }
-        if (d.channel_checked) {
-          extra += d.channel_found
-            ? ' The configured channel number was found on the account.'
-            : ' <span class="text-warning-emphasis">Note: the configured channel number was not found on the account.</span>';
+        if (d.channel_count) {
+          extra += " Channels on the account: " + esc(String(d.channel_count));
+          if (d.channels && d.channels.length) extra += " (" + esc(d.channels.join(", ")) + ")";
+          extra += ".";
         }
         out.innerHTML = '<div class="alert alert-success py-2 mb-0 small">✓ ' + esc(d.message) + extra + '</div>';
       } else {

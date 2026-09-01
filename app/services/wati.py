@@ -118,7 +118,7 @@ def test_connection(
                 "endpoint": path,
                 "contact_count": count,
             }
-            result.update(_check_channel(http, tenant_url, headers, channel_number))
+            result.update(_list_channels(http, tenant_url, headers))
             return result
 
         last_status, last_body = resp.status_code, resp.text
@@ -129,25 +129,33 @@ def test_connection(
             "status": last_status}
 
 
-def _check_channel(http, tenant_url, headers, channel_number) -> dict:
+def _list_channels(http, tenant_url, headers) -> dict:
     """
-    Best-effort: confirm the configured sender number exists on the account.
-    A failure here never fails the credential test - it is extra information.
+    Best-effort extra context: the channels on the account.
+
+    Note this deliberately does NOT try to match the configured sender number.
+    GET /api/ext/v3/channels returns only {id, name, channel} - there is no
+    phone-number field - so any "number not found" verdict here would be
+    meaningless. The sender number is only used when sending messages, which
+    this integration does not do.
+
+    Never fails the credential test; on any error it simply adds nothing.
     """
-    if not channel_number:
-        return {"channel_checked": False}
     try:
         resp = http.get(f"{tenant_url}{CHANNELS_PATH}", headers=headers, timeout=REQUEST_TIMEOUT)
         if resp.status_code >= 300:
-            return {"channel_checked": False}
-        digits = "".join(ch for ch in str(channel_number) if ch.isdigit())
-        found = digits and digits in "".join(ch for ch in resp.text if ch.isdigit() or ch == ",")
-        return {"channel_checked": True, "channel_found": bool(found)}
+            return {}
+        payload = resp.json()
+        channels = payload.get("channels", payload) if isinstance(payload, dict) else payload
+        if not isinstance(channels, list):
+            return {}
+        names = [str(c.get("name") or c.get("channel") or "").strip()
+                 for c in channels if isinstance(c, dict)]
+        names = [n for n in names if n]
+        return {"channels": names[:10], "channel_count": len(channels)}
     except Exception:
-        # This check is a bonus; it must never turn a valid-credentials result
-        # into a failure, whatever goes wrong here.
-        logger.debug("WATI channel check skipped", exc_info=True)
-        return {"channel_checked": False}
+        logger.debug("WATI channel listing skipped", exc_info=True)
+        return {}
 
 
 def tag_contacts(
