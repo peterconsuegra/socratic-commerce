@@ -133,8 +133,9 @@ def lapsed_customers_export():
 
     Columns match the user's working audience file exactly:
         fn,ln,email,phone,country,ct,gen,value
-    country is fixed to CO. ln is always blank - the orders source carries no
-    last name anywhere. ct and gen come from the customer's most recent order
+    country is fixed to CO. ln is the billing last name where the API has sent
+    one (orders fetched before the plugin exposed last_name leave it blank).
+    ct and gen come from the customer's most recent order
     (city cleaned of its "(C/MARCA)"-style suffix; gender mapped to F/M, blank
     when unknown). Phones are E.164 with the leading "+", as in the sample, and
     value is lifetime spend for value-based lookalikes.
@@ -165,7 +166,7 @@ def lapsed_customers_export():
             continue  # nothing for Meta to match on
         writer.writerow([
             (row.get("name") or "").strip(),
-            "",  # no last name exists anywhere in the orders source
+            (row.get("last_name") or "").strip(),
             email,
             f"+{target}" if target else "",
             "CO",

@@ -120,6 +120,9 @@ DAILY_SALES_SCHEMA = [
     "order_date",
     "order_date_utc",
     "name",
+    # last_name arrived later than name and is optional: the API sends "N/A"
+    # when the order has no billing last name stored.
+    "last_name",
     "email",
     "phone",
     "city",
@@ -149,6 +152,10 @@ def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict)
     name_raw = _clean_str(item.get("name"))
     name_title = name_raw.title() if name_raw else ""
 
+    # Compound surnames arrive whole ("Guzmán García") and must stay whole.
+    last_name_raw = _clean_optional(item.get("last_name"))
+    last_name_title = last_name_raw.title() if last_name_raw else ""
+
     first_name = name_title.split()[0] if name_title else ""
     gender = get_gender_with_custom_mapping(first_name, detector, name_to_gender) if first_name else "unknown"
 
@@ -164,6 +171,7 @@ def _build_daily_sales_row(item: dict, detector: Detector, name_to_gender: dict)
         "order_date": _clean_str(item.get("order_date")),
         "order_date_utc": _clean_optional(item.get("order_date_utc")),
         "name": name_title,
+        "last_name": last_name_title,
         "email": _clean_str(item.get("email")),
         "phone": sanitize_phone(item.get("phone")),
         "city": _clean_str(item.get("city")),

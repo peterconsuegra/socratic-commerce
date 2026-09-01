@@ -92,7 +92,7 @@ def _load_orders(orders_csv_path: str) -> pd.DataFrame:
     # schema change will not have them, so default to empty rather than
     # treating them as required - a stale cache should render blank cells,
     # not crash the page.
-    for col in ("phone", "order_date_utc", "sku"):
+    for col in ("phone", "order_date_utc", "sku", "last_name"):
         if col in data.columns:
             data[col] = data[col].fillna("").astype(str).str.strip()
             # "N/A" is the API sentinel; blank it here too in case an older
@@ -210,6 +210,17 @@ def get_recurrent_customers(
         .rename("phone")
     )
 
+    # Last name follows the phone pattern - most recent non-empty value -
+    # rather than the last-order join, so customers whose newest order predates
+    # the field still get a surname once any of their orders carries one.
+    with_last_name = data[data["last_name"] != ""]
+    last_name_by_customer = (
+        with_last_name.sort_values("order_date", kind="mergesort")
+        .groupby("email_key")["last_name"]
+        .last()
+        .rename("last_name")
+    )
+
     # String max is chronological for ISO-8601 "Z" timestamps (see module docstring).
     with_utc = data[data["order_date_utc"] != ""]
     last_utc_by_customer = (
@@ -247,6 +258,7 @@ def get_recurrent_customers(
 
     grouped = (
         grouped.join(phone_by_customer)
+        .join(last_name_by_customer)
         .join(last_utc_by_customer)
         .join(last_skus_by_customer)
         .join(last_value_by_customer)
@@ -254,6 +266,7 @@ def get_recurrent_customers(
         .join(last_gender_by_customer)
     )
     grouped["phone"] = grouped["phone"].fillna("")
+    grouped["last_name"] = grouped["last_name"].fillna("").astype(str)
     grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
     grouped["last_skus"] = grouped["last_skus"].apply(lambda v: v if isinstance(v, list) else [])
     grouped["last_order_value"] = grouped["last_order_value"].fillna(0.0)
@@ -332,6 +345,7 @@ def get_recurrent_customers(
         rows.append({
             "rank": i,
             "name": r["name"],
+            "last_name": r["last_name"],
             "phone": r["phone"],
             "last_order_utc": r["last_order_utc"],
             "last_skus": list(r["last_skus"]),
