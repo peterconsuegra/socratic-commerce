@@ -132,6 +132,7 @@ def get_recurrent_customers(
     sku_filter: set | list | None = None,
     inactive_months: int | None = None,
     max_orders: int | None = None,
+    emails: list | None = None,
 ) -> dict:
     """
     Returns a page of customers with more than one order.
@@ -151,6 +152,10 @@ def get_recurrent_customers(
             is older than this many months - a lapsed / win-back segment.
         max_orders: if given, keep only customers with at most this many
             orders, so min_orders/max_orders together bound the range.
+        emails: if given, keep only these customers (case-insensitive email
+            match). Used to resolve a checkbox selection: without it a caller
+            would have to page through the spend-ranked listing and anyone
+            below the page cap would silently resolve as missing.
 
     Both filters default to None, leaving the returned figures identical to a
     call without them.
@@ -239,6 +244,10 @@ def get_recurrent_customers(
     # Optional segment filters. Applied before the summary so the tiles
     # describe the segment being listed, and skipped entirely when not asked
     # for, which keeps the plain recurrent-customers figures unchanged.
+    if emails:
+        wanted = {str(e).strip().lower() for e in emails if str(e).strip()}
+        recurrent = recurrent[recurrent.index.isin(wanted)].copy()
+
     if max_orders:
         recurrent = recurrent[recurrent["orders_count"] <= int(max_orders)].copy()
 

@@ -144,11 +144,15 @@ def lapsed_customers_wati_remarketing():
 
     try:
         # Resolve the selected emails against the customer aggregate, so phone
-        # and attributes come from the same source the table displayed.
+        # and attributes come from the same source the table displayed. The
+        # emails filter matters: without it this returns the top rows of the
+        # spend-ranked listing, and any selected customer below that cutoff
+        # would wrongly resolve as "customer not found".
         refresh_all_orders_if_needed()
         everyone = get_recurrent_customers(
             orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
             min_orders=1,
+            emails=emails,
             per_page=MAX_PER_PAGE_LOOKUP,
         )["rows"]
         by_email = {r["email"].lower(): r for r in everyone}

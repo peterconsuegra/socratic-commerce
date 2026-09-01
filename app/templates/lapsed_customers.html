@@ -69,7 +69,9 @@
           if (!items || !items.length) return "";
           return '<details class="small mb-1"><summary>' + title + '</summary><ul class="mb-0">'
                + items.map(function (x) {
-                   var line = esc(x.email || x.phone) + " — " + esc(x.reason || x.error || "");
+                   var who = x.phone ? esc(x.phone) + (x.email ? ' <span class="text-muted">(' + esc(x.email) + ")</span>" : "")
+                                     : esc(x.email || "?");
+                   var line = who + " — " + esc(x.reason || x.error || "");
                    if (x.url) line += '<br><small class="text-muted">called: ' + esc(x.url) + "</small>";
                    return "<li>" + line + "</li>";
                  }).join("") + "</ul></details>";

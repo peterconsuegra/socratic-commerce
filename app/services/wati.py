@@ -54,6 +54,43 @@ def _wa_number(phone: str) -> str:
     return str(phone).strip().lstrip("+")
 
 
+COLOMBIA_COUNTRY_CODE = "57"
+
+# Separators that indicate one field holds several numbers; picking one of
+# them would be a guess, so such rows are skipped and reported.
+_MULTI_NUMBER_SEPARATORS = ("/", ",", ";")
+
+
+def prepare_target(phone: str | None) -> tuple[str | None, str | None]:
+    """
+    Turn a stored phone into a WATI target (digits, no "+"), or explain why it
+    cannot be sent. Returns (target, skip_reason) - exactly one is set.
+
+    Nearly all customers are Colombian, so a number with no country code gets
+    +57 by default rather than being skipped. A number the customer typed with
+    an explicit country code keeps it. WATI itself remains the final judge of
+    validity - a wrong guess comes back as its error, named per contact,
+    instead of a silent skip here.
+    """
+    raw = str(phone or "").strip()
+    if not raw:
+        return None, "no phone number"
+    if any(sep in raw for sep in _MULTI_NUMBER_SEPARATORS):
+        return None, "several numbers in one field"
+
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) < 7:
+        return None, "phone has too few digits"
+
+    if raw.startswith("+"):
+        return digits, None
+
+    digits = digits.lstrip("0")
+    if digits.startswith(COLOMBIA_COUNTRY_CODE) and len(digits) >= 12:
+        return digits, None
+    return COLOMBIA_COUNTRY_CODE + digits, None
+
+
 # Read-only probes for the connection test, tried in order. Tenants differ in
 # which API they serve and tokens differ in scope, so a 404 (endpoint absent)
 # or 403 (this token lacks that scope) moves on to the next probe.
@@ -422,19 +459,18 @@ def tag_contacts(
                 params.append({"name": "email", "value": str(email)})
         return params
 
-    # Split out the rows we cannot send before doing any work.
+    # Split out the rows we cannot send before doing any work. Anything with
+    # digits is attempted (defaulting +57 when no country code is present);
+    # only empty, multi-number or absurdly short values are skipped.
     sendable = []
     for c in customers:
         phone = (c.get("phone") or "").strip()
         email = c.get("email") or ""
-        if not is_sendable_phone(phone):
-            skipped.append({
-                "email": email,
-                "phone": phone,
-                "reason": "no usable phone number" if not phone else "phone is not valid E.164",
-            })
+        target, reason = prepare_target(phone)
+        if reason:
+            skipped.append({"email": email, "phone": phone, "reason": reason})
             continue
-        sendable.append((c, phone, email))
+        sendable.append((c, target, email))
 
     def send_one(entry, force_flavour=None):
         """One contact per call even though the endpoint takes an array: a bulk
