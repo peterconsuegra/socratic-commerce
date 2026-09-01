@@ -89,6 +89,8 @@ def test_connection(
         return {"ok": False, "message": "WATI is not configured: set the tenant URL and API token first."}
     if not tenant_url.startswith(("http://", "https://")):
         return {"ok": False, "message": f"Tenant URL must start with https:// (got {tenant_url!r})."}
+    if _is_dashboard_url(tenant_url):
+        return {"ok": False, "message": _DASHBOARD_HINT}
 
     http = session or requests.Session()
     headers = {"Authorization": f"Bearer {api_token}", "Accept": "application/json"}
@@ -107,9 +109,18 @@ def test_connection(
             return {"ok": False, "message": f"Request failed: {e}"}
 
         if resp.status_code < 300:
+            # A 2xx is not proof: the WATI dashboard host returns 200 with the
+            # web app for any path, which would otherwise read as success.
+            if _looks_like_html(resp):
+                return {"ok": False, "message": _DASHBOARD_HINT
+                        if _is_dashboard_url(tenant_url)
+                        else "The URL returned an HTML page instead of JSON, so it is not the WATI API endpoint."}
             try:
                 payload = resp.json()
             except ValueError:
+                return {"ok": False,
+                        "message": "The URL returned a non-JSON response, so it is not the WATI API endpoint."}
+            if not isinstance(payload, dict):
                 payload = {}
             count = payload.get("contact_count", payload.get("result"))
             result = {
@@ -156,6 +167,28 @@ def _list_channels(http, tenant_url, headers) -> dict:
     except Exception:
         logger.debug("WATI channel listing skipped", exc_info=True)
         return {}
+
+
+DASHBOARD_HOSTS = ("live.wati.io", "app.wati.io")
+
+_DASHBOARD_HINT = (
+    "That looks like the WATI dashboard URL, not the API endpoint. The dashboard "
+    "answers every path with the web app, so requests never reach the API. Copy the "
+    "API endpoint from WATI → Connector → API; it usually looks like "
+    "https://live-mt-server.wati.io/<tenant id>."
+)
+
+
+def _looks_like_html(resp) -> bool:
+    ctype = (resp.headers.get("Content-Type", "") if hasattr(resp, "headers") else "") or ""
+    if "html" in ctype.lower():
+        return True
+    body = (getattr(resp, "text", "") or "")[:200].lstrip().lower()
+    return body.startswith("<!doctype html") or body.startswith("<html")
+
+
+def _is_dashboard_url(tenant_url: str) -> bool:
+    return any(h in (tenant_url or "").lower() for h in DASHBOARD_HOSTS)
 
 
 def _summarise_body(text: str, limit: int = 160) -> str:
@@ -299,6 +332,8 @@ def tag_contacts(
 
             if resp.status_code >= 300:
                 detail = _summarise_body(resp.text)
+                if _is_dashboard_url(tenant_url) or _looks_like_html(resp):
+                    detail = f"{detail} — {_DASHBOARD_HINT}" if detail else _DASHBOARD_HINT
                 logger.warning("WATI upsert failed (%s): %s", resp.status_code, detail)
                 failed.append({"email": email, "phone": phone,
                                "status": resp.status_code, "error": detail})

@@ -10,7 +10,7 @@ from flask_login import login_required
 from app import db
 from app.models import ApiToken, Option
 from app.services.secrets import get_secret, has_secret, mask_secret, set_secret
-from app.services.wati import test_connection as wati_test_connection
+from app.services.wati import _is_dashboard_url, test_connection as wati_test_connection
 
 from . import main
 
@@ -83,7 +83,8 @@ def _set_plain_option(meta_key: str, value: str):
 @login_required
 def options_wati_save():
     """Save WATI connection settings. The token is stored encrypted."""
-    _set_plain_option(WATI_TENANT_URL_KEY, request.form.get("tenant_url", ""))
+    tenant_url = (request.form.get("tenant_url", "") or "").strip()
+    _set_plain_option(WATI_TENANT_URL_KEY, tenant_url)
     _set_plain_option(WATI_CHANNEL_KEY, request.form.get("channel_number", ""))
     db.session.commit()
 
@@ -98,6 +99,14 @@ def options_wati_save():
         flash("WATI settings saved. The token is stored encrypted.", "success")
     else:
         flash("WATI settings saved.", "success")
+
+    if _is_dashboard_url(tenant_url):
+        flash(
+            "Warning: that Tenant API URL looks like the WATI dashboard, not the API "
+            "endpoint. Requests to it are rejected by the web server. Copy the API "
+            "endpoint from WATI → Connector → API.",
+            "danger",
+        )
 
     return redirect(url_for("main.list_options"))
 
