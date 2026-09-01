@@ -148,14 +148,17 @@
                                 <button class="btn btn-outline-secondary" type="button" id="watiRevealBtn"
                                         {% if not wati.configured %}disabled{% endif %}>Show stored token</button>
                             </div>
+                            <div id="watiTestResult" class="mt-2"></div>
                             <div class="form-text" id="watiTokenHint">
                                 {% if wati.configured %}A token is stored ({{ wati.token_masked }}). Leave blank to keep it.
                                 {% else %}No token stored yet.{% endif %}
                             </div>
                         </div>
 
-                        <div class="col-md-3 d-flex align-items-end gap-2">
+                        <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
                             <button type="submit" class="btn btn-primary">Save</button>
+                            <button type="button" class="btn btn-outline-primary" id="watiTestBtn"
+                                    {% if not wati.configured %}disabled{% endif %}>Test connection</button>
                             {% if wati.configured %}
                               <button type="submit" name="clear_token" value="1" class="btn btn-outline-danger"
                                       onclick="return confirm('Remove the stored WATI token?');">Remove</button>
@@ -404,6 +407,47 @@
           );
       }
   });
+</script>
+
+<script>
+// Read-only credential check: calls WATI's contact-count endpoint. Creates
+// nothing and sends nothing.
+(function () {
+  var btn = document.getElementById("watiTestBtn");
+  if (!btn) return;
+  var out = document.getElementById("watiTestResult");
+  function esc(s){ var d=document.createElement("div"); d.textContent = s==null?"":s; return d.innerHTML; }
+
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    var original = btn.textContent;
+    btn.textContent = "Testing…";
+    out.innerHTML = '<span class="text-primary small">Contacting WATI…</span>';
+    try {
+      var resp = await fetch("{{ url_for('main.options_wati_test') }}",
+                             { method: "POST", credentials: "same-origin" });
+      var d = await resp.json();
+      if (d.ok) {
+        var extra = "";
+        if (d.contact_count !== null && d.contact_count !== undefined) {
+          extra += " Account has <strong>" + esc(String(d.contact_count)) + "</strong> contacts.";
+        }
+        if (d.channel_checked) {
+          extra += d.channel_found
+            ? ' The configured channel number was found on the account.'
+            : ' <span class="text-warning-emphasis">Note: the configured channel number was not found on the account.</span>';
+        }
+        out.innerHTML = '<div class="alert alert-success py-2 mb-0 small">✓ ' + esc(d.message) + extra + '</div>';
+      } else {
+        out.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">✗ ' + esc(d.message) + '</div>';
+      }
+    } catch (e) {
+      out.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">✗ ' + esc(String(e)) + '</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = original;
+    }
+  });
+})();
 </script>
 
 <script>

@@ -1,4 +1,6 @@
 # app/routes/options.py
+import logging
+
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
@@ -8,8 +10,11 @@ from flask_login import login_required
 from app import db
 from app.models import ApiToken, Option
 from app.services.secrets import get_secret, has_secret, mask_secret, set_secret
+from app.services.wati import test_connection as wati_test_connection
 
 from . import main
+
+logger = logging.getLogger(__name__)
 
 
 def _to_bogota(dt):
@@ -105,6 +110,28 @@ def options_wati_reveal():
     if not token:
         return jsonify({"status": "error", "message": "No token stored."}), 404
     return jsonify({"status": "success", "token": token}), 200
+
+
+@main.route("/options/wati/test", methods=["POST"])
+@login_required
+def options_wati_test():
+    """Verify the stored WATI credentials with a read-only call."""
+    tenant_url = get_option_value_raw(WATI_TENANT_URL_KEY, "")
+    channel = get_option_value_raw(WATI_CHANNEL_KEY, "")
+    token = get_secret(WATI_TOKEN_KEY)
+
+    if not token:
+        return jsonify({"ok": False, "message": "No API token stored. Save one first."}), 400
+
+    try:
+        result = wati_test_connection(
+            tenant_url=tenant_url, api_token=token, channel_number=channel
+        )
+    except Exception as e:
+        logger.exception("WATI connection test failed")
+        return jsonify({"ok": False, "message": str(e)}), 500
+
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @main.route("/options/api_tokens/new", methods=["POST"])
