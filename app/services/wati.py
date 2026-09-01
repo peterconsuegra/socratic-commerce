@@ -298,6 +298,26 @@ def _payload_says_failure(resp) -> str | None:
     return None
 
 
+def _v3_wrote_nothing(resp, flavour) -> str | None:
+    """
+    The v3 update returns the contacts it changed in "contact_list" (per the
+    documented 200 schema). An empty list is a 200 that changed nothing -
+    typically the target did not resolve to a contact - and must not be
+    reported as tagged.
+    """
+    if flavour != "v3":
+        return None
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or "contact_list" not in data:
+        return None
+    if not data.get("contact_list"):
+        return "no contact matched this number in WATI (nothing was updated)"
+    return None
+
+
 def _put_v3(http, tenant_url, headers, phone, name, params):
     """
     Update attributes via the v3 API.
@@ -411,7 +431,9 @@ def tag_contacts(
         params = build_params(c, email)
         name = (c.get("name") or "").strip() or _wa_number(phone)
         use = force_flavour or flavour
-        attempted = (f"{_v1_base(tenant_url)}/api/v1/addContact/…" if use == "v1"
+        # On the probe call flavour is still None, which means v3 is attempted.
+        effective = "v1" if use == "v1" else "v3"
+        attempted = (f"{_v1_base(tenant_url)}/api/v1/addContact/…" if effective == "v1"
                      else f"{_v3_base(tenant_url)}/api/ext/v3/contacts")
         try:
             if use == "v1":
@@ -429,8 +451,12 @@ def tag_contacts(
                 return ("failed", {"email": email, "phone": phone, "url": attempted,
                                    "status": resp.status_code, "error": detail})
 
-            # A 2xx is not enough: v1 reports failure inside the body.
-            body_error = _payload_says_failure(resp)
+            # A 2xx is not enough. Two documented shapes hide failures:
+            #  - v1 returns {"result": false, "info": ...}
+            #  - v3 returns {"contact_list": [...]}; an empty list means no
+            #    contact matched the target, so nothing was written even
+            #    though the call "succeeded".
+            body_error = _payload_says_failure(resp) or _v3_wrote_nothing(resp, effective)
             if body_error:
                 logger.warning("WATI update rejected for %s: %s", email, body_error)
                 return ("failed", {"email": email, "phone": phone, "url": attempted,
