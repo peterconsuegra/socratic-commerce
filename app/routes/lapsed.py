@@ -2,6 +2,7 @@
 import csv
 import io
 import logging
+import re
 from datetime import datetime
 
 from flask import Response, current_app, jsonify, render_template, request
@@ -46,6 +47,16 @@ MAX_PER_PAGE_LOOKUP = MAX_PER_PAGE
 # of these SKUs and who have not ordered since.
 DEFAULT_SKUS = ["una_unidad", "pack_valentin", "pack_favorito"]
 DEFAULT_MONTHS = 3
+
+
+_GENDER_TO_META = {"female": "F", "male": "M"}
+
+
+def _clean_city(v) -> str:
+    """"BOGOTA (C/MARCA)" -> "Bogota": drop the parenthetical, title-case."""
+    v = re.sub(r"\s*\([^)]*\)", " ", str(v or ""))
+    v = re.sub(r"\s+", " ", v).strip()
+    return v.title()
 
 
 def _read_segment_filters():
@@ -120,12 +131,13 @@ def lapsed_customers_export():
     The current segment - every matching row, not just the visible page - as a
     CSV shaped for Meta Ads custom audience uploads.
 
-    Columns follow Meta's customer-list template: email, phone, fn, country,
-    value. country is fixed to CO (the customer base is Colombian) and value is
-    the customer's lifetime spend, which lets Meta build value-based lookalike
-    audiences. Phones reuse the WATI target normalisation, which is also what
-    Meta wants: country code, digits only. Emails and names are lowercased per
-    Meta's matching guidance.
+    Columns match the user's working audience file exactly:
+        fn,ln,email,phone,country,ct,gen,value
+    country is fixed to CO. ln is always blank - the orders source carries no
+    last name anywhere. ct and gen come from the customer's most recent order
+    (city cleaned of its "(C/MARCA)"-style suffix; gender mapped to F/M, blank
+    when unknown). Phones are E.164 with the leading "+", as in the sample, and
+    value is lifetime spend for value-based lookalikes.
     """
     skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
 
@@ -144,7 +156,7 @@ def lapsed_customers_export():
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["email", "phone", "fn", "country", "value"])
+    writer.writerow(["fn", "ln", "email", "phone", "country", "ct", "gen", "value"])
     exported = 0
     for row in result["rows"]:
         email = (row.get("email") or "").strip().lower()
@@ -152,10 +164,13 @@ def lapsed_customers_export():
         if not email and not target:
             continue  # nothing for Meta to match on
         writer.writerow([
+            (row.get("name") or "").strip(),
+            "",  # no last name exists anywhere in the orders source
             email,
-            target or "",
-            (row.get("name") or "").strip().lower(),
+            f"+{target}" if target else "",
             "CO",
+            _clean_city(row.get("city")),
+            _GENDER_TO_META.get((row.get("gender") or "").strip().lower(), ""),
             int(round(row.get("total_spent") or 0)),
         ])
         exported += 1

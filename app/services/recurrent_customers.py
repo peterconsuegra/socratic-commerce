@@ -234,17 +234,31 @@ def get_recurrent_customers(
         lambda v: [p.strip() for p in str(v).split(",") if p.strip()]
     ).rename("last_skus")
     last_value_by_customer = last_orders["total_value"].rename("last_order_value")
+    # City and gender travel with the same last order, for audience exports.
+    # Guarded per column so a CSV predating either still loads.
+    last_city_by_customer = (
+        last_orders["city"] if "city" in last_orders.columns
+        else pd.Series(dtype=object, index=last_orders.index)
+    ).rename("city")
+    last_gender_by_customer = (
+        last_orders["gender"] if "gender" in last_orders.columns
+        else pd.Series(dtype=object, index=last_orders.index)
+    ).rename("gender")
 
     grouped = (
         grouped.join(phone_by_customer)
         .join(last_utc_by_customer)
         .join(last_skus_by_customer)
         .join(last_value_by_customer)
+        .join(last_city_by_customer)
+        .join(last_gender_by_customer)
     )
     grouped["phone"] = grouped["phone"].fillna("")
     grouped["last_order_utc"] = grouped["last_order_utc"].fillna("")
     grouped["last_skus"] = grouped["last_skus"].apply(lambda v: v if isinstance(v, list) else [])
     grouped["last_order_value"] = grouped["last_order_value"].fillna(0.0)
+    grouped["city"] = grouped["city"].fillna("").astype(str)
+    grouped["gender"] = grouped["gender"].fillna("").astype(str)
 
     total_customers = int(len(grouped))
     available_skus = sorted({sku for lst in grouped["last_skus"] for sku in lst})
@@ -322,6 +336,8 @@ def get_recurrent_customers(
             "last_order_utc": r["last_order_utc"],
             "last_skus": list(r["last_skus"]),
             "last_order_value": float(r["last_order_value"]),
+            "city": r["city"],
+            "gender": r["gender"],
             "days_since_last_order": _days_since(r["last_order_utc"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
