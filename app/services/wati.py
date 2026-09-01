@@ -53,18 +53,42 @@ PROBES = (
     ("/api/ext/v3/contacts/count", "v3"),
     ("/api/ext/v3/contacts-count", "v3"),
     ("/api/v1/getContacts?pageSize=1", "v1"),
+    ("/api/v1/getMessageTemplates", "v1"),
 )
 CHANNELS_PATH = "/api/ext/v3/channels"
 
 
+def _api_message(body: str) -> str:
+    """Pull WATI's own error text out of a JSON error body, if present."""
+    import json as _json
+    try:
+        data = _json.loads(body or "")
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    for key in ("message", "info", "error", "detail", "title"):
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return ""
+
+
 def _describe_failure(status: int, body: str) -> str:
     """Turn an HTTP status into something actionable rather than a bare code."""
+    detail = _api_message(body)
     body = (body or "").strip()[:200]
     if status == 401:
-        return "Token rejected (401). The API token is invalid, expired, or belongs to another tenant."
+        base = "Token rejected (401). The API token is invalid, expired, or belongs to another tenant."
+        return f"{base} WATI says: {detail}" if detail else base
     if status == 403:
-        return ("Token accepted but not permitted (403). Check the token's scopes in "
-                "WATI: Connector → API → your token.")
+        base = (
+            "Token accepted but not permitted (403) for the endpoints this test reads. "
+            "Add a read scope (e.g. contacts:read) to the token in WATI: Connector → API → "
+            "your token. Note this may not block tagging, which only writes contacts - "
+            "try tagging a single customer to confirm."
+        )
+        return f"{base} WATI says: {detail}" if detail else base
     if status == 404:
         return ("No known contacts endpoint responded (404) on either the v3 or v1 API. Check the "
                 "tenant API URL in WATI - Connector - API; it should look like "
@@ -155,8 +179,10 @@ def test_connection(
             return result
 
         last_status, last_body = resp.status_code, resp.text
-        if resp.status_code != 404:
-            break  # a real answer; no point trying the other spelling
+        # 404 = endpoint absent on this tenant, 403 = token lacks THAT scope.
+        # Either way another probe may still succeed, so keep going.
+        if resp.status_code not in (404, 403):
+            break
 
     return {"ok": False, "message": _describe_failure(last_status or 0, last_body),
             "status": last_status}
