@@ -8,6 +8,8 @@ from datetime import datetime
 from flask import Response, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
+from app import db
+from app.models import CustomerInterview
 from app.services.recurrent_customers import (
     DEFAULT_PER_PAGE,
     MAX_PER_PAGE,
@@ -80,6 +82,31 @@ def _read_segment_filters():
     return skus, months, customer_type, min_orders, max_orders
 
 
+def _attach_interviews(rows):
+    """
+    Attach any saved interview to each page row, in ONE query.
+
+    Rows and interviews meet on the normalized phone (prepare_target), so the
+    format the order happened to use never causes a miss. Embedding the data at
+    render time means opening the questionnaire modal costs zero requests.
+    """
+    targets = {}
+    for row in rows:
+        target, _reason = prepare_target(row.get("phone"))
+        row["interview_phone"] = target or ""
+        row["interview"] = None
+        if target:
+            targets.setdefault(target, []).append(row)
+    if not targets:
+        return
+    found = CustomerInterview.query.filter(
+        CustomerInterview.phone.in_(list(targets))
+    ).all()
+    for interview in found:
+        for row in targets.get(interview.phone, []):
+            row["interview"] = interview.to_dict()
+
+
 @main.route("/lapsed-customers")
 @login_required
 def lapsed_customers():
@@ -106,6 +133,9 @@ def lapsed_customers():
     except Exception as e:
         logger.exception("Failed to build lapsed customers listing")
         error = str(e)
+
+    if result:
+        _attach_interviews(result["rows"])
 
     return render_template(
         "lapsed_customers.html",
@@ -276,3 +306,59 @@ def lapsed_customers_wati_remarketing():
     except Exception as e:
         logger.exception("WATI remarketing tagging failed")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@main.route("/lapsed-customers/interview", methods=["POST"])
+@login_required
+def lapsed_customers_interview_save():
+    """
+    Create or update a customer's questionnaire answers, keyed by phone.
+
+    Upsert by the normalized E.164 phone: the first save for a line creates
+    the row, every later save updates it, so editing needs no separate path.
+    Blank answers are allowed - an operator logging "no contesto" has nothing
+    else to record yet.
+    """
+    data = request.get_json(silent=True) or {}
+
+    target, reason = prepare_target(data.get("phone"))
+    if not target:
+        return jsonify({"status": "error",
+                        "message": f"Unusable phone: {reason or 'empty'}."}), 400
+
+    def _pick(field, allowed, required=False):
+        value = (data.get(field) or "").strip().lower()
+        if not value:
+            return None if not required else "pending"
+        if value not in allowed:
+            raise ValueError(f"Invalid value {value!r} for {field}.")
+        return value
+
+    try:
+        call_status = _pick("call_status", CustomerInterview.CALL_STATUSES, required=True)
+        experience = _pick("experience", CustomerInterview.EXPERIENCES)
+        buy_again = _pick("buy_again", CustomerInterview.YES_NO_MAYBE)
+        recommend = _pick("recommend", CustomerInterview.YES_NO_MAYBE)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+    interview = CustomerInterview.query.filter_by(phone=target).first()
+    if not interview:
+        interview = CustomerInterview(phone=target)
+        db.session.add(interview)
+
+    interview.email = (data.get("email") or "").strip().lower() or interview.email
+    interview.call_status = call_status
+    interview.experience = experience
+    interview.experience_notes = (data.get("experience_notes") or "").strip() or None
+    interview.buy_again = buy_again
+    interview.buy_again_reason = (data.get("buy_again_reason") or "").strip() or None
+    interview.recommend = recommend
+    interview.comments = (data.get("comments") or "").strip() or None
+    interview.interviewed_by = getattr(current_user, "username", None)
+
+    db.session.commit()
+    logger.info("%s saved interview for %s (status=%s)",
+                interview.interviewed_by, target, call_status)
+
+    return jsonify({"status": "success", "interview": interview.to_dict()}), 200

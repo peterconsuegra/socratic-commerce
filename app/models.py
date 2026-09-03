@@ -86,3 +86,56 @@ class ApiToken(db.Model):
 
     def __repr__(self):
         return f"<ApiToken {self.name} {self.token_prefix}… revoked={self.revoked}>"
+
+class CustomerInterview(db.Model):
+    """
+    One phone-interview record per customer phone line.
+
+    Keyed by the E.164-normalized phone (digits only, country code included,
+    e.g. "573013808828") produced by wati.prepare_target, so every format the
+    orders data uses for the same line resolves to one row. email is a
+    snapshot for human cross-reference, never a key. Answer values are stored
+    as snake_case codes; the Spanish labels live in the UI.
+    """
+    __tablename__ = "customer_interviews"
+
+    CALL_STATUSES = {
+        "pending", "completada", "no_contesto", "numero_equivocado",
+        "no_desea_participar", "volver_a_llamar",
+    }
+    EXPERIENCES = {"muy_buena", "buena", "regular", "mala"}
+    YES_NO_MAYBE = {"si", "no", "tal_vez"}
+
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=True)
+
+    call_status = db.Column(db.String(20), nullable=False, default="pending")
+    experience = db.Column(db.String(20), nullable=True)
+    experience_notes = db.Column(db.Text, nullable=True)
+    buy_again = db.Column(db.String(10), nullable=True)
+    buy_again_reason = db.Column(db.Text, nullable=True)
+    recommend = db.Column(db.String(10), nullable=True)
+    comments = db.Column(db.Text, nullable=True)
+
+    interviewed_by = db.Column(db.String(150), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "phone": self.phone,
+            "email": self.email or "",
+            "call_status": self.call_status,
+            "experience": self.experience or "",
+            "experience_notes": self.experience_notes or "",
+            "buy_again": self.buy_again or "",
+            "buy_again_reason": self.buy_again_reason or "",
+            "recommend": self.recommend or "",
+            "comments": self.comments or "",
+            "interviewed_by": self.interviewed_by or "",
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M") if self.updated_at else "",
+        }
+
+    def __repr__(self):
+        return f"<CustomerInterview {self.phone} {self.call_status}>"
