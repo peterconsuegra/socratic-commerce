@@ -32,7 +32,16 @@ from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY
 logger = logging.getLogger(__name__)
 
 PER_PAGE_CHOICES = [50, 100, 250, 500]
-MONTHS_CHOICES = [3, 6, 9, 12]
+# Inactivity window, always expressed in months so the service and the query
+# string keep one unit; the multi-year options render as years in the UI.
+MONTHS_CHOICES = [3, 6, 9, 12, 24, 36, 48, 60]
+
+
+def inactivity_label(months: int) -> str:
+    """'3 months' for the sub-year options, '2 years' from 24 months up."""
+    if months >= 24 and months % 12 == 0:
+        return f"{months // 12} years"
+    return f"{months} months"
 
 # key -> label and the (min_orders, max_orders) bounds it maps to.
 CUSTOMER_TYPES = {
@@ -146,9 +155,10 @@ def lapsed_customers():
         wati_max_value=MAX_VALUE_CHARS,
         wati_max=MAX_CONTACTS_PER_RUN,
         wati_ready=bool(get_secret("wati_api_token")),
-        months_choices=MONTHS_CHOICES,
+        months_choices=[(m, inactivity_label(m)) for m in MONTHS_CHOICES],
         selected_skus=skus,
         months=months,
+        months_label=inactivity_label(months),
         customer_type=customer_type,
         customer_types=CUSTOMER_TYPES,
     )
@@ -211,14 +221,16 @@ def lapsed_customers_export():
 
     # Name the file after the segment conditions, so an exported audience is
     # self-describing when it is uploaded to Meta weeks later, e.g.
-    # inactive_for_more_than_3_months_repeated_customers_2026_09_01.csv
+    # inactive_for_more_than_3_months_repeated_customers_2026_09_01.csv or
+    # inactive_for_more_than_2_years_all_customers_2026_09_07.csv
     type_slug = {
         "all": "all_customers",
         "first_time": "first_time_customers",
         "repeat": "repeated_customers",
     }[customer_type]
+    window_slug = inactivity_label(months).replace(" ", "_")
     filename = (
-        f"inactive_for_more_than_{months}_months_{type_slug}_"
+        f"inactive_for_more_than_{window_slug}_{type_slug}_"
         f"{datetime.now():%Y_%m_%d}.csv"
     )
     return Response(

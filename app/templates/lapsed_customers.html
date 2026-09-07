@@ -216,7 +216,7 @@
   <h2 class="text-center mb-1">Lapsed Customers</h2>
   <p class="text-center text-muted mb-4">
     Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose
-    last order (UTC) was more than {{ months }} months ago — a win-back list.
+    last order (UTC) was more than {{ months_label }} ago — a win-back list.
   </p>
 
   {% if error %}
@@ -273,8 +273,8 @@
           <div class="col-sm-3">
             <label class="form-label small text-muted mb-1">Inactive for more than</label>
             <select name="months" class="form-select">
-              {% for m in months_choices %}
-                <option value="{{ m }}" {% if m == months %}selected{% endif %}>{{ m }} months</option>
+              {% for m, label in months_choices %}
+                <option value="{{ m }}" {% if m == months %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
