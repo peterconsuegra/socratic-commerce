@@ -29,9 +29,10 @@
           <tr>
             <th>Name</th>
             <th>Subject</th>
+            <th>Hero</th>
             <th>Updated (Bogotá)</th>
             <th>By</th>
-            <th style="width: 260px;">Actions</th>
+            <th style="width: 320px;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -39,6 +40,13 @@
           <tr>
             <td class="fw-bold">{{ t.name }}</td>
             <td>{{ t.subject }}</td>
+            <td class="small">
+              {% if t.hero %}
+                <span class="badge text-bg-success" title="{{ t.hero.width }} × {{ t.hero.height }} px">{{ t.hero.width }}×{{ t.hero.height }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
             <td class="text-muted small">{{ t.updated_at_bogota.strftime("%Y-%m-%d %H:%M") if t.updated_at_bogota else "-" }}</td>
             <td class="text-muted small">{{ t.updated_by or "-" }}</td>
             <td>
@@ -46,6 +54,11 @@
               <a class="btn btn-sm btn-outline-success"
                  href="{{ url_for('main.reconnect_lapsed_customers_by_email', template_id=t.id) }}"
                  title="Open Reconnect by Email with this template preselected">Use</a>
+              <form method="POST" action="{{ url_for('main.email_templates_clone', template_id=t.id) }}"
+                    style="display:inline;">
+                <button class="btn btn-sm btn-outline-secondary" type="submit"
+                        title="Duplicate this template, hero image included, and open the copy">Clone</button>
+              </form>
               <form method="POST" action="{{ url_for('main.email_templates_delete', template_id=t.id) }}"
                     style="display:inline;"
                     onsubmit="return confirm('Delete the template \'{{ t.name | e }}\'? This cannot be undone.');">

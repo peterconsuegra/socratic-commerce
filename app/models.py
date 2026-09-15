@@ -161,5 +161,61 @@ class EmailTemplate(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
+    # Images uploaded for this template. Deleting the template deletes them.
+    assets = db.relationship(
+        "EmailAsset", backref="template", cascade="all, delete-orphan", lazy="select"
+    )
+
+    @property
+    def hero(self):
+        """The hero image, if one was uploaded (at most one per template)."""
+        return next((a for a in self.assets if a.kind == EmailAsset.KIND_HERO), None)
+
     def __repr__(self):
         return f"<EmailTemplate {self.id} {self.name!r}>"
+
+
+class EmailAsset(db.Model):
+    """
+    An image uploaded for an email template, stored in the database.
+
+    The bytes live here rather than on disk because the deployed filesystem
+    is discarded on every deploy. Each upload gets a random token that forms
+    its public URL, so replacing an image yields a new URL and mail clients
+    never show a stale cached copy.
+    """
+    __tablename__ = "email_assets"
+
+    KIND_HERO = "hero"
+    TOKEN_BYTES = 16  # 32 hex chars
+
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(
+        db.Integer, db.ForeignKey("email_templates.id"), nullable=False, index=True
+    )
+    kind = db.Column(db.String(20), nullable=False, default=KIND_HERO)
+    token = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(60), nullable=False)
+    size_bytes = db.Column(db.Integer, nullable=False)
+    width = db.Column(db.Integer, nullable=True)
+    height = db.Column(db.Integer, nullable=True)
+    data = db.Column(db.LargeBinary, nullable=False)
+    uploaded_by = db.Column(db.String(150), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+
+    @staticmethod
+    def new_token() -> str:
+        return secrets.token_hex(EmailAsset.TOKEN_BYTES)
+
+    def copy_for(self, template):
+        """A fresh row with the same bytes for a cloned template."""
+        return EmailAsset(
+            template=template, kind=self.kind, token=self.new_token(),
+            filename=self.filename, content_type=self.content_type,
+            size_bytes=self.size_bytes, width=self.width, height=self.height,
+            data=self.data, uploaded_by=self.uploaded_by,
+        )
+
+    def __repr__(self):
+        return f"<EmailAsset {self.id} {self.kind} {self.filename!r} {self.width}x{self.height}>"

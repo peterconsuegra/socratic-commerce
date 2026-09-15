@@ -67,7 +67,13 @@ PLACEHOLDERS = {
     "orders_count": ("Number of orders placed", "2"),
     "total_spent": ("Lifetime spend, formatted as COP", "COP $180.000"),
     "last_order_date": ("Date of the last order (YYYY-MM-DD)", "2026-06-10"),
+    # Not a customer field: filled from the image uploaded on the template.
+    "hero_image_url": ("URL of the template's uploaded hero image (use as an img src)",
+                       "https://…/email-assets/…/hero.jpg"),
 }
+
+# Placeholders that come from the template itself rather than the customer.
+TEMPLATE_PLACEHOLDERS = {"hero_image_url"}
 
 SAMPLE_CONTEXT = {tag: sample for tag, (_desc, sample) in PLACEHOLDERS.items()}
 
@@ -113,6 +119,11 @@ def unknown_placeholders(*texts: str) -> list[str]:
             if tag not in PLACEHOLDERS and tag not in seen:
                 seen.append(tag)
     return seen
+
+
+def placeholders_used(*texts: str) -> set[str]:
+    """Every {{tag}} that appears in the given texts."""
+    return {tag for text in texts for tag in _PLACEHOLDER.findall(text or "")}
 
 
 _BLOCK_END = re.compile(r"</(p|div|h[1-6]|li|tr|table|blockquote|section|article|header|footer)\s*>", re.I)
@@ -304,11 +315,14 @@ def send_template(
     customers: list[dict],
     template_name: str = "",
     template_id: int | None = None,
+    extra_context: dict | None = None,
     session: requests.Session | None = None,
 ) -> dict:
     """
     Send one rendered email per customer. customers are rows from
-    get_recurrent_customers (email, name, last_skus, ...).
+    get_recurrent_customers (email, name, last_skus, ...). extra_context
+    holds template-level values (the hero image URL) merged into every
+    recipient's placeholders.
 
     Returns counts plus per-customer skipped/failed detail, so the caller can
     report exactly who was and was not emailed. Sending is irreversible; the
@@ -365,7 +379,7 @@ def send_template(
 
     def send_one(entry):
         c, email = entry
-        rendered = render_email(subject, html_body, customer_context(c))
+        rendered = render_email(subject, html_body, {**customer_context(c), **(extra_context or {})})
         to = {"email": email}
         full_name = " ".join(p for p in ((c.get("name") or "").strip(),
                                          (c.get("last_name") or "").strip()) if p)

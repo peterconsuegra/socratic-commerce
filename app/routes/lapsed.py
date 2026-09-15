@@ -28,6 +28,7 @@ from app.services.wati import (
 
 from . import main
 from .common import get_option_value, refresh_all_orders_if_needed
+from .email_templates import hero_missing_error, template_context
 from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY, get_sendgrid_config
 
 logger = logging.getLogger(__name__)
@@ -406,6 +407,9 @@ def reconnect_lapsed_customers_send():
             "status": "error",
             "message": "SendGrid is not configured. Add the API key and From email in Settings.",
         }), 400
+    missing_hero = hero_missing_error(template)
+    if missing_hero:
+        return jsonify({"status": "error", "message": missing_hero}), 400
 
     who = getattr(current_user, "username", "unknown")
     logger.info("%s is emailing template %r to %d customers", who, template.name, len(emails))
@@ -424,6 +428,7 @@ def reconnect_lapsed_customers_send():
             customers=selected,
             template_name=template.name,
             template_id=template.id,
+            extra_context=template_context(template),
         )
         if missing:
             result["skipped"] += len(missing)

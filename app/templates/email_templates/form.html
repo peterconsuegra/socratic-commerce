@@ -51,6 +51,62 @@
         </div>
       </form>
 
+      <hr class="my-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="mb-1">Hero image</h6>
+          <p class="small text-muted mb-2">
+            Recommended size: <strong>{{ hero_recommended[0] }} × {{ hero_recommended[1] }} px</strong> (2:1),
+            JPG or PNG, under {{ hero_max_mb }} MB. Put <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> as the
+            <code>src</code> of the image in your HTML; it is replaced with this image's public URL when sending.
+          </p>
+
+          {% if not template %}
+            <div class="alert alert-light border small mb-0">Save the template first, then upload the hero image here.</div>
+          {% else %}
+            {% if hero %}
+              <div class="border rounded p-2 mb-2 bg-light">
+                <img src="{{ hero_url }}" alt="Hero image" style="display:block; max-width:100%; height:auto; border-radius:4px;">
+                <div class="small text-muted mt-2">
+                  {{ hero.width }} × {{ hero.height }} px · {{ (hero.size_bytes / 1024) | round | int }} KB · {{ hero.content_type }}
+                  {% if (hero.width, hero.height) != hero_recommended %}
+                    · <span class="text-warning fw-bold">recommended {{ hero_recommended[0] }} × {{ hero_recommended[1] }}</span>
+                  {% else %}
+                    · <span class="text-success fw-bold">recommended size ✓</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% if not uses_hero %}
+                <div class="alert alert-warning py-2 small mb-2">
+                  Your HTML does not use <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> yet, so this image is not in the
+                  email. Set it as the <code>src</code> of your hero <code>&lt;img&gt;</code> (the
+                  <em>hero_image_url</em> chip above inserts it at the cursor).
+                </div>
+              {% endif %}
+            {% elif uses_hero %}
+              <div class="alert alert-warning py-2 small mb-2">
+                Your HTML uses <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> but no image is uploaded yet.
+                Sending is blocked until you upload one or remove the placeholder.
+              </div>
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data"
+                  action="{{ url_for('main.email_templates_hero_upload', template_id=template.id) }}"
+                  class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="file" name="hero" class="form-control" style="max-width: 420px;"
+                     accept="image/jpeg,image/png,image/gif" required>
+              <button type="submit" class="btn btn-outline-primary">{{ 'Replace image' if hero else 'Upload image' }}</button>
+            </form>
+            {% if hero %}
+              <form method="POST" action="{{ url_for('main.email_templates_hero_delete', template_id=template.id) }}"
+                    class="mt-2" onsubmit="return confirm('Remove the hero image from this template?');">
+                <button type="submit" class="btn btn-link btn-sm text-danger p-0">Remove image</button>
+              </form>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
       {% if template %}
         <hr class="my-4">
         <div class="card shadow-sm">
@@ -129,7 +185,8 @@
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ subject: subject.value, html_body: body.value })
+        body: JSON.stringify({ subject: subject.value, html_body: body.value,
+                               template_id: {{ template.id if template else 'null' }} })
       });
       var data = await resp.json();
       if (!resp.ok || data.status !== "success") throw new Error(data.message || ("HTTP " + resp.status));
