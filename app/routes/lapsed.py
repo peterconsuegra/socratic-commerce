@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 PER_PAGE_CHOICES = [50, 100, 250, 500]
 # Inactivity window, always expressed in months so the service and the query
 # string keep one unit; the multi-year options render as years in the UI.
-MONTHS_CHOICES = [3, 6, 9, 12, 24, 36, 48, 60]
+MONTHS_CHOICES = [2, 3, 6, 9, 12, 24, 36, 48, 60]
 
 
 def inactivity_label(months: int) -> str:
