@@ -6,10 +6,12 @@ from zoneinfo import ZoneInfo
 
 from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_login import login_required
+from markupsafe import escape
 
 from app import db
 from app.models import ApiToken, Option
 from app.services.secrets import get_secret, has_secret, mask_secret, set_secret
+from app.services.sendgrid import is_sendable_email, test_connection as sendgrid_test_connection
 from app.services.wati import _is_dashboard_url, test_connection as wati_test_connection
 
 from . import main
@@ -53,12 +55,21 @@ def list_options():
             "tenant_url": get_option_value_raw(WATI_TENANT_URL_KEY, ""),
             "channel_number": get_option_value_raw(WATI_CHANNEL_KEY, ""),
         },
+        sendgrid=sendgrid_settings_for_display(),
     )
 
 
 WATI_TOKEN_KEY = "wati_api_token"
 WATI_TENANT_URL_KEY = "wati_tenant_url"
 WATI_CHANNEL_KEY = "wati_channel_number"
+
+# SendGrid: the API key is stored encrypted like the WATI token; the sender
+# fields are plain options.
+SENDGRID_API_KEY_KEY = "sendgrid_api_key"
+SENDGRID_FROM_EMAIL_KEY = "sendgrid_from_email"
+SENDGRID_FROM_NAME_KEY = "sendgrid_from_name"
+SENDGRID_REPLY_TO_KEY = "sendgrid_reply_to"
+SENDGRID_ASM_GROUP_KEY = "sendgrid_unsubscribe_group_id"
 
 
 def get_option_value_raw(meta_key: str, default=""):
@@ -138,6 +149,111 @@ def options_wati_test():
         )
     except Exception as e:
         logger.exception("WATI connection test failed")
+        return jsonify({"ok": False, "message": str(e)}), 500
+
+    return jsonify(result), (200 if result.get("ok") else 400)
+
+
+
+# ---- SendGrid ----------------------------------------------------------------
+
+def get_sendgrid_config() -> dict:
+    """Everything a send needs, with the key decrypted (None when unset)."""
+    asm_raw = (get_option_value_raw(SENDGRID_ASM_GROUP_KEY, "") or "").strip()
+    return {
+        "api_key": get_secret(SENDGRID_API_KEY_KEY),
+        "from_email": (get_option_value_raw(SENDGRID_FROM_EMAIL_KEY, "") or "").strip(),
+        "from_name": (get_option_value_raw(SENDGRID_FROM_NAME_KEY, "") or "").strip(),
+        "reply_to": (get_option_value_raw(SENDGRID_REPLY_TO_KEY, "") or "").strip(),
+        "asm_group_id": int(asm_raw) if asm_raw.isdigit() else None,
+    }
+
+
+def sendgrid_ready() -> bool:
+    """A send needs both a key and a From address; anything else is optional."""
+    cfg = get_sendgrid_config()
+    return bool(cfg["api_key"] and cfg["from_email"])
+
+
+def sendgrid_settings_for_display() -> dict:
+    cfg = get_sendgrid_config()
+    return {
+        "configured": has_secret(SENDGRID_API_KEY_KEY),
+        "ready": bool(cfg["api_key"] and cfg["from_email"]),
+        "key_masked": mask_secret(cfg["api_key"]),
+        "from_email": cfg["from_email"],
+        "from_name": cfg["from_name"],
+        "reply_to": cfg["reply_to"],
+        "unsubscribe_group_id": get_option_value_raw(SENDGRID_ASM_GROUP_KEY, ""),
+    }
+
+
+@main.route("/options/sendgrid", methods=["POST"])
+@login_required
+def options_sendgrid_save():
+    """Save SendGrid sender settings. The API key is stored encrypted."""
+    from_email = (request.form.get("from_email", "") or "").strip()
+    reply_to = (request.form.get("reply_to", "") or "").strip()
+    group_id = (request.form.get("unsubscribe_group_id", "") or "").strip()
+
+    if from_email and not is_sendable_email(from_email):
+        flash(f"'{escape(from_email)}' is not a valid From email address.", "danger")
+        return redirect(url_for("main.list_options"))
+    if reply_to and not is_sendable_email(reply_to):
+        flash(f"'{escape(reply_to)}' is not a valid Reply-to address.", "danger")
+        return redirect(url_for("main.list_options"))
+    if group_id and not group_id.isdigit():
+        flash("The unsubscribe group ID must be a number (SendGrid → Marketing → Unsubscribe Groups).",
+              "danger")
+        return redirect(url_for("main.list_options"))
+
+    _set_plain_option(SENDGRID_FROM_EMAIL_KEY, from_email)
+    _set_plain_option(SENDGRID_FROM_NAME_KEY, request.form.get("from_name", ""))
+    _set_plain_option(SENDGRID_REPLY_TO_KEY, reply_to)
+    _set_plain_option(SENDGRID_ASM_GROUP_KEY, group_id)
+    db.session.commit()
+
+    # As with WATI: an empty key field keeps the stored key, so the sender
+    # fields can be edited without re-pasting the secret. Clearing is explicit.
+    api_key = (request.form.get("api_key", "") or "").strip()
+    if request.form.get("clear_key"):
+        set_secret(SENDGRID_API_KEY_KEY, "")
+        flash("SendGrid API key removed.", "success")
+    elif api_key:
+        set_secret(SENDGRID_API_KEY_KEY, api_key)
+        flash("SendGrid settings saved. The API key is stored encrypted.", "success")
+    else:
+        flash("SendGrid settings saved.", "success")
+
+    if not from_email:
+        flash("Note: no From email is set, so nothing can be sent yet. Use a sender verified in SendGrid.",
+              "danger")
+
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/sendgrid/reveal", methods=["POST"])
+@login_required
+def options_sendgrid_reveal():
+    """Return the decrypted API key so the UI can show it on demand."""
+    api_key = get_secret(SENDGRID_API_KEY_KEY)
+    if not api_key:
+        return jsonify({"status": "error", "message": "No API key stored."}), 404
+    return jsonify({"status": "success", "api_key": api_key}), 200
+
+
+@main.route("/options/sendgrid/test", methods=["POST"])
+@login_required
+def options_sendgrid_test():
+    """Verify the stored SendGrid key with read-only calls. Nothing is sent."""
+    cfg = get_sendgrid_config()
+    if not cfg["api_key"]:
+        return jsonify({"ok": False, "message": "No API key stored. Save one first."}), 400
+
+    try:
+        result = sendgrid_test_connection(api_key=cfg["api_key"], from_email=cfg["from_email"])
+    except Exception as e:
+        logger.exception("SendGrid connection test failed")
         return jsonify({"ok": False, "message": str(e)}), 500
 
     return jsonify(result), (200 if result.get("ok") else 400)

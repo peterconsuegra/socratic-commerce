@@ -1,34 +1,73 @@
-{% extends "layout.html" %}
+{% extends "lapsed_customers_base.html" %}
 
-{% block title %}Lapsed Customers{% endblock %}
+{% block subtitle %}
+  Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose
+  last order (UTC) was more than {{ months_label }} ago — a win-back list.
+{% endblock %}
 
-{% block page_scripts %}
+{% block action_panel %}
+    <!-- WATI remarketing action -->
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
+          <h6 class="mb-0">Tag selected customers in WATI</h6>
+          <span class="text-muted small">
+            Creates or updates contacts and sets an attribute. <strong>No WhatsApp messages are sent.</strong>
+          </span>
+        </div>
+
+        {% if not wati_ready %}
+          <div class="alert alert-warning mb-2 py-2 small">
+            WATI is not configured yet — add the tenant URL and API token in
+            <a href="{{ url_for('main.list_options') }}">Settings</a>.
+          </div>
+        {% endif %}
+
+        <div class="row g-2 align-items-end">
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Attribute</label>
+            <input type="text" class="form-control" value="{{ wati_attribute }}" disabled
+                   title="Fixed in code so every campaign writes the same attribute name">
+            <input type="hidden" id="watiAttribute" value="{{ wati_attribute }}">
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label small text-muted mb-1">Remarketing label <span class="text-danger">*</span></label>
+            <input type="text" id="watiLabel" class="form-control" maxlength="{{ wati_max_value }}"
+                   placeholder="e.g. winback_sept_2026">
+          </div>
+          <div class="col-sm-5 d-flex align-items-end gap-2">
+            <button type="button" id="watiSendBtn" class="btn btn-success" {% if not wati_ready %}disabled{% endif %}>
+              Tag <span id="watiCount">0</span> selected in WATI
+            </button>
+            <span id="watiStatus" class="small"></span>
+          </div>
+        </div>
+
+        <div class="form-text mt-2">
+          Only customers on this page can be selected, up to {{ wati_max }} per run.
+          Rows without a valid phone are skipped and listed in the result.
+        </div>
+
+        <div id="watiResult" class="mt-3"></div>
+      </div>
+    </div>
+{% endblock %}
+
+{% block action_scripts %}
 <script>
 (function () {
-  var selectAll = document.getElementById("selectAll");
-  var rows      = Array.prototype.slice.call(document.querySelectorAll(".row-select"));
   var countEl   = document.getElementById("watiCount");
   var btn       = document.getElementById("watiSendBtn");
   var statusEl  = document.getElementById("watiStatus");
   var resultEl  = document.getElementById("watiResult");
   if (!btn) return;
 
-  function selected() { return rows.filter(function (r) { return r.checked; }); }
-  function refresh()  { countEl.textContent = selected().length; }
-
-  rows.forEach(function (r) { r.addEventListener("change", refresh); });
-  if (selectAll) {
-    selectAll.addEventListener("change", function () {
-      rows.forEach(function (r) { r.checked = selectAll.checked; });
-      refresh();
-    });
-  }
-  refresh();
+  LapsedSelection.onChange(function (n) { countEl.textContent = n; });
 
   function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
 
   btn.addEventListener("click", async function () {
-    var chosen = selected();
+    var chosen = LapsedSelection.selected();
     var label = document.getElementById("watiLabel").value.trim();
     var attribute = document.getElementById("watiAttribute").value.trim() || "remarketing";
 
@@ -89,476 +128,5 @@
     } finally { btn.disabled = false; }
   });
 })();
-
-/* Customer interview questionnaire */
-(function () {
-  var modalEl = document.getElementById("interviewModal");
-  if (!modalEl) return;
-  var modal = new bootstrap.Modal(modalEl);
-
-  var STATUS_LABELS = {
-    pending: ["Pendiente", "text-bg-secondary"],
-    completada: ["Completada", "text-bg-success"],
-    no_contesto: ["No contestó", "text-bg-warning"],
-    volver_a_llamar: ["Volver a llamar", "text-bg-info"],
-    numero_equivocado: ["Número equivocado", "text-bg-danger"],
-    no_desea_participar: ["No desea participar", "text-bg-dark"]
-  };
-
-  var current = null; // the button whose row is being edited
-
-  function field(id) { return document.getElementById(id); }
-
-  function renderBadge(btn) {
-    var iv = JSON.parse(btn.dataset.interview || "{}");
-    var badge = document.querySelector('[data-badge-phone="' + btn.dataset.targetPhone + '"]');
-    if (!badge) return;
-    if (iv.call_status) {
-      var cfg = STATUS_LABELS[iv.call_status] || [iv.call_status, "text-bg-secondary"];
-      badge.innerHTML = '<span class="badge ' + cfg[1] + '">' + cfg[0] + "</span>";
-      btn.textContent = "Editar";
-      btn.classList.remove("btn-outline-primary");
-      btn.classList.add("btn-outline-secondary");
-    } else {
-      badge.innerHTML = "";
-    }
-  }
-
-  document.querySelectorAll(".interview-btn").forEach(function (btn) {
-    renderBadge(btn);
-    btn.addEventListener("click", function () {
-      current = btn;
-      var iv = JSON.parse(btn.dataset.interview || "{}");
-      document.getElementById("ivCustomer").textContent =
-        (btn.dataset.name || "").trim() + " · +" + btn.dataset.targetPhone + " · " + (btn.dataset.email || "");
-      modalEl.querySelectorAll(".iv-name").forEach(function (el) {
-        el.textContent = (btn.dataset.name || "").trim() || "el/la cliente";
-      });
-      field("ivCallStatus").value = iv.call_status || "pending";
-      field("ivExperience").value = iv.experience || "";
-      field("ivExperienceNotes").value = iv.experience_notes || "";
-      field("ivBuyAgain").value = iv.buy_again || "";
-      field("ivBuyAgainReason").value = iv.buy_again_reason || "";
-      field("ivRecommend").value = iv.recommend || "";
-      field("ivComments").value = iv.comments || "";
-      document.getElementById("ivMeta").textContent = iv.updated_at
-        ? "Última actualización: " + iv.updated_at + " UTC" + (iv.interviewed_by ? " por " + iv.interviewed_by : "")
-        : "";
-      document.getElementById("ivStatus").textContent = "";
-      modal.show();
-    });
-  });
-
-  document.getElementById("ivSaveBtn").addEventListener("click", async function () {
-    if (!current) return;
-    var saveBtn = this;
-    var statusEl = document.getElementById("ivStatus");
-    saveBtn.disabled = true;
-    statusEl.innerHTML = '<span class="text-primary">Guardando…</span>';
-    try {
-      var resp = await fetch("{{ url_for('main.lapsed_customers_interview_save') }}", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          phone: current.dataset.targetPhone,
-          email: current.dataset.email,
-          call_status: field("ivCallStatus").value,
-          experience: field("ivExperience").value,
-          experience_notes: field("ivExperienceNotes").value,
-          buy_again: field("ivBuyAgain").value,
-          buy_again_reason: field("ivBuyAgainReason").value,
-          recommend: field("ivRecommend").value,
-          comments: field("ivComments").value
-        })
-      });
-      var data = await resp.json();
-      if (resp.ok && data.status === "success") {
-        current.dataset.interview = JSON.stringify(data.interview);
-        renderBadge(current);
-        statusEl.innerHTML = '<span class="text-success">Guardado</span>';
-        setTimeout(function () { modal.hide(); }, 500);
-      } else {
-        statusEl.innerHTML = '<span class="text-danger">' + (data.message || "Error " + resp.status) + "</span>";
-      }
-    } catch (e) {
-      statusEl.innerHTML = '<span class="text-danger">Error de red: ' + String(e) + "</span>";
-    } finally {
-      saveBtn.disabled = false;
-    }
-  });
-})();
 </script>
-{% endblock %}
-
-{% macro page_url(page=None, sort=None, direction=None) -%}
-{{ url_for('main.lapsed_customers',
-           page=page or result.pagination.page,
-           per_page=result.pagination.per_page,
-           sort=sort or result.sort.key,
-           direction=direction or result.sort.direction,
-           months=months, customer_type=customer_type, sku=selected_skus,
-           q=result.search or None) }}
-{%- endmacro %}
-
-{% macro sort_link(key, label) -%}
-  {% set active = result.sort.key == key %}
-  {% set next_dir = 'asc' if (active and result.sort.direction == 'desc') else 'desc' %}
-  <a href="{{ page_url(page=1, sort=key, direction=next_dir) }}"
-     class="text-decoration-none {% if active %}fw-bold{% endif %}">
-    {{ label }}{% if active %} <span class="material-icons align-middle" style="font-size:14px;">{{ 'arrow_downward' if result.sort.direction == 'desc' else 'arrow_upward' }}</span>{% endif %}
-  </a>
-{%- endmacro %}
-
-{% block content %}
-<div class="container mt-2" style="max-width: 1200px;">
-
-  <h2 class="text-center mb-1">Lapsed Customers</h2>
-  <p class="text-center text-muted mb-4">
-    Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose
-    last order (UTC) was more than {{ months_label }} ago — a win-back list.
-  </p>
-
-  {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-  {% elif result %}
-
-    {% set s = result.summary %}
-    {% set p = result.pagination %}
-
-    <div class="row text-center g-2 mb-3">
-      <div class="col">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Lapsed customers</div>
-          <div class="fw-bold">{{ "{:,}".format(s.recurrent_customers) }}</div>
-        </div></div>
-      </div>
-      <div class="col">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Of all customers</div>
-          <div class="fw-bold">{{ "{:,}".format(s.total_customers) }}
-            <span class="text-muted small">({{ "%.1f"|format(s.recurrent_customers / s.total_customers * 100 if s.total_customers else 0) }}%)</span>
-          </div>
-        </div></div>
-      </div>
-      <div class="col">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Their orders</div>
-          <div class="fw-bold">{{ "{:,}".format(s.recurrent_orders) }}</div>
-        </div></div>
-      </div>
-      <div class="col">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Revenue at stake</div>
-          <div class="fw-bold">{{ s.recurrent_revenue | cop }}</div>
-        </div></div>
-      </div>
-    </div>
-
-    <!-- Segment controls -->
-    <form method="get" action="{{ url_for('main.lapsed_customers') }}" class="card shadow-sm mb-3">
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-12">
-            <label class="form-label small text-muted mb-1">Last purchase SKU</label><br>
-            {% for sku in result.available_skus %}
-              <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" name="sku" value="{{ sku }}"
-                       id="sku_{{ loop.index }}" {% if sku in selected_skus %}checked{% endif %}>
-                <label class="form-check-label small" for="sku_{{ loop.index }}">{{ sku }}</label>
-              </div>
-            {% endfor %}
-          </div>
-
-          <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Inactive for more than</label>
-            <select name="months" class="form-select">
-              {% for m, label in months_choices %}
-                <option value="{{ m }}" {% if m == months %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Customers</label>
-            <select name="customer_type" class="form-select">
-              {% for key, cfg in customer_types.items() %}
-                <option value="{{ key }}" {% if key == customer_type %}selected{% endif %}>{{ cfg.label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Search name or email</label>
-            <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="e.g. maria">
-          </div>
-
-          <div class="col-sm-2">
-            <label class="form-label small text-muted mb-1">Per page</label>
-            <select name="per_page" class="form-select">
-              {% for n in per_page_choices %}
-                <option value="{{ n }}" {% if n == p.per_page %}selected{% endif %}>{{ n }}</option>
-              {% endfor %}
-            </select>
-          </div>
-
-          <div class="col-sm-1 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100">Apply</button>
-          </div>
-        </div>
-      </div>
-    </form>
-
-    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-      <span class="text-muted small">
-        {% if p.total_rows %}
-          Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
-        {% else %}
-          No customers match this segment
-        {% endif %}
-      </span>
-      <span class="d-flex align-items-center gap-3">
-        <a class="btn btn-outline-success btn-sm"
-           href="{{ url_for('main.lapsed_customers_export',
-                            months=months, customer_type=customer_type, sku=selected_skus,
-                            sort=result.sort.key, direction=result.sort.direction,
-                            q=result.search or None) }}"
-           title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
-          Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
-        </a>
-        <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
-      </span>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-sm table-striped table-hover align-middle">
-        <thead class="table-light">
-          <tr>
-            <th style="width:34px;">
-              <input type="checkbox" class="form-check-input" id="selectAll" title="Select all on this page">
-            </th>
-            <th style="width:70px;">#</th>
-            <th>{{ sort_link('name', 'Name') }}</th>
-            <th>Phone</th>
-            <th>{{ sort_link('email', 'Email') }}</th>
-            <th class="text-end">{{ sort_link('orders', 'Orders') }}</th>
-            <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
-            <th class="text-end">{{ sort_link('last_value', 'Last purchase value') }}</th>
-            <th>Last purchase (SKU)</th>
-            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
-            <th class="text-end">Days since</th>
-            <th>Entrevista</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for c in result.rows %}
-            <tr>
-              <td>
-                <input type="checkbox" class="form-check-input row-select" value="{{ c.email }}"
-                       data-phone="{{ c.phone }}" {% if not c.phone %}title="No phone - will be skipped"{% endif %}>
-              </td>
-              <td class="text-muted">{{ c.rank }}</td>
-              <td>{{ c.name or '—' }}</td>
-              <td>{% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}</td>
-              <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
-              <td class="text-end">{{ c.orders_count }}</td>
-              <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
-              <td class="text-end">{{ c.last_order_value | cop }}</td>
-              <td style="min-width:150px;">
-                {%- for sku in c.last_skus %}
-                  <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>
-                {%- endfor %}
-              </td>
-              <td class="text-muted small">{{ c.last_order_utc }}</td>
-              <td class="text-end">{% if c.days_since_last_order is not none %}{{ c.days_since_last_order }}{% endif %}</td>
-              <td style="min-width:120px;">
-                {% if c.interview_phone %}
-                  <button type="button"
-                          class="btn btn-sm interview-btn {{ 'btn-outline-primary' if not c.interview else 'btn-outline-secondary' }}"
-                          data-target-phone="{{ c.interview_phone }}"
-                          data-name="{{ c.name }} {{ c.last_name }}"
-                          data-email="{{ c.email }}"
-                          data-interview='{{ (c.interview or {}) | tojson }}'>
-                    {{ 'Entrevistar' if not c.interview else 'Editar' }}
-                  </button>
-                  <span class="interview-badge d-block small mt-1"
-                        data-badge-phone="{{ c.interview_phone }}"></span>
-                {% else %}
-                  <span class="text-muted small">Sin teléfono</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% else %}
-            <tr><td colspan="11" class="text-center text-muted">No customers found.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- WATI remarketing action -->
-    <div class="card shadow-sm mt-3">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
-          <h6 class="mb-0">Tag selected customers in WATI</h6>
-          <span class="text-muted small">
-            Creates or updates contacts and sets an attribute. <strong>No WhatsApp messages are sent.</strong>
-          </span>
-        </div>
-
-        {% if not wati_ready %}
-          <div class="alert alert-warning mb-2 py-2 small">
-            WATI is not configured yet — add the tenant URL and API token in
-            <a href="{{ url_for('main.list_options') }}">Settings</a>.
-          </div>
-        {% endif %}
-
-        <div class="row g-2 align-items-end">
-          <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Attribute</label>
-            <input type="text" class="form-control" value="{{ wati_attribute }}" disabled
-                   title="Fixed in code so every campaign writes the same attribute name">
-            <input type="hidden" id="watiAttribute" value="{{ wati_attribute }}">
-          </div>
-          <div class="col-sm-4">
-            <label class="form-label small text-muted mb-1">Remarketing label <span class="text-danger">*</span></label>
-            <input type="text" id="watiLabel" class="form-control" maxlength="{{ wati_max_value }}"
-                   placeholder="e.g. winback_sept_2026">
-          </div>
-          <div class="col-sm-5 d-flex align-items-end gap-2">
-            <button type="button" id="watiSendBtn" class="btn btn-success" {% if not wati_ready %}disabled{% endif %}>
-              Tag <span id="watiCount">0</span> selected in WATI
-            </button>
-            <span id="watiStatus" class="small"></span>
-          </div>
-        </div>
-
-        <div class="form-text mt-2">
-          Only customers on this page can be selected, up to {{ wati_max }} per run.
-          Rows without a valid phone are skipped and listed in the result.
-        </div>
-
-        <div id="watiResult" class="mt-3"></div>
-      </div>
-    </div>
-
-    <!-- Customer interview questionnaire modal -->
-    <div class="modal fade" id="interviewModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <div>
-              <h5 class="modal-title mb-0">Entrevista al cliente</h5>
-              <div class="small text-muted" id="ivCustomer"></div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-          </div>
-          <div class="modal-body">
-            <div class="alert alert-light border small mb-3">
-              <strong>Guion de apertura:</strong> «Buenos días/tardes, le hablamos de
-              <em>Save a Playa</em>. ¿Hablo con <span class="iv-name fw-bold"></span>?
-              Lo(a) llamamos porque valoramos mucho su opinión como cliente y queremos
-              hacerle unas preguntas muy breves, no le tomará más de 3 minutos.»
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">Resultado de la llamada</label>
-              <select class="form-select" id="ivCallStatus">
-                <option value="pending">Pendiente</option>
-                <option value="completada">Completada</option>
-                <option value="no_contesto">No contestó</option>
-                <option value="volver_a_llamar">Volver a llamar</option>
-                <option value="numero_equivocado">Número equivocado</option>
-                <option value="no_desea_participar">No desea participar</option>
-              </select>
-            </div>
-
-            <hr>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">1. ¿Cómo fue su experiencia con Save a Playa?</label>
-              <select class="form-select" id="ivExperience">
-                <option value="">— Sin responder —</option>
-                <option value="muy_buena">Muy buena</option>
-                <option value="buena">Buena</option>
-                <option value="regular">Regular</option>
-                <option value="mala">Mala</option>
-              </select>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">2. ¿Por qué?</label>
-              <textarea class="form-control" id="ivExperienceNotes" rows="2"
-                        placeholder="Profundizar en la respuesta anterior…"></textarea>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">3. ¿Volvería a comprar el producto?</label>
-              <select class="form-select" id="ivBuyAgain">
-                <option value="">— Sin responder —</option>
-                <option value="si">Sí</option>
-                <option value="no">No</option>
-                <option value="tal_vez">Tal vez</option>
-              </select>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">4. Si no o tal vez: ¿qué lo(a) detiene?</label>
-              <textarea class="form-control" id="ivBuyAgainReason" rows="2"
-                        placeholder="Precio, resultado, olvido, compró otro producto…"></textarea>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label fw-bold mb-1">5. ¿Recomendaría el producto a un amigo o familiar?</label>
-              <select class="form-select" id="ivRecommend">
-                <option value="">— Sin responder —</option>
-                <option value="si">Sí</option>
-                <option value="no">No</option>
-                <option value="tal_vez">Tal vez</option>
-              </select>
-            </div>
-
-            <div class="mb-2">
-              <label class="form-label fw-bold mb-1">6. ¿Algún comentario o sugerencia para mejorar?</label>
-              <textarea class="form-control" id="ivComments" rows="2"></textarea>
-            </div>
-
-            <div class="small text-muted" id="ivMeta"></div>
-          </div>
-          <div class="modal-footer">
-            <span id="ivStatus" class="small me-auto"></span>
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="ivSaveBtn">Guardar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {% if p.total_pages > 1 %}
-      <nav class="mt-3">
-        <ul class="pagination pagination-sm justify-content-center flex-wrap">
-          <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=1) }}">&laquo; First</a>
-          </li>
-          <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page - 1) }}">Prev</a>
-          </li>
-          {% set win_start = [1, p.page - 2] | max %}
-          {% set win_end = [p.total_pages, win_start + 4] | min %}
-          {% for n in range(win_start, win_end + 1) %}
-            <li class="page-item {% if n == p.page %}active{% endif %}">
-              <a class="page-link" href="{{ page_url(page=n) }}">{{ n }}</a>
-            </li>
-          {% endfor %}
-          <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page + 1) }}">Next</a>
-          </li>
-          <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.total_pages) }}">Last &raquo;</a>
-          </li>
-        </ul>
-      </nav>
-    {% endif %}
-
-  {% endif %}
-</div>
 {% endblock %}

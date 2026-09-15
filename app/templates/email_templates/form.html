@@ -1,0 +1,194 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ 'Edit' if template else 'New' }} Email Template{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 1400px;">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="mb-0">{{ template.name if template else 'New email template' }}</h2>
+    <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">&laquo; All templates</a>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <form method="POST" id="tplForm"
+            action="{{ url_for('main.email_templates_edit', template_id=template.id) if template else url_for('main.email_templates_new') }}">
+        <div class="mb-3">
+          <label class="form-label fw-bold mb-1">Name</label>
+          <input class="form-control" type="text" name="name" value="{{ values.name }}"
+                 maxlength="{{ max_name }}" placeholder="e.g. Win-back · 20% off" required>
+          <div class="form-text">Internal only; it is how you pick the template when sending.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold mb-1">Subject</label>
+          <input class="form-control" type="text" name="subject" id="tplSubject" value="{{ values.subject }}"
+                 maxlength="{{ max_subject }}" placeholder="e.g. {{ '{{' }}name{{ '}}' }}, te extrañamos" required>
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label fw-bold mb-1">HTML body</label>
+          <textarea class="form-control font-monospace" name="html_body" id="tplHtml" rows="22"
+                    style="font-size: 0.8rem; white-space: pre; overflow-wrap: normal; overflow-x: auto;"
+                    placeholder="&lt;html&gt;&lt;body&gt;…&lt;/body&gt;&lt;/html&gt;" required>{{ values.html_body }}</textarea>
+          <div class="form-text">
+            Paste a full HTML email. Keep CSS inline; most mail clients ignore &lt;style&gt; blocks.
+            {% if sendgrid_ready %}An unsubscribe link is added automatically when an unsubscribe group is set in Settings.{% endif %}
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <span class="small text-muted me-1">Insert placeholder:</span>
+          {% for tag, (desc, sample) in placeholders.items() %}
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-1 tpl-chip"
+                    data-tag="{{ '{{' }}{{ tag }}{{ '}}' }}" title="{{ desc }} (e.g. {{ sample }})">{{ tag }}</button>
+          {% endfor %}
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-primary" type="submit">{{ 'Save changes' if template else 'Create template' }}</button>
+          <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">Cancel</a>
+        </div>
+      </form>
+
+      {% if template %}
+        <hr class="my-4">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h6 class="mb-2">Send a test</h6>
+            <p class="small text-muted mb-2">
+              Emails the <strong>saved</strong> version of this template, filled with sample data and
+              prefixed <code>[Test]</code>, to one address. Save first if you edited it.
+            </p>
+            {% if not sendgrid_ready %}
+              <div class="alert alert-warning py-2 small mb-2">
+                SendGrid is not configured — add the API key and From email in
+                <a href="{{ url_for('main.list_options') }}">Settings</a>.
+              </div>
+            {% endif %}
+            <div class="input-group">
+              <input type="email" class="form-control" id="testTo" placeholder="you@saveaplaya.com"
+                     {% if not sendgrid_ready %}disabled{% endif %}>
+              <button type="button" class="btn btn-outline-success" id="testSendBtn"
+                      {% if not sendgrid_ready %}disabled{% endif %}>Send test</button>
+            </div>
+            <div id="testResult" class="small mt-2"></div>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('main.email_templates_delete', template_id=template.id) }}"
+              class="mt-3" onsubmit="return confirm('Delete the template \'{{ template.name | e }}\'? This cannot be undone.');">
+          <button class="btn btn-outline-danger btn-sm" type="submit">Delete this template</button>
+        </form>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm sticky-lg-top" style="top: 1rem;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="fw-bold">Preview</span>
+          <span class="small text-muted" id="previewStatus">with sample data</span>
+        </div>
+        <div class="card-body">
+          <div class="small text-muted mb-1">Subject</div>
+          <div class="fw-bold mb-3" id="previewSubject">&nbsp;</div>
+          <div id="previewWarnings"></div>
+          <iframe id="previewFrame" sandbox title="Email preview"
+                  style="width:100%; height:560px; border:1px solid #dee2e6; border-radius:4px; background:#fff;"></iframe>
+          <details class="small mt-2">
+            <summary class="text-muted">Plain-text version (sent alongside the HTML)</summary>
+            <pre class="bg-light p-2 mt-2 mb-0" id="previewText" style="white-space:pre-wrap; max-height:200px; overflow:auto;"></pre>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+  var subject = document.getElementById("tplSubject");
+  var body = document.getElementById("tplHtml");
+  var frame = document.getElementById("previewFrame");
+  var outSubject = document.getElementById("previewSubject");
+  var outText = document.getElementById("previewText");
+  var outWarn = document.getElementById("previewWarnings");
+  var status = document.getElementById("previewStatus");
+  var timer = null;
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+  /* Server-side render with sample data: the same code path as a real send,
+     so the preview cannot drift from what customers receive. */
+  async function refresh() {
+    status.textContent = "rendering…";
+    try {
+      var resp = await fetch("{{ url_for('main.email_templates_preview') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ subject: subject.value, html_body: body.value })
+      });
+      var data = await resp.json();
+      if (!resp.ok || data.status !== "success") throw new Error(data.message || ("HTTP " + resp.status));
+      outSubject.innerHTML = data.subject ? esc(data.subject) : "&nbsp;";
+      frame.srcdoc = data.html || "<p style='color:#888;font-family:sans-serif'>Nothing to preview yet.</p>";
+      outText.textContent = data.text || "";
+      outWarn.innerHTML = (data.unknown_placeholders && data.unknown_placeholders.length)
+        ? '<div class="alert alert-warning py-1 px-2 small mb-2">Unknown placeholder(s) left as-is: '
+          + data.unknown_placeholders.map(function (t) { return "<code>{{ '{{' }}" + esc(t) + "{{ '}}' }}</code>"; }).join(", ") + "</div>"
+        : "";
+      status.textContent = "with sample data";
+    } catch (e) {
+      status.textContent = "preview failed: " + e.message;
+    }
+  }
+  function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 400); }
+  subject.addEventListener("input", schedule);
+  body.addEventListener("input", schedule);
+  refresh();
+
+  /* Placeholder chips insert at the cursor of whichever field was last focused. */
+  var lastField = body;
+  [subject, body].forEach(function (el) { el.addEventListener("focus", function () { lastField = el; }); });
+  document.querySelectorAll(".tpl-chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var el = lastField, tag = chip.dataset.tag;
+      var start = el.selectionStart, end = el.selectionEnd;
+      el.value = el.value.slice(0, start) + tag + el.value.slice(end);
+      el.focus();
+      el.selectionStart = el.selectionEnd = start + tag.length;
+      schedule();
+    });
+  });
+
+  /* Test send (edit page only). */
+  var testBtn = document.getElementById("testSendBtn");
+  if (testBtn) {
+    testBtn.addEventListener("click", async function () {
+      var to = document.getElementById("testTo").value.trim();
+      var out = document.getElementById("testResult");
+      if (!to) { out.innerHTML = '<span class="text-danger">Enter an address.</span>'; return; }
+      testBtn.disabled = true;
+      out.innerHTML = '<span class="text-primary">Sending…</span>';
+      try {
+        var resp = await fetch("{{ url_for('main.email_templates_send_test', template_id=template.id) if template else '' }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ to: to })
+        });
+        var data = await resp.json();
+        out.innerHTML = (resp.ok && data.status === "success")
+          ? '<span class="text-success">✓ ' + esc(data.message) + '</span>'
+          : '<span class="text-danger">✗ ' + esc(data.message || "Request failed.") + '</span>';
+      } catch (e) {
+        out.innerHTML = '<span class="text-danger">✗ ' + esc(String(e)) + '</span>';
+      } finally { testBtn.disabled = false; }
+    });
+  }
+})();
+</script>
+{% endblock %}

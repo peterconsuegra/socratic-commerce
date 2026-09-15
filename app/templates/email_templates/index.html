@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block title %}Email Templates{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 1100px;">
+  <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+    <h2 class="mb-0">Email Templates</h2>
+    <a class="btn btn-primary" href="{{ url_for('main.email_templates_new') }}">New template</a>
+  </div>
+  <p class="text-muted">
+    HTML emails sent through SendGrid from
+    <a href="{{ url_for('main.reconnect_lapsed_customers_by_email') }}">Reconnect by Email</a>.
+    Each template is one message: a subject and an HTML body with optional placeholders
+    filled in per customer.
+  </p>
+
+  {% if not sendgrid_ready %}
+    <div class="alert alert-warning py-2 small">
+      SendGrid is not configured yet — add the API key and From email in
+      <a href="{{ url_for('main.list_options') }}">Settings</a>. Templates can still be created and previewed.
+    </div>
+  {% endif %}
+
+  {% if templates %}
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Subject</th>
+            <th>Updated (Bogotá)</th>
+            <th>By</th>
+            <th style="width: 260px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in templates %}
+          <tr>
+            <td class="fw-bold">{{ t.name }}</td>
+            <td>{{ t.subject }}</td>
+            <td class="text-muted small">{{ t.updated_at_bogota.strftime("%Y-%m-%d %H:%M") if t.updated_at_bogota else "-" }}</td>
+            <td class="text-muted small">{{ t.updated_by or "-" }}</td>
+            <td>
+              <a class="btn btn-sm btn-secondary" href="{{ url_for('main.email_templates_edit', template_id=t.id) }}">Edit</a>
+              <a class="btn btn-sm btn-outline-success"
+                 href="{{ url_for('main.reconnect_lapsed_customers_by_email', template_id=t.id) }}"
+                 title="Open Reconnect by Email with this template preselected">Use</a>
+              <form method="POST" action="{{ url_for('main.email_templates_delete', template_id=t.id) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete the template \'{{ t.name | e }}\'? This cannot be undone.');">
+                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-muted">No templates yet. Create one to start emailing lapsed customers.</p>
+  {% endif %}
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-header fw-bold">Placeholders</div>
+    <div class="card-body small">
+      <p class="mb-2">
+        Write these in the subject or the HTML body and they are replaced per customer when sending.
+        Values are HTML-escaped, so customer data can never break the layout.
+      </p>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Tag</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          {% for tag, (desc, sample) in placeholders.items() %}
+          <tr><td><code>{{ '{{' }}{{ tag }}{{ '}}' }}</code></td><td>{{ desc }}</td><td class="text-muted">{{ sample }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

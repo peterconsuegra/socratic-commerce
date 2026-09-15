@@ -9,7 +9,7 @@ from flask import Response, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import CustomerInterview
+from app.models import CustomerInterview, EmailTemplate
 from app.services.recurrent_customers import (
     DEFAULT_PER_PAGE,
     MAX_PER_PAGE,
@@ -17,6 +17,7 @@ from app.services.recurrent_customers import (
 )
 
 from app.services.secrets import get_secret
+from app.services.sendgrid import MAX_RECIPIENTS_PER_RUN, send_template
 from app.services.wati import prepare_target
 from app.services.wati import (
     ATTRIBUTE_NAME,
@@ -27,7 +28,7 @@ from app.services.wati import (
 
 from . import main
 from .common import get_option_value, refresh_all_orders_if_needed
-from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY
+from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY, get_sendgrid_config
 
 logger = logging.getLogger(__name__)
 
@@ -116,10 +117,12 @@ def _attach_interviews(rows):
             row["interview"] = interview.to_dict()
 
 
-@main.route("/lapsed-customers")
-@login_required
-def lapsed_customers():
-    """Customers whose last purchase was a given SKU and who have since lapsed."""
+def _segment_page() -> dict:
+    """
+    Build what every segment page shares: the filtered, paginated customer rows
+    and the template context for the filter controls. The page-specific action
+    (WATI tag, email send) is layered on by the route.
+    """
     skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
 
     error = None
@@ -146,21 +149,81 @@ def lapsed_customers():
     if result:
         _attach_interviews(result["rows"])
 
-    return render_template(
-        "lapsed_customers.html",
+    return dict(
         error=error,
         result=result,
         per_page_choices=PER_PAGE_CHOICES,
-        wati_attribute=ATTRIBUTE_NAME,
-        wati_max_value=MAX_VALUE_CHARS,
-        wati_max=MAX_CONTACTS_PER_RUN,
-        wati_ready=bool(get_secret("wati_api_token")),
         months_choices=[(m, inactivity_label(m)) for m in MONTHS_CHOICES],
         selected_skus=skus,
         months=months,
         months_label=inactivity_label(months),
         customer_type=customer_type,
         customer_types=CUSTOMER_TYPES,
+    )
+
+
+def _resolve_selected(emails: list[str]) -> tuple[list[dict], list[str]]:
+    """
+    Resolve a checkbox selection to customer rows, so phone, name and the
+    placeholder fields come from the same aggregate the table displayed.
+
+    The emails filter matters: without it this returns the top rows of the
+    spend-ranked listing, and any selected customer below that cutoff would
+    wrongly resolve as "customer not found". Returns (rows, missing emails).
+    """
+    refresh_all_orders_if_needed()
+    everyone = get_recurrent_customers(
+        orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
+        min_orders=1,
+        emails=emails,
+        per_page=MAX_PER_PAGE_LOOKUP,
+    )["rows"]
+    by_email = {r["email"].lower(): r for r in everyone}
+    selected = [by_email[e] for e in emails if e in by_email]
+    missing = [e for e in emails if e not in by_email]
+    return selected, missing
+
+
+@main.route("/lapsed-customers")
+@login_required
+def lapsed_customers():
+    """Customers whose last purchase was a given SKU and who have since lapsed."""
+    return render_template(
+        "lapsed_customers.html",
+        page_title="Lapsed Customers",
+        page_heading="Lapsed Customers",
+        endpoint="main.lapsed_customers",
+        wati_attribute=ATTRIBUTE_NAME,
+        wati_max_value=MAX_VALUE_CHARS,
+        wati_max=MAX_CONTACTS_PER_RUN,
+        wati_ready=bool(get_secret("wati_api_token")),
+        **_segment_page(),
+    )
+
+
+@main.route("/reconnect-lapsed-customers-by-email")
+@login_required
+def reconnect_lapsed_customers_by_email():
+    """The lapsed segment again, with an email template to send instead of a WATI tag."""
+    templates = EmailTemplate.query.order_by(db.func.lower(EmailTemplate.name)).all()
+    try:
+        selected_template_id = int(request.args.get("template_id") or 0)
+    except ValueError:
+        selected_template_id = 0
+
+    cfg = get_sendgrid_config()
+    return render_template(
+        "reconnect_lapsed_customers_by_email.html",
+        page_title="Reconnect by Email",
+        page_heading="Reconnect Lapsed Customers by Email",
+        endpoint="main.reconnect_lapsed_customers_by_email",
+        email_templates=templates,
+        selected_template_id=selected_template_id,
+        sendgrid_ready=bool(cfg["api_key"] and cfg["from_email"]),
+        sendgrid_from=cfg["from_email"],
+        sendgrid_from_name=cfg["from_name"],
+        email_max=MAX_RECIPIENTS_PER_RUN,
+        **_segment_page(),
     )
 
 
@@ -282,21 +345,7 @@ def lapsed_customers_wati_remarketing():
                 getattr(current_user, "username", "unknown"), attribute, label, len(emails))
 
     try:
-        # Resolve the selected emails against the customer aggregate, so phone
-        # and attributes come from the same source the table displayed. The
-        # emails filter matters: without it this returns the top rows of the
-        # spend-ranked listing, and any selected customer below that cutoff
-        # would wrongly resolve as "customer not found".
-        refresh_all_orders_if_needed()
-        everyone = get_recurrent_customers(
-            orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
-            min_orders=1,
-            emails=emails,
-            per_page=MAX_PER_PAGE_LOOKUP,
-        )["rows"]
-        by_email = {r["email"].lower(): r for r in everyone}
-        selected = [by_email[e] for e in emails if e in by_email]
-        missing = [e for e in emails if e not in by_email]
+        selected, missing = _resolve_selected(emails)
 
         result = tag_contacts(
             tenant_url=tenant_url,
@@ -317,6 +366,79 @@ def lapsed_customers_wati_remarketing():
         return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
         logger.exception("WATI remarketing tagging failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@main.route("/reconnect-lapsed-customers-by-email/send", methods=["POST"])
+@login_required
+def reconnect_lapsed_customers_send():
+    """
+    Email the selected customers with one saved template through SendGrid.
+
+    One email per customer, placeholders filled from the same customer
+    aggregate the table displayed. Sending is irreversible; the page confirms
+    with the operator before calling this.
+    """
+    data = request.get_json(silent=True) or {}
+    emails = [e.strip().lower() for e in (data.get("emails") or []) if str(e).strip()]
+    try:
+        template_id = int(data.get("template_id") or 0)
+    except (TypeError, ValueError):
+        template_id = 0
+
+    if not emails:
+        return jsonify({"status": "error", "message": "No customers selected."}), 400
+    if len(emails) > MAX_RECIPIENTS_PER_RUN:
+        return jsonify({
+            "status": "error",
+            "message": f"{len(emails)} selected; the limit is {MAX_RECIPIENTS_PER_RUN} per run.",
+        }), 400
+    if not template_id:
+        return jsonify({"status": "error", "message": "Choose an email template."}), 400
+
+    template = EmailTemplate.query.get(template_id)
+    if not template:
+        return jsonify({"status": "error", "message": "That email template no longer exists."}), 404
+
+    cfg = get_sendgrid_config()
+    if not cfg["api_key"] or not cfg["from_email"]:
+        return jsonify({
+            "status": "error",
+            "message": "SendGrid is not configured. Add the API key and From email in Settings.",
+        }), 400
+
+    who = getattr(current_user, "username", "unknown")
+    logger.info("%s is emailing template %r to %d customers", who, template.name, len(emails))
+
+    try:
+        selected, missing = _resolve_selected(emails)
+
+        result = send_template(
+            api_key=cfg["api_key"],
+            from_email=cfg["from_email"],
+            from_name=cfg["from_name"],
+            reply_to=cfg["reply_to"],
+            asm_group_id=cfg["asm_group_id"],
+            subject=template.subject,
+            html_body=template.html_body,
+            customers=selected,
+            template_name=template.name,
+            template_id=template.id,
+        )
+        if missing:
+            result["skipped"] += len(missing)
+            result["skipped_detail"] += [
+                {"email": e, "reason": "customer not found"} for e in missing
+            ][:50]
+
+        logger.info("%s emailed template %r: sent=%d skipped=%d failed=%d",
+                    who, template.name, result["sent"], result["skipped"], result["failed"])
+        return jsonify({"status": "success", **result}), 200
+
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        logger.exception("SendGrid campaign send failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

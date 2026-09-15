@@ -139,3 +139,27 @@ class CustomerInterview(db.Model):
 
     def __repr__(self):
         return f"<CustomerInterview {self.phone} {self.call_status}>"
+
+
+class EmailTemplate(db.Model):
+    """
+    An HTML email that operators send to a customer segment through SendGrid.
+
+    The body is stored exactly as authored. Placeholders such as {{name}} are
+    substituted per recipient at send time (see services.sendgrid) by plain
+    text replacement, never by rendering the body through Jinja, so a template
+    can hold any markup without becoming executable on the server.
+    """
+    __tablename__ = "email_templates"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    subject = db.Column(db.String(255), nullable=False)
+    html_body = db.Column(db.Text, nullable=False)
+
+    updated_by = db.Column(db.String(150), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+    def __repr__(self):
+        return f"<EmailTemplate {self.id} {self.name!r}>"

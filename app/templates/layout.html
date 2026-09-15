@@ -129,6 +129,7 @@
           <li><a href="/daily_repurchases" class="{% if p == '/daily_repurchases' %}active{% endif %}">Daily Repurchases</a></li>
           <li><a href="/recurrent-customers" class="{% if p == '/recurrent-customers' %}active{% endif %}">Recurrent Customers</a></li>
           <li><a href="/lapsed-customers" class="{% if p == '/lapsed-customers' %}active{% endif %}">Lapsed Customers</a></li>
+          <li><a href="/reconnect-lapsed-customers-by-email" class="{% if p == '/reconnect-lapsed-customers-by-email' %}active{% endif %}">Reconnect by Email</a></li>
         </ul>
       </div>
 
@@ -180,6 +181,7 @@
         <div class="nav-group-label">Administration</div>
         <ul class="nav-sidebar-links">
           <li><a href="/options" class="{% if p == '/options' %}active{% endif %}">Settings</a></li>
+          <li><a href="/email-templates" class="{% if p.startswith('/email-templates') %}active{% endif %}">Email Templates</a></li>
           {% if current_user.is_authenticated and current_user.role == 'admin' %}
             <li><a href="{{ url_for('main.admin_users_index') }}" class="{% if p == '/admin/users' %}active{% endif %}">Users</a></li>
             <li><a href="{{ url_for('main.admin_api_tokens_index') }}" class="{% if p == '/admin/api_tokens' %}active{% endif %}">API Tokens</a></li>

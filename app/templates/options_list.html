@@ -170,6 +170,80 @@
         </div>
     </div>
 
+    <!-- SendGrid integration credentials -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4>SendGrid integration</h4>
+            <p class="text-muted mb-3">
+                Credentials for emailing customer segments from
+                <a href="{{ url_for('main.email_templates_index') }}">Email Templates</a> and
+                <a href="{{ url_for('main.reconnect_lapsed_customers_by_email') }}">Reconnect by Email</a>.
+                The API key is stored <strong>encrypted</strong>; only its last 4 characters are shown unless you reveal it.
+            </p>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.options_sendgrid_save') }}" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted mb-1">From email</label>
+                            <input type="email" name="from_email" class="form-control"
+                                   value="{{ sendgrid.from_email }}" placeholder="hola@saveaplaya.com">
+                            <div class="form-text">Must be a verified sender or an authenticated domain in SendGrid.</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted mb-1">From name</label>
+                            <input type="text" name="from_name" class="form-control"
+                                   value="{{ sendgrid.from_name }}" placeholder="Save a Playa">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted mb-1">Reply-to <span class="text-muted">(optional)</span></label>
+                            <input type="email" name="reply_to" class="form-control"
+                                   value="{{ sendgrid.reply_to }}" placeholder="soporte@saveaplaya.com">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted mb-1">Unsubscribe group ID <span class="text-muted">(optional)</span></label>
+                            <input type="text" name="unsubscribe_group_id" class="form-control" inputmode="numeric"
+                                   value="{{ sendgrid.unsubscribe_group_id }}" placeholder="12345">
+                            <div class="form-text">
+                                SendGrid → Marketing → Unsubscribe Groups. When set, every email carries that
+                                group's unsubscribe link and opt-outs are honoured automatically.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted mb-1">API key</label>
+                            <div class="input-group">
+                                <input type="password" name="api_key" id="sgKey" class="form-control"
+                                       autocomplete="new-password"
+                                       placeholder="{% if sendgrid.configured %}{{ sendgrid.key_masked }} — leave blank to keep{% else %}paste your SendGrid API key (SG.…){% endif %}">
+                                <button class="btn btn-outline-secondary" type="button" id="sgRevealBtn"
+                                        {% if not sendgrid.configured %}disabled{% endif %}>Show stored key</button>
+                            </div>
+                            <div id="sgTestResult" class="mt-2"></div>
+                            <div class="form-text" id="sgKeyHint">
+                                {% if sendgrid.configured %}A key is stored ({{ sendgrid.key_masked }}). Leave blank to keep it.
+                                {% else %}No key stored yet. Create one with the <strong>Mail Send</strong> permission in SendGrid → Settings → API Keys.{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            <button type="button" class="btn btn-outline-primary" id="sgTestBtn"
+                                    {% if not sendgrid.configured %}disabled{% endif %}>Test connection</button>
+                            {% if sendgrid.configured %}
+                              <button type="submit" name="clear_key" value="1" class="btn btn-outline-danger"
+                                      onclick="return confirm('Remove the stored SendGrid API key?');">Remove</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- API Playground -->
     <div class="row mt-5">
         <div class="col-md-12">
@@ -478,6 +552,73 @@
       }
     } catch (e) {
       hint.textContent = "Could not reveal the token: " + e;
+    } finally { btn.disabled = false; }
+  });
+})();
+</script>
+
+<script>
+// Read-only SendGrid credential check: lists the key's permissions and looks
+// up the From address among verified senders. Sends nothing.
+(function () {
+  var btn = document.getElementById("sgTestBtn");
+  if (!btn) return;
+  var out = document.getElementById("sgTestResult");
+  function esc(s){ var d=document.createElement("div"); d.textContent = s==null?"":s; return d.innerHTML; }
+
+  btn.addEventListener("click", async function () {
+    btn.disabled = true;
+    var original = btn.textContent;
+    btn.textContent = "Testing…";
+    out.innerHTML = '<span class="text-primary small">Contacting SendGrid…</span>';
+    try {
+      var resp = await fetch("{{ url_for('main.options_sendgrid_test') }}",
+                             { method: "POST", credentials: "same-origin" });
+      var d = await resp.json();
+      if (d.ok) {
+        var extra = "";
+        if (d.scope_count) extra += " Key has " + esc(String(d.scope_count)) + " permissions, including Mail Send.";
+        if (d.sender_note) extra += " " + esc(d.sender_note);
+        var cls = d.sender_verified === false ? "alert-warning" : "alert-success";
+        out.innerHTML = '<div class="alert ' + cls + ' py-2 mb-0 small">✓ ' + esc(d.message) + extra + '</div>';
+      } else {
+        out.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">✗ ' + esc(d.message) + '</div>';
+      }
+    } catch (e) {
+      out.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">✗ ' + esc(String(e)) + '</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = original;
+    }
+  });
+})();
+</script>
+
+<script>
+// Reveal the stored SendGrid API key on demand (login-gated endpoint).
+(function () {
+  var btn = document.getElementById("sgRevealBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    var input = document.getElementById("sgKey");
+    var hint = document.getElementById("sgKeyHint");
+    if (input.dataset.revealed === "1") {          // hide again
+      input.type = "password"; input.value = "";
+      input.dataset.revealed = "0"; btn.textContent = "Show stored key";
+      return;
+    }
+    btn.disabled = true;
+    try {
+      var resp = await fetch("{{ url_for('main.options_sendgrid_reveal') }}",
+                             { method: "POST", credentials: "same-origin" });
+      var data = await resp.json();
+      if (resp.ok && data.status === "success") {
+        input.type = "text"; input.value = data.api_key;
+        input.dataset.revealed = "1"; btn.textContent = "Hide";
+      } else {
+        hint.textContent = data.message || "Could not reveal the key.";
+      }
+    } catch (e) {
+      hint.textContent = "Could not reveal the key: " + e;
     } finally { btn.disabled = false; }
   });
 })();
