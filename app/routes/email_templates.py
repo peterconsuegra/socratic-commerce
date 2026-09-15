@@ -92,9 +92,12 @@ def template_context(template) -> dict:
     return {"hero_image_url": url} if url else {}
 
 
-def hero_missing_error(template) -> str | None:
-    """A template that references the hero but has none would send a broken image."""
-    if "hero_image_url" in placeholders_used(template.subject, template.html_body) and not template.hero:
+def hero_missing_error(template, subject: str | None = None, html_body: str | None = None) -> str | None:
+    """A template that references the hero but has none would send a broken image.
+    subject/html_body override the saved texts when checking an unsaved draft."""
+    subject = template.subject if subject is None else subject
+    html_body = template.html_body if html_body is None else html_body
+    if "hero_image_url" in placeholders_used(subject, html_body) and not template.hero:
         return ("The template uses {{hero_image_url}} but has no hero image. Upload one in the "
                 "editor or remove the placeholder from the HTML.")
     return None
@@ -280,23 +283,36 @@ def email_templates_preview():
 @main.route("/email-templates/<int:template_id>/send-test", methods=["POST"])
 @login_required
 def email_templates_send_test(template_id):
-    """Send the saved template to one address, filled with sample data."""
+    """
+    Send the template to one address, filled with sample data.
+
+    The editor passes its current subject and body, so the test matches the
+    preview even before the draft is saved; without them the saved texts are
+    used. The hero image always comes from the saved template.
+    """
     template = EmailTemplate.query.get_or_404(template_id)
     data = request.get_json(silent=True) or {}
     to = (data.get("to") or "").strip()
     if not is_sendable_email(to):
         return jsonify({"status": "error", "message": "Enter a valid email address to send the test to."}), 400
 
+    subject = str(data.get("subject") or "").strip() or template.subject
+    html_body = str(data.get("html_body") or "").strip() or template.html_body
+    if len(subject) > MAX_SUBJECT_CHARS or len(html_body) > MAX_HTML_CHARS:
+        return jsonify({"status": "error", "message": "The draft is too long to send; shorten the subject or the HTML."}), 400
+
     cfg = get_sendgrid_config()
     if not cfg["api_key"] or not cfg["from_email"]:
         return jsonify({"status": "error",
                         "message": "SendGrid is not configured. Add the API key and From email in Settings."}), 400
-    missing = hero_missing_error(template)
+    missing = hero_missing_error(template, subject, html_body)
     if missing:
         return jsonify({"status": "error", "message": missing}), 400
 
-    logger.info("%s is sending a test of email template %r to %s",
-                getattr(current_user, "username", "unknown"), template.name, to)
+    draft = (subject, html_body) != (template.subject, template.html_body)
+    logger.info("%s is sending a test of email template %r (%s) to %s",
+                getattr(current_user, "username", "unknown"), template.name,
+                "unsaved draft" if draft else "saved version", to)
     try:
         result = send_template(
             api_key=cfg["api_key"],
@@ -304,8 +320,8 @@ def email_templates_send_test(template_id):
             from_name=cfg["from_name"],
             reply_to=cfg["reply_to"],
             asm_group_id=cfg["asm_group_id"],
-            subject=f"[Test] {template.subject}",
-            html_body=template.html_body,
+            subject=f"[Test] {subject}",
+            html_body=html_body,
             customers=[{**_SAMPLE_ROW, "email": to}],
             template_name=template.name,
             template_id=template.id,
