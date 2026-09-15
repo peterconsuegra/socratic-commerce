@@ -188,6 +188,7 @@ def test_connection(
     *,
     api_key: str,
     from_email: str = "",
+    asm_group_id: int | None = None,
     session: requests.Session | None = None,
 ) -> dict:
     """
@@ -197,7 +198,9 @@ def test_connection(
     caught here rather than on the first campaign. The sender check is
     best-effort: single-sender verification is one way to authorise a From
     address, domain authentication is the other and does not list addresses,
-    so "not found" is reported as a note, never as a failure.
+    so "not found" is reported as a note, never as a failure. The unsubscribe
+    group check is not best-effort: a group id that does not exist makes
+    SendGrid reject every send, so it fails the test outright.
     """
     api_key = (api_key or "").strip()
     from_email = (from_email or "").strip().lower()
@@ -234,7 +237,35 @@ def test_connection(
 
     if from_email:
         result.update(_check_sender(http, headers, from_email))
+    if asm_group_id:
+        result.update(_check_unsubscribe_group(http, headers, int(asm_group_id)))
+        if result.get("group_ok") is False:
+            result["ok"] = False
+            result["message"] = (
+                f"API key is valid, but unsubscribe group {asm_group_id} does not exist in this "
+                "SendGrid account, so every send would be rejected. Enter a real group ID from "
+                "SendGrid → Marketing → Unsubscribe Groups, or clear the field, and save."
+            )
     return result
+
+
+def _check_unsubscribe_group(http, headers, group_id: int) -> dict:
+    """Does the configured ASM group exist? 404 is a definite no; other errors add nothing."""
+    try:
+        resp = http.get(f"{API_BASE}/asm/groups/{group_id}", headers=headers, timeout=REQUEST_TIMEOUT)
+    except requests.RequestException:
+        logger.debug("SendGrid unsubscribe group lookup skipped", exc_info=True)
+        return {}
+    if resp.status_code == 404:
+        return {"group_ok": False}
+    if resp.status_code >= 300:
+        return {}
+    try:
+        name = str(resp.json().get("name") or "").strip()
+    except (ValueError, AttributeError):
+        name = ""
+    return {"group_ok": True,
+            "group_note": f"Unsubscribe group {group_id} found" + (f": '{name}'." if name else ".")}
 
 
 def _check_sender(http, headers, from_email: str) -> dict:

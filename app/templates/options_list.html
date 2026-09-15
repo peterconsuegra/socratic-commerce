@@ -579,6 +579,7 @@
         var extra = "";
         if (d.scope_count) extra += " Key has " + esc(String(d.scope_count)) + " permissions, including Mail Send.";
         if (d.sender_note) extra += " " + esc(d.sender_note);
+        if (d.group_note) extra += " " + esc(d.group_note);
         var cls = d.sender_verified === false ? "alert-warning" : "alert-success";
         out.innerHTML = '<div class="alert ' + cls + ' py-2 mb-0 small">✓ ' + esc(d.message) + extra + '</div>';
       } else {

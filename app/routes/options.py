@@ -251,7 +251,9 @@ def options_sendgrid_test():
         return jsonify({"ok": False, "message": "No API key stored. Save one first."}), 400
 
     try:
-        result = sendgrid_test_connection(api_key=cfg["api_key"], from_email=cfg["from_email"])
+        result = sendgrid_test_connection(
+            api_key=cfg["api_key"], from_email=cfg["from_email"], asm_group_id=cfg["asm_group_id"]
+        )
     except Exception as e:
         logger.exception("SendGrid connection test failed")
         return jsonify({"ok": False, "message": str(e)}), 500
