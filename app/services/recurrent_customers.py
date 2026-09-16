@@ -52,8 +52,15 @@ SORT_COLUMNS = {
     "last_order": ("last_order", True),
     "last_order_utc": ("last_order_utc", True),
     "last_value": ("last_order_value", True),
+    # "Days since the last order" is the same column read the other way round:
+    # ascending days = most recent last order first. Default ascending, so a
+    # win-back list opens with the customers who lapsed most recently.
+    "days_since": ("last_order_utc", False),
 }
 DEFAULT_SORT = "spent"
+
+# Sort keys whose direction is the opposite of their underlying column's.
+INVERTED_SORTS = {"days_since"}
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
@@ -322,9 +329,8 @@ def get_recurrent_customers(
         )
         recurrent = recurrent[mask].copy()
 
-    recurrent = recurrent.sort_values(
-        column, ascending=(direction == "asc"), kind="mergesort"
-    )
+    ascending = (direction == "asc") != (sort in INVERTED_SORTS)
+    recurrent = recurrent.sort_values(column, ascending=ascending, kind="mergesort")
 
     total_rows = int(len(recurrent))
     if paginate:

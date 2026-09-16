@@ -61,6 +61,10 @@ MAX_PER_PAGE_LOOKUP = MAX_PER_PAGE
 DEFAULT_SKUS = ["una_unidad", "pack_valentin", "pack_favorito"]
 DEFAULT_MONTHS = 3
 
+# A win-back list reads best with the most recently lapsed customers first:
+# fewest days since the last order at the top.
+DEFAULT_SEGMENT_SORT = "days_since"
+
 
 _GENDER_TO_META = {"female": "F", "male": "M"}
 
@@ -135,7 +139,7 @@ def _segment_page() -> dict:
             orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
             page=request.args.get("page", 1),
             per_page=request.args.get("per_page", DEFAULT_PER_PAGE),
-            sort=request.args.get("sort", "spent"),
+            sort=request.args.get("sort", DEFAULT_SEGMENT_SORT),
             direction=request.args.get("direction"),
             search=request.args.get("q", ""),
             min_orders=min_orders,
@@ -249,7 +253,7 @@ def lapsed_customers_export():
     refresh_all_orders_if_needed()
     result = get_recurrent_customers(
         orders_csv_path=current_app.config["ALL_ORDERS_CSV"],
-        sort=request.args.get("sort", "spent"),
+        sort=request.args.get("sort", DEFAULT_SEGMENT_SORT),
         direction=request.args.get("direction"),
         search=request.args.get("q", ""),
         min_orders=min_orders,

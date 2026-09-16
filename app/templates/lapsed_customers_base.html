@@ -147,9 +147,10 @@ window.LapsedSelection = (function () {
            q=result.search or None) }}
 {%- endmacro %}
 
-{% macro sort_link(key, label) -%}
+{% macro sort_link(key, label, first='desc') -%}
   {% set active = result.sort.key == key %}
-  {% set next_dir = 'asc' if (active and result.sort.direction == 'desc') else 'desc' %}
+  {% set other = 'asc' if first == 'desc' else 'desc' %}
+  {% set next_dir = other if (active and result.sort.direction == first) else first %}
   <a href="{{ page_url(page=1, sort=key, direction=next_dir) }}"
      class="text-decoration-none {% if active %}fw-bold{% endif %}">
     {{ label }}{% if active %} <span class="material-icons align-middle" style="font-size:14px;">{{ 'arrow_downward' if result.sort.direction == 'desc' else 'arrow_upward' }}</span>{% endif %}
@@ -289,7 +290,7 @@ window.LapsedSelection = (function () {
             <th class="text-end">{{ sort_link('last_value', 'Last purchase value') }}</th>
             <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
-            <th class="text-end">Days since</th>
+            <th class="text-end">{{ sort_link('days_since', 'Days since', first='asc') }}</th>
             <th>Entrevista</th>
           </tr>
         </thead>
