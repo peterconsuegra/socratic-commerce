@@ -107,6 +107,7 @@
     var opt = chosenTemplate();
 
     if (!chosen.length) { statusEl.innerHTML = '<span class="text-danger">Select at least one customer.</span>'; return; }
+    if (chosen.length > {{ email_max }}) { statusEl.innerHTML = '<span class="text-danger">' + chosen.length + ' selected; the limit is {{ email_max }} per run.</span>'; return; }
     if (!opt) { statusEl.innerHTML = '<span class="text-danger">Choose an email template.</span>'; return; }
 
     var msg = 'Send "' + opt.text + '" to ' + chosen.length + " customer(s)?"

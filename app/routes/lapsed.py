@@ -33,7 +33,7 @@ from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY, get_sendgrid_config
 
 logger = logging.getLogger(__name__)
 
-PER_PAGE_CHOICES = [50, 100, 250, 500]
+PER_PAGE_CHOICES = [50, 100, 250, 500, 1000, 2500, 5000]
 # Inactivity window, always expressed in months so the service and the query
 # string keep one unit; the multi-year options render as years in the UI.
 MONTHS_CHOICES = [2, 3, 6, 9, 12, 24, 36, 48, 60]
@@ -114,9 +114,14 @@ def _attach_interviews(rows):
             targets.setdefault(target, []).append(row)
     if not targets:
         return
-    found = CustomerInterview.query.filter(
-        CustomerInterview.phone.in_(list(targets))
-    ).all()
+    # Chunked: a 5000-row page would otherwise put thousands of parameters in
+    # one IN clause, past what older SQLite builds accept.
+    phones = list(targets)
+    found = []
+    for i in range(0, len(phones), 500):
+        found.extend(CustomerInterview.query.filter(
+            CustomerInterview.phone.in_(phones[i:i + 500])
+        ).all())
     for interview in found:
         for row in targets.get(interview.phone, []):
             row["interview"] = interview.to_dict()

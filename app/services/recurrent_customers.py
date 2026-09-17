@@ -42,7 +42,9 @@ logger = logging.getLogger(__name__)
 MISSING_SENTINELS = {"n/a", "na", "none", "null"}
 
 DEFAULT_PER_PAGE = 100
-MAX_PER_PAGE = 1000
+# Large enough for the segment pages' 5000-row option; the table is cached,
+# so a big page only costs rendering.
+MAX_PER_PAGE = 5000
 
 # sort key -> (dataframe column, default descending?)
 SORT_COLUMNS = {

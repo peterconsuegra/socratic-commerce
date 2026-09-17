@@ -72,6 +72,7 @@
     var attribute = document.getElementById("watiAttribute").value.trim() || "remarketing";
 
     if (!chosen.length) { statusEl.innerHTML = '<span class="text-danger">Select at least one customer.</span>'; return; }
+    if (chosen.length > {{ wati_max }}) { statusEl.innerHTML = '<span class="text-danger">' + chosen.length + ' selected; the limit is {{ wati_max }} per run.</span>'; return; }
     if (!label) { statusEl.innerHTML = '<span class="text-danger">Enter a remarketing label.</span>'; return; }
 
     var noPhone = chosen.filter(function (r) { return !r.dataset.phone; }).length;
