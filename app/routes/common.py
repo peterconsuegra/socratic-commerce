@@ -1,5 +1,6 @@
 # app/routes/common.py
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from functools import wraps
@@ -130,6 +131,39 @@ def generate_all_orders_csv() -> str:
     return output_csv
 
 
+# The orders API can take minutes to answer for the full history, longer than
+# the web worker's request timeout. So when a usable file already exists the
+# refresh runs in a background thread and the request is served from the
+# file on disk; only a first run with no file at all waits for the API.
+_REFRESH_LOCK = threading.Lock()
+_LAST_REFRESH_FAILURE = 0.0
+RETRY_AFTER_FAILURE_SECONDS = int(os.getenv("ALL_ORDERS_RETRY_AFTER_FAILURE_SECONDS", str(10 * 60)))
+
+
+def _refresh_in_background(app):
+    """Start one refresh per worker at a time; a second caller just returns."""
+    if not _REFRESH_LOCK.acquire(blocking=False):
+        app.logger.info("all_orders.csv refresh already running; serving the cached file")
+        return
+
+    def run():
+        global _LAST_REFRESH_FAILURE
+        try:
+            with app.app_context():
+                app.logger.info("Refreshing all_orders.csv from API in the background")
+                generate_all_orders_csv()
+                app.logger.info("all_orders.csv refreshed and cached")
+        except Exception:
+            # The stale file stays in use; retry after a pause rather than on
+            # every request while the API is down.
+            _LAST_REFRESH_FAILURE = time.time()
+            app.logger.exception("Background refresh of all_orders.csv failed; keeping the cached file")
+        finally:
+            _REFRESH_LOCK.release()
+
+    threading.Thread(target=run, name="all-orders-refresh", daemon=True).start()
+
+
 def refresh_all_orders_if_needed(force: bool = False, max_age_seconds: int | None = None):
     csv_path = current_app.config["ALL_ORDERS_CSV"]
 
@@ -140,9 +174,16 @@ def refresh_all_orders_if_needed(force: bool = False, max_age_seconds: int | Non
     if force:
         current_app.logger.info("Forced refresh of all_orders.csv requested")
 
-    current_app.logger.info("Refreshing all_orders.csv from API")
-
     have_usable_cache = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
+
+    if have_usable_cache and not force:
+        if time.time() - _LAST_REFRESH_FAILURE < RETRY_AFTER_FAILURE_SECONDS:
+            current_app.logger.info("all_orders.csv refresh failed recently; serving the cached file")
+            return
+        _refresh_in_background(current_app._get_current_object())
+        return
+
+    current_app.logger.info("Refreshing all_orders.csv from API")
 
     try:
         generate_all_orders_csv()

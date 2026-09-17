@@ -330,30 +330,40 @@ def fetch_orders_and_write_csv(
         filtered_file_name = f"{name_without_ext}_filtered.csv"
         filtered_csv_path = os.path.join(data_dir, filtered_file_name)
 
-        for path in [csv_path, filtered_csv_path]:
-            if os.path.exists(path):
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
+        if os.path.exists(filtered_csv_path):
+            try:
+                os.remove(filtered_csv_path)
+            except Exception:
+                pass
 
         name_map_file = os.path.join(data_dir, "name_to_gender.csv")
 
+        # Write beside the live file and swap it in with one rename, so a
+        # request served while the refresh runs (it now runs in the
+        # background) sees either the old complete file or the new one,
+        # never a missing or half-written CSV.
+        tmp_path = f"{csv_path}.tmp"
         message = fetch_json_and_create_csv(
             json_data=json_data,
-            output_file=csv_path,
+            output_file=tmp_path,
             name_to_gender_file=name_map_file,
             force_schema=DAILY_SALES_SCHEMA,
             row_builder=_build_daily_sales_row,
             drop_columns=["shipping"],
         )
 
-        if "successfully" in (message or "").lower():
+        if "successfully" in (message or "").lower() and os.path.exists(tmp_path):
+            os.replace(tmp_path, csv_path)
             return True, {
                 "message": f"data/{file_name} created successfully!",
                 "csv_url": f"/static/data/{file_name}",
             }
 
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
         return False, {"message": f"Error creating CSV: {message}"}
 
     except requests.exceptions.RequestException as e:

@@ -32,6 +32,7 @@ order, so a plain string max() is a correct "most recent".
 """
 import logging
 import os
+import threading
 
 import pandas as pd
 
@@ -121,87 +122,67 @@ def _days_since(utc_iso: str):
     return int((pd.Timestamp.now(tz="UTC") - ts).days)
 
 
-def _pick_name(series: pd.Series) -> str:
-    """Most frequent non-empty name for the customer, else empty."""
-    vals = series[series.astype(str).str.strip() != ""]
-    if vals.empty:
-        return ""
-    return str(vals.value_counts().index[0])
-
-
-def get_recurrent_customers(
-    orders_csv_path: str = "data/all_orders.csv",
-    page: int = 1,
-    per_page: int = DEFAULT_PER_PAGE,
-    sort: str = DEFAULT_SORT,
-    direction: str | None = None,
-    search: str = "",
-    min_orders: int = 2,
-    sku_filter: set | list | None = None,
-    inactive_months: int | None = None,
-    max_orders: int | None = None,
-    emails: list | None = None,
-    paginate: bool = True,
-) -> dict:
+def _name_by_customer(data: pd.DataFrame) -> pd.Series:
     """
-    Returns a page of customers with more than one order.
-
-    Args:
-        orders_csv_path: path to the all-orders CSV.
-        page: 1-based page number.
-        per_page: rows per page (default 100).
-        sort: one of SORT_COLUMNS keys.
-        direction: "asc" or "desc"; defaults to the sort key's natural order.
-        search: optional case-insensitive filter on name or email.
-        min_orders: minimum orders to count as recurrent (default 2). Pass 1
-            to include one-time buyers.
-        sku_filter: if given, keep only customers whose LAST purchase included
-            one of these SKUs.
-        inactive_months: if given, keep only customers whose last order (UTC)
-            is older than this many months - a lapsed / win-back segment.
-        max_orders: if given, keep only customers with at most this many
-            orders, so min_orders/max_orders together bound the range.
-        emails: if given, keep only these customers (case-insensitive email
-            match). Used to resolve a checkbox selection: without it a caller
-            would have to page through the spend-ranked listing and anyone
-            below the page cap would silently resolve as missing.
-
-    Both filters default to None, leaving the returned figures identical to a
-    call without them.
-
-    Returns a dict with the page rows plus pagination and summary metadata.
+    Most frequent non-empty name per customer, ties going to the name seen
+    first. One grouped count for everyone: the previous per-customer Python
+    aggregation ran value_counts ~44k times and took ~10s per request.
     """
-    sort = (sort or DEFAULT_SORT).strip().lower()
-    if sort not in SORT_COLUMNS:
-        sort = DEFAULT_SORT
+    named = data.loc[data["name"] != "", ["email_key", "name"]]
+    if named.empty:
+        return pd.Series(dtype=object, name="name")
+    return (
+        named.groupby(["email_key", "name"], sort=False).size().rename("n").reset_index()
+        .sort_values("n", ascending=False, kind="mergesort")
+        .drop_duplicates("email_key")
+        .set_index("email_key")["name"]
+    )
 
-    column, default_desc = SORT_COLUMNS[sort]
-    direction = (direction or ("desc" if default_desc else "asc")).strip().lower()
-    if direction not in {"asc", "desc"}:
-        direction = "desc" if default_desc else "asc"
 
+# One aggregated customers table per orders-file version, shared by every
+# request in the worker. Grouping ~60k orders is far too slow to repeat for
+# each page, sort or filter change, and the result only changes when the
+# file does. Readers never mutate it: filters below work on copies.
+_TABLE_LOCK = threading.Lock()
+_TABLE_CACHE: dict = {"key": None, "table": None}
+
+
+def _file_key(path: str) -> tuple:
+    st = os.stat(path)
+    return os.path.abspath(path), st.st_mtime_ns, st.st_size
+
+
+def _customers_table(orders_csv_path: str) -> pd.DataFrame:
     try:
-        per_page = int(per_page)
-    except (TypeError, ValueError):
-        per_page = DEFAULT_PER_PAGE
-    per_page = max(1, min(per_page, MAX_PER_PAGE))
+        key = _file_key(orders_csv_path)
+    except FileNotFoundError:
+        # The file is briefly absent while a refresh rewrites it. Serving the
+        # last aggregate for that moment beats failing the page.
+        if _TABLE_CACHE["table"] is not None:
+            return _TABLE_CACHE["table"]
+        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
-    try:
-        page = int(page)
-    except (TypeError, ValueError):
-        page = 1
-    page = max(1, page)
+    if _TABLE_CACHE["key"] == key:
+        return _TABLE_CACHE["table"]
+    with _TABLE_LOCK:
+        if _TABLE_CACHE["key"] == key:
+            return _TABLE_CACHE["table"]
+        table = _aggregate_customers(_load_orders(orders_csv_path))
+        _TABLE_CACHE["key"], _TABLE_CACHE["table"] = key, table
+        logger.info("customers table rebuilt: %d customers from %s", len(table), orders_csv_path)
+        return table
 
-    data = _load_orders(orders_csv_path)
 
+def _aggregate_customers(data: pd.DataFrame) -> pd.DataFrame:
+    """One row per customer (email, case-insensitive) from the orders rows."""
     grouped = data.groupby("email_key").agg(
         orders_count=("total_value", "size"),
         total_spent=("total_value", "sum"),
         last_order=("order_date", "max"),
         first_order=("order_date", "min"),
         email=("email", "first"),
-        name=("name", _pick_name),
     )
+    grouped["name"] = _name_by_customer(data).reindex(grouped.index).fillna("").astype(str)
 
     # Phone and the UTC timestamp are derived separately and joined on, so the
     # aggregation above - and therefore orders_count, total_spent and the
@@ -279,6 +260,73 @@ def get_recurrent_customers(
     grouped["last_order_value"] = grouped["last_order_value"].fillna(0.0)
     grouped["city"] = grouped["city"].fillna("").astype(str)
     grouped["gender"] = grouped["gender"].fillna("").astype(str)
+    return grouped
+
+
+def get_recurrent_customers(
+    orders_csv_path: str = "data/all_orders.csv",
+    page: int = 1,
+    per_page: int = DEFAULT_PER_PAGE,
+    sort: str = DEFAULT_SORT,
+    direction: str | None = None,
+    search: str = "",
+    min_orders: int = 2,
+    sku_filter: set | list | None = None,
+    inactive_months: int | None = None,
+    max_orders: int | None = None,
+    emails: list | None = None,
+    paginate: bool = True,
+) -> dict:
+    """
+    Returns a page of customers with more than one order.
+
+    Args:
+        orders_csv_path: path to the all-orders CSV.
+        page: 1-based page number.
+        per_page: rows per page (default 100).
+        sort: one of SORT_COLUMNS keys.
+        direction: "asc" or "desc"; defaults to the sort key's natural order.
+        search: optional case-insensitive filter on name or email.
+        min_orders: minimum orders to count as recurrent (default 2). Pass 1
+            to include one-time buyers.
+        sku_filter: if given, keep only customers whose LAST purchase included
+            one of these SKUs.
+        inactive_months: if given, keep only customers whose last order (UTC)
+            is older than this many months - a lapsed / win-back segment.
+        max_orders: if given, keep only customers with at most this many
+            orders, so min_orders/max_orders together bound the range.
+        emails: if given, keep only these customers (case-insensitive email
+            match). Used to resolve a checkbox selection: without it a caller
+            would have to page through the spend-ranked listing and anyone
+            below the page cap would silently resolve as missing.
+
+    Both filters default to None, leaving the returned figures identical to a
+    call without them.
+
+    Returns a dict with the page rows plus pagination and summary metadata.
+    """
+    sort = (sort or DEFAULT_SORT).strip().lower()
+    if sort not in SORT_COLUMNS:
+        sort = DEFAULT_SORT
+
+    column, default_desc = SORT_COLUMNS[sort]
+    direction = (direction or ("desc" if default_desc else "asc")).strip().lower()
+    if direction not in {"asc", "desc"}:
+        direction = "desc" if default_desc else "asc"
+
+    try:
+        per_page = int(per_page)
+    except (TypeError, ValueError):
+        per_page = DEFAULT_PER_PAGE
+    per_page = max(1, min(per_page, MAX_PER_PAGE))
+
+    try:
+        page = int(page)
+    except (TypeError, ValueError):
+        page = 1
+    page = max(1, page)
+
+    grouped = _customers_table(orders_csv_path)
 
     total_customers = int(len(grouped))
     available_skus = sorted({sku for lst in grouped["last_skus"] for sku in lst})
