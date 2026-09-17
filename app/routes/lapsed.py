@@ -88,7 +88,10 @@ DEFAULT_MAX_CONTACTS = 3
 # Sends go to the channel in chunks, each logged as soon as it completes, so
 # a run cut short (worker timeout, lost connection) never leaves customers
 # contacted but unlogged - which is what would cause a double send later.
+# WATI is one request per contact, so chunks are small; SendGrid takes a
+# batch per request, so a chunk is one request.
 SEND_CHUNK = 100
+EMAIL_SEND_CHUNK = 500
 
 
 _GENDER_TO_META = {"female": "F", "male": "M"}
@@ -591,8 +594,8 @@ def reconnect_lapsed_customers_send():
         )
         result = None
         logged = 0
-        for i in range(0, len(selected), SEND_CHUNK):
-            part = send_template(customers=selected[i:i + SEND_CHUNK], **send_kwargs)
+        for i in range(0, len(selected), EMAIL_SEND_CHUNK):
+            part = send_template(customers=selected[i:i + EMAIL_SEND_CHUNK], **send_kwargs)
             logged += _record_contacts(CustomerContact.CHANNEL_EMAIL, template.name,
                                        part.get("sent_detail", []), template_id=template.id,
                                        last_orders=_last_orders(selected))

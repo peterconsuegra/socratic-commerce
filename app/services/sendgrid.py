@@ -12,14 +12,17 @@ Contract (https://www.twilio.com/docs/sendgrid/api-reference/mail-send):
                  {"type": "text/html", "value": "..."}]}
     -> 202 Accepted with an empty body.
 
-One request per recipient, on purpose. The endpoint takes up to 1000
-personalizations per call, but then one bad address fails the whole batch
-and the operator cannot tell who was and was not emailed. Per-recipient
-calls give a per-row outcome, the same reporting shape as the WATI tagging.
+Recipients go in batches: one request carries up to BATCH_SIZE
+personalizations, each with its own "to", rendered subject and placeholder
+values, so a 5000-customer run is a handful of requests instead of 5000.
+If SendGrid rejects a whole batch (a 4xx), that batch is re-sent one
+recipient at a time, which keeps the per-row outcome the operator needs.
 
-Placeholders ({{name}}, {{last_sku}}, ...) are substituted here, before the
-request, with HTML-escaped values, so the editor preview shows exactly what
-is sent and customer data can never inject markup into the email.
+Placeholders ({{name}}, {{last_sku}}, ...) are filled with HTML-escaped
+values. In a batch that happens through SendGrid substitutions - the body
+carries the tags and each personalization carries the escaped values - and
+in the per-recipient fallback (and the editor preview) locally; both give
+the same result, so what the preview shows is what is sent.
 """
 import html
 import logging
@@ -33,9 +36,14 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://api.sendgrid.com/v3"
 MAIL_SEND_URL = f"{API_BASE}/mail/send"
 
-# Cap on one request, so a mis-click cannot fan out unbounded sends. 1000 is
-# one day's batch; the route sends in chunks and logs each as it completes.
-MAX_RECIPIENTS_PER_RUN = 1000
+# Cap on one request, so a mis-click cannot fan out unbounded sends. Matches
+# the largest page the segment views offer; the route sends in chunks and
+# logs each as it completes.
+MAX_RECIPIENTS_PER_RUN = 5000
+
+# Personalizations per mail/send request. SendGrid allows 1000; 500 keeps
+# each request body modest and a rejected batch's fallback short.
+BATCH_SIZE = 500
 
 # SendGrid's mail/send limit is far higher; this keeps one run quick without
 # holding many sockets open from a web worker.
@@ -147,6 +155,11 @@ def html_to_text(markup: str) -> str:
     text = re.sub(r" *\n *", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+def _canonical_tags(text: str) -> str:
+    """{{ name }} -> {{name}}, so SendGrid's literal substitution keys match."""
+    return _PLACEHOLDER.sub(lambda m: "{{" + m.group(1) + "}}", text or "")
 
 
 def render_email(subject: str, html_body: str, context: dict) -> dict:
@@ -410,10 +423,65 @@ def send_template(
             return ("failed", {"email": email, "status": resp.status_code, "error": detail})
         return ("sent", {"email": email, "message_id": resp.headers.get("X-Message-Id", "")})
 
-    if sendable:
-        with ThreadPoolExecutor(max_workers=min(CONCURRENCY, len(sendable))) as pool:
-            for outcome, detail in pool.map(send_one, sendable):
-                (sent if outcome == "sent" else failed).append(detail)
+    def send_batch(entries):
+        """
+        One request for many recipients. The body keeps the placeholder tags
+        and each personalization supplies that customer's escaped values as
+        SendGrid substitutions, plus its own rendered subject. Returns the
+        outcomes, or None when SendGrid rejected the batch (4xx) so the
+        caller can fall back to one request per recipient.
+        """
+        body_html = _canonical_tags(html_body)
+        tags = sorted(placeholders_used(body_html))
+        personalizations = []
+        for c, email in entries:
+            ctx = {**customer_context(c), **(extra_context or {})}
+            to = {"email": email}
+            full_name = " ".join(p for p in ((c.get("name") or "").strip(),
+                                             (c.get("last_name") or "").strip()) if p)
+            if full_name:
+                to["name"] = full_name
+            personalizations.append({
+                "to": [to],
+                "subject": render_placeholders(subject, ctx, escape=False),
+                "substitutions": {"{{" + t + "}}": html.escape("" if ctx.get(t) is None else str(ctx[t]), quote=True)
+                                  for t in tags if t in ctx},
+            })
+        payload = {
+            **base_payload,
+            "personalizations": personalizations,
+            "subject": _canonical_tags(subject),
+            "content": [
+                {"type": "text/plain", "value": html_to_text(body_html) or " "},
+                {"type": "text/html", "value": body_html},
+            ],
+        }
+        if custom_args:
+            payload["custom_args"] = custom_args
+        try:
+            resp = http.post(MAIL_SEND_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+        except requests.RequestException as e:
+            logger.warning("SendGrid batch of %d failed to send: %s", len(entries), e)
+            return [("failed", {"email": email, "status": None, "error": str(e)}) for _c, email in entries]
+        if resp.status_code < 300:
+            message_id = resp.headers.get("X-Message-Id", "")
+            return [("sent", {"email": email, "message_id": message_id}) for _c, email in entries]
+        if resp.status_code == 429 or resp.status_code >= 500:
+            detail = _describe_failure(resp.status_code, resp)
+            logger.warning("SendGrid batch of %d failed (%s): %s", len(entries), resp.status_code, detail)
+            return [("failed", {"email": email, "status": resp.status_code, "error": detail}) for _c, email in entries]
+        logger.warning("SendGrid rejected a batch of %d (%s): %s; retrying one by one",
+                       len(entries), resp.status_code, _api_errors(resp))
+        return None
+
+    for i in range(0, len(sendable), BATCH_SIZE):
+        batch = sendable[i:i + BATCH_SIZE]
+        outcomes = send_batch(batch)
+        if outcomes is None:
+            with ThreadPoolExecutor(max_workers=min(CONCURRENCY, len(batch))) as pool:
+                outcomes = list(pool.map(send_one, batch))
+        for outcome, detail in outcomes:
+            (sent if outcome == "sent" else failed).append(detail)
 
     return {
         "template": template_name,
