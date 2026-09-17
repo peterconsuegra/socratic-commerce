@@ -70,6 +70,11 @@ DEFAULT_SEGMENT_SORT = "days_since"
 EXCLUDE_DAYS_CHOICES = [0, 7, 14, 30, 60, 90]
 DEFAULT_EXCLUDE_DAYS = 30
 
+# "Max contacts without a repurchase": customers contacted this many times
+# since their last order are hidden until they buy again. 0 = no limit.
+MAX_CONTACTS_CHOICES = [0, 1, 2, 3, 4, 5]
+DEFAULT_MAX_CONTACTS = 3
+
 # Sends go to the channel in chunks, each logged as soon as it completes, so
 # a run cut short (worker timeout, lost connection) never leaves customers
 # contacted but unlogged - which is what would cause a double send later.
@@ -111,7 +116,23 @@ def _read_segment_filters():
     if exclude_days not in EXCLUDE_DAYS_CHOICES:
         exclude_days = DEFAULT_EXCLUDE_DAYS
 
-    return skus, months, customer_type, min_orders, max_orders, exclude_days
+    try:
+        max_contacts = int(request.args.get("max_contacts", DEFAULT_MAX_CONTACTS))
+    except (TypeError, ValueError):
+        max_contacts = DEFAULT_MAX_CONTACTS
+    if max_contacts not in MAX_CONTACTS_CHOICES:
+        max_contacts = DEFAULT_MAX_CONTACTS
+
+    return skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts
+
+
+def _contact_counts() -> dict:
+    """{(email, last_order_at): contacts made while that was the last order}."""
+    rows = (db.session.query(CustomerContact.email, CustomerContact.last_order_at,
+                             db.func.count(CustomerContact.id))
+            .filter(CustomerContact.last_order_at.isnot(None))
+            .group_by(CustomerContact.email, CustomerContact.last_order_at).all())
+    return {(email, last_order_at): int(n) for email, last_order_at, n in rows}
 
 
 def _contacted_since(days: int) -> set[str]:
@@ -142,15 +163,26 @@ def _attach_last_contact(rows):
                     row["last_contact"] = contact.to_dict()
 
 
-def _record_contacts(channel: str, label: str, entries: list[dict], template_id: int | None = None) -> int:
-    """Log successful sends. entries carry at least "email"; returns rows written."""
+def _record_contacts(channel: str, label: str, entries: list[dict], template_id: int | None = None,
+                     last_orders: dict | None = None) -> int:
+    """
+    Log successful sends. entries carry at least "email"; last_orders maps
+    email -> the customer's last_order_utc at send time, so the contact
+    counts as an attempt against that order. Returns rows written.
+    """
     who = getattr(current_user, "username", None)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    rows = [
-        CustomerContact(email=(e.get("email") or "").strip().lower(), phone=(e.get("phone") or "")[:20] or None,
-                        channel=channel, label=label[:150], template_id=template_id, sent_at=now, sent_by=who)
-        for e in entries if (e.get("email") or "").strip()
-    ]
+    last_orders = last_orders or {}
+    rows = []
+    for e in entries:
+        email = (e.get("email") or "").strip().lower()
+        if not email:
+            continue
+        rows.append(CustomerContact(
+            email=email, phone=(e.get("phone") or "")[:20] or None, channel=channel, label=label[:150],
+            template_id=template_id, sent_at=now, sent_by=who,
+            last_order_at=(last_orders.get(email) or None),
+        ))
     if rows:
         db.session.add_all(rows)
         db.session.commit()
@@ -206,7 +238,7 @@ def _segment_page() -> dict:
     and the template context for the filter controls. The page-specific action
     (WATI tag, email send) is layered on by the route.
     """
-    skus, months, customer_type, min_orders, max_orders, exclude_days = _read_segment_filters()
+    skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
 
     error = None
     result = None
@@ -225,6 +257,8 @@ def _segment_page() -> dict:
             sku_filter=set(skus),
             inactive_months=months,
             exclude_emails=_contacted_since(exclude_days),
+            contact_counts=_contact_counts(),
+            max_contacts=max_contacts,
         )
     except Exception as e:
         logger.exception("Failed to build lapsed customers listing")
@@ -246,6 +280,8 @@ def _segment_page() -> dict:
         customer_types=CUSTOMER_TYPES,
         exclude_days=exclude_days,
         exclude_choices=EXCLUDE_DAYS_CHOICES,
+        max_contacts=max_contacts,
+        max_contacts_choices=MAX_CONTACTS_CHOICES,
     )
 
 
@@ -269,6 +305,10 @@ def _resolve_selected(emails: list[str]) -> tuple[list[dict], list[str]]:
     selected = [by_email[e] for e in emails if e in by_email]
     missing = [e for e in emails if e not in by_email]
     return selected, missing
+
+
+def _last_orders(selected: list[dict]) -> dict:
+    return {r["email"].lower(): r.get("last_order_utc") or "" for r in selected}
 
 
 @main.route("/lapsed-customers")
@@ -330,7 +370,7 @@ def lapsed_customers_export():
     when unknown). Phones are E.164 with the leading "+", as in the sample, and
     value is lifetime spend for value-based lookalikes.
     """
-    skus, months, customer_type, min_orders, max_orders, exclude_days = _read_segment_filters()
+    skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
 
     refresh_all_orders_if_needed()
     result = get_recurrent_customers(
@@ -343,6 +383,8 @@ def lapsed_customers_export():
         sku_filter=set(skus),
         inactive_months=months,
         exclude_emails=_contacted_since(exclude_days),
+        contact_counts=_contact_counts(),
+        max_contacts=max_contacts,
         paginate=False,
     )
 
@@ -445,7 +487,8 @@ def lapsed_customers_wati_remarketing():
                 label=label,
                 attribute=attribute,
             )
-            logged += _record_contacts(CustomerContact.CHANNEL_WATI, label, part.get("tagged_detail", []))
+            logged += _record_contacts(CustomerContact.CHANNEL_WATI, label, part.get("tagged_detail", []),
+                                       last_orders=_last_orders(selected))
             result = _merge_results(result, part)
         if result is None:
             result = tag_contacts(tenant_url=tenant_url, api_token=api_token, customers=selected,
@@ -535,7 +578,8 @@ def reconnect_lapsed_customers_send():
         for i in range(0, len(selected), SEND_CHUNK):
             part = send_template(customers=selected[i:i + SEND_CHUNK], **send_kwargs)
             logged += _record_contacts(CustomerContact.CHANNEL_EMAIL, template.name,
-                                       part.get("sent_detail", []), template_id=template.id)
+                                       part.get("sent_detail", []), template_id=template.id,
+                                       last_orders=_last_orders(selected))
             result = _merge_results(result, part)
         if result is None:
             result = send_template(customers=selected, **send_kwargs)  # raises the "No customers" error

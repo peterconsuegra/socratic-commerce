@@ -244,8 +244,16 @@ class CustomerContact(db.Model):
     template_id = db.Column(db.Integer, nullable=True)
     sent_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
     sent_by = db.Column(db.String(150), nullable=True)
+    # The customer's last order (ISO-8601 "Z" string, as in the orders data)
+    # when this contact was made. Contacts sharing the customer's CURRENT
+    # last order are "attempts since the last order"; a new purchase changes
+    # the value and the count starts again from zero on its own.
+    last_order_at = db.Column(db.String(32), nullable=True)
 
-    __table_args__ = (db.Index("ix_customer_contacts_email_sent_at", "email", "sent_at"),)
+    __table_args__ = (
+        db.Index("ix_customer_contacts_email_sent_at", "email", "sent_at"),
+        db.Index("ix_customer_contacts_email_last_order", "email", "last_order_at"),
+    )
 
     def to_dict(self) -> dict:
         return {

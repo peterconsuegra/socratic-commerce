@@ -278,6 +278,8 @@ def get_recurrent_customers(
     max_orders: int | None = None,
     emails: list | None = None,
     exclude_emails: set | list | None = None,
+    contact_counts: dict | None = None,
+    max_contacts: int | None = None,
     paginate: bool = True,
 ) -> dict:
     """
@@ -306,6 +308,12 @@ def get_recurrent_customers(
             e.g. everyone contacted recently. Applied before the summary, so
             the tiles describe the customers actually listed; the number
             dropped is reported as summary["excluded"].
+        contact_counts: {(email, last_order_utc): n} - how many times each
+            customer was contacted while that was their last order. Every row
+            gets "contacts_since_order" from it (0 when absent).
+        max_contacts: with contact_counts, drop customers contacted at least
+            this many times since their last order; the number dropped is
+            reported as summary["exhausted"]. None or 0 means no limit.
 
     Both filters default to None, leaving the returned figures identical to a
     call without them.
@@ -352,6 +360,20 @@ def get_recurrent_customers(
         recurrent = recurrent[~recurrent.index.isin(list(exclude_emails))].copy()
         excluded = before - len(recurrent)
 
+    # Attempts since the last order, then the limit on them. A purchase after
+    # a contact changes last_order_utc, so those earlier contacts stop
+    # counting without any bookkeeping.
+    counts = contact_counts or {}
+    recurrent["contacts_since_order"] = [
+        int(counts.get((email, last_utc), 0))
+        for email, last_utc in zip(recurrent.index, recurrent["last_order_utc"])
+    ] if len(recurrent) else []
+    exhausted = 0
+    if max_contacts and counts:
+        before = len(recurrent)
+        recurrent = recurrent[recurrent["contacts_since_order"] < int(max_contacts)].copy()
+        exhausted = before - len(recurrent)
+
     if max_orders:
         recurrent = recurrent[recurrent["orders_count"] <= int(max_orders)].copy()
 
@@ -380,6 +402,7 @@ def get_recurrent_customers(
         "recurrent_orders": int(recurrent["orders_count"].sum()) if len(recurrent) else 0,
         "recurrent_revenue": float(recurrent["total_spent"].sum()) if len(recurrent) else 0.0,
         "excluded": int(excluded),
+        "exhausted": int(exhausted),
     }
 
     search = (search or "").strip()
@@ -421,6 +444,7 @@ def get_recurrent_customers(
             "city": r["city"],
             "gender": r["gender"],
             "days_since_last_order": _days_since(r["last_order_utc"]),
+            "contacts_since_order": int(r["contacts_since_order"]),
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),
