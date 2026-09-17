@@ -204,10 +204,10 @@ window.LapsedSelection = (function () {
       <p class="text-center text-muted small mb-3">
         <span class="material-icons align-middle" style="font-size:16px;">visibility_off</span>
         {% if s.excluded %}
-          {{ "{:,}".format(s.excluded) }} customer{{ 's' if s.excluded != 1 else '' }} hidden: contacted in the last {{ exclude_days }} days.
+          {{ "{:,}".format(s.excluded) }} customer{{ 's' if s.excluded != 1 else '' }} hidden: {{ wording.past }} in the last {{ exclude_days }} days.
         {% endif %}
         {% if s.exhausted %}
-          {{ "{:,}".format(s.exhausted) }} customer{{ 's' if s.exhausted != 1 else '' }} hidden: reached {{ max_contacts }} contact{{ 's' if max_contacts != 1 else '' }} without a repurchase.
+          {{ "{:,}".format(s.exhausted) }} customer{{ 's' if s.exhausted != 1 else '' }} hidden: reached {{ max_contacts }} {{ wording.noun if max_contacts == 1 else wording.plural }} without a repurchase.
         {% endif %}
         <a href="{{ url_for(endpoint, months=months, customer_type=customer_type, sku=selected_skus,
                             per_page=p.per_page, sort=result.sort.key, direction=result.sort.direction,
@@ -263,9 +263,9 @@ window.LapsedSelection = (function () {
           </div>
 
           <div class="col-sm-4">
-            <label class="form-label small text-muted mb-1">Hide customers contacted in the last</label>
+            <label class="form-label small text-muted mb-1">Hide customers {{ wording.past }} in the last</label>
             <select name="exclude_contacted" class="form-select"
-                    title="Hides anyone logged as tagged in WATI or emailed within this window, so a daily batch never repeats a customer">
+                    title="Hides anyone {{ wording.past }} within this window, so a daily batch never repeats a customer. Contacts on the other channel do not count here.">
               {% for d in exclude_choices %}
                 <option value="{{ d }}" {% if d == exclude_days %}selected{% endif %}>{{ "Don't hide" if d == 0 else (d ~ ' days') }}</option>
               {% endfor %}
@@ -273,11 +273,11 @@ window.LapsedSelection = (function () {
           </div>
 
           <div class="col-sm-4">
-            <label class="form-label small text-muted mb-1">Max contacts without a repurchase</label>
+            <label class="form-label small text-muted mb-1">Max {{ wording.plural }} without a repurchase</label>
             <select name="max_contacts" class="form-select"
-                    title="Hides customers contacted this many times since their last order, until they buy again">
+                    title="Hides customers {{ wording.past }} this many times since their last order, until they buy again">
               {% for n in max_contacts_choices %}
-                <option value="{{ n }}" {% if n == max_contacts %}selected{% endif %}>{{ "No limit" if n == 0 else (n ~ (' contact' if n == 1 else ' contacts')) }}</option>
+                <option value="{{ n }}" {% if n == max_contacts %}selected{% endif %}>{{ "No limit" if n == 0 else (n ~ ' ' ~ (wording.noun if n == 1 else wording.plural)) }}</option>
               {% endfor %}
             </select>
           </div>
@@ -302,7 +302,7 @@ window.LapsedSelection = (function () {
            href="{{ url_for('main.lapsed_customers_export',
                             months=months, customer_type=customer_type, sku=selected_skus,
                             sort=result.sort.key, direction=result.sort.direction,
-                            exclude_contacted=exclude_days, max_contacts=max_contacts,
+                            exclude_contacted=exclude_days, max_contacts=max_contacts, channel=channel,
                             q=result.search or None) }}"
            title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
           Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
@@ -328,8 +328,8 @@ window.LapsedSelection = (function () {
             <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
             <th class="text-end">{{ sort_link('days_since', 'Days since', first='asc') }}</th>
-            <th class="text-end" title="Contacts since the customer's last order">Contacts</th>
-            <th>Last contacted</th>
+            <th class="text-end" title="{{ wording.column }} since the customer's last order; contacts on the other channel are not counted">{{ wording.column }}</th>
+            <th title="Most recent contact on any channel">Last contacted</th>
             <th>Entrevista</th>
           </tr>
         </thead>
@@ -357,7 +357,7 @@ window.LapsedSelection = (function () {
               <td class="text-end small">
                 {% if c.contacts_since_order %}
                   <span class="{{ 'text-danger fw-bold' if max_contacts and c.contacts_since_order >= max_contacts else '' }}"
-                        title="{{ c.contacts_since_order }} contact{{ 's' if c.contacts_since_order != 1 else '' }} since the last order{% if max_contacts %}, limit {{ max_contacts }}{% endif %}">
+                        title="{{ c.contacts_since_order }} {{ wording.noun if c.contacts_since_order == 1 else wording.plural }} since the last order{% if max_contacts %}, limit {{ max_contacts }}{% endif %}">
                     {{ c.contacts_since_order }}{% if max_contacts %} / {{ max_contacts }}{% endif %}
                   </span>
                 {% else %}

@@ -67,8 +67,18 @@ DEFAULT_SEGMENT_SORT = "days_since"
 
 # "Hide customers contacted in the last N days". 30 by default so a daily
 # batch never reaches the same customer twice in a month; 0 turns it off.
+# Both this window and the contact limit are scoped to the page's channel:
+# the WATI page only looks at WATI tags, the email page only at emails, so
+# the two campaigns run independently (one WhatsApp and one email a month).
 EXCLUDE_DAYS_CHOICES = [0, 7, 14, 30, 60, 90]
 DEFAULT_EXCLUDE_DAYS = 30
+
+# Wording per channel for the filters and the hidden-customers line.
+CHANNEL_WORDING = {
+    CustomerContact.CHANNEL_WATI: {"past": "tagged in WATI", "noun": "WATI contact", "plural": "WATI contacts",
+                                   "column": "WATI contacts"},
+    CustomerContact.CHANNEL_EMAIL: {"past": "emailed", "noun": "email", "plural": "emails", "column": "Emails"},
+}
 
 # "Max contacts without a repurchase": customers contacted this many times
 # since their last order are hidden until they buy again. 0 = no limit.
@@ -126,22 +136,22 @@ def _read_segment_filters():
     return skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts
 
 
-def _contact_counts() -> dict:
-    """{(email, last_order_at): contacts made while that was the last order}."""
+def _contact_counts(channel: str) -> dict:
+    """{(email, last_order_at): contacts on this channel while that was the last order}."""
     rows = (db.session.query(CustomerContact.email, CustomerContact.last_order_at,
                              db.func.count(CustomerContact.id))
-            .filter(CustomerContact.last_order_at.isnot(None))
+            .filter(CustomerContact.channel == channel, CustomerContact.last_order_at.isnot(None))
             .group_by(CustomerContact.email, CustomerContact.last_order_at).all())
     return {(email, last_order_at): int(n) for email, last_order_at, n in rows}
 
 
-def _contacted_since(days: int) -> set[str]:
-    """Lowercased emails of everyone logged as contacted in the last N days."""
+def _contacted_since(days: int, channel: str) -> set[str]:
+    """Lowercased emails of everyone contacted on this channel in the last N days."""
     if days <= 0:
         return set()
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     rows = (db.session.query(CustomerContact.email)
-            .filter(CustomerContact.sent_at >= cutoff)
+            .filter(CustomerContact.channel == channel, CustomerContact.sent_at >= cutoff)
             .distinct().all())
     return {e for (e,) in rows}
 
@@ -232,11 +242,12 @@ def _attach_interviews(rows):
             row["interview"] = interview.to_dict()
 
 
-def _segment_page() -> dict:
+def _segment_page(channel: str) -> dict:
     """
     Build what every segment page shares: the filtered, paginated customer rows
     and the template context for the filter controls. The page-specific action
-    (WATI tag, email send) is layered on by the route.
+    (WATI tag, email send) is layered on by the route; channel scopes the
+    contact window and limit to that action's channel.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
 
@@ -256,8 +267,8 @@ def _segment_page() -> dict:
             max_orders=max_orders,
             sku_filter=set(skus),
             inactive_months=months,
-            exclude_emails=_contacted_since(exclude_days),
-            contact_counts=_contact_counts(),
+            exclude_emails=_contacted_since(exclude_days, channel),
+            contact_counts=_contact_counts(channel),
             max_contacts=max_contacts,
         )
     except Exception as e:
@@ -282,6 +293,8 @@ def _segment_page() -> dict:
         exclude_choices=EXCLUDE_DAYS_CHOICES,
         max_contacts=max_contacts,
         max_contacts_choices=MAX_CONTACTS_CHOICES,
+        channel=channel,
+        wording=CHANNEL_WORDING[channel],
     )
 
 
@@ -324,7 +337,7 @@ def lapsed_customers():
         wati_max_value=MAX_VALUE_CHARS,
         wati_max=MAX_CONTACTS_PER_RUN,
         wati_ready=bool(get_secret("wati_api_token")),
-        **_segment_page(),
+        **_segment_page(CustomerContact.CHANNEL_WATI),
     )
 
 
@@ -350,7 +363,7 @@ def reconnect_lapsed_customers_by_email():
         sendgrid_from=cfg["from_email"],
         sendgrid_from_name=cfg["from_name"],
         email_max=MAX_RECIPIENTS_PER_RUN,
-        **_segment_page(),
+        **_segment_page(CustomerContact.CHANNEL_EMAIL),
     )
 
 
@@ -371,6 +384,9 @@ def lapsed_customers_export():
     value is lifetime spend for value-based lookalikes.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
+    channel = (request.args.get("channel") or CustomerContact.CHANNEL_WATI).strip().lower()
+    if channel not in CustomerContact.CHANNELS:
+        channel = CustomerContact.CHANNEL_WATI
 
     refresh_all_orders_if_needed()
     result = get_recurrent_customers(
@@ -382,8 +398,8 @@ def lapsed_customers_export():
         max_orders=max_orders,
         sku_filter=set(skus),
         inactive_months=months,
-        exclude_emails=_contacted_since(exclude_days),
-        contact_counts=_contact_counts(),
+        exclude_emails=_contacted_since(exclude_days, channel),
+        contact_counts=_contact_counts(channel),
         max_contacts=max_contacts,
         paginate=False,
     )
