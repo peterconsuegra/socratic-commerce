@@ -3,13 +3,13 @@ import csv
 import io
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from flask import Response, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import CustomerInterview, EmailTemplate
+from app.models import CustomerContact, CustomerInterview, EmailTemplate
 from app.services.recurrent_customers import (
     DEFAULT_PER_PAGE,
     MAX_PER_PAGE,
@@ -65,6 +65,16 @@ DEFAULT_MONTHS = 3
 # fewest days since the last order at the top.
 DEFAULT_SEGMENT_SORT = "days_since"
 
+# "Hide customers contacted in the last N days". 30 by default so a daily
+# batch never reaches the same customer twice in a month; 0 turns it off.
+EXCLUDE_DAYS_CHOICES = [0, 7, 14, 30, 60, 90]
+DEFAULT_EXCLUDE_DAYS = 30
+
+# Sends go to the channel in chunks, each logged as soon as it completes, so
+# a run cut short (worker timeout, lost connection) never leaves customers
+# contacted but unlogged - which is what would cause a double send later.
+SEND_CHUNK = 100
+
 
 _GENDER_TO_META = {"female": "F", "male": "M"}
 
@@ -94,7 +104,70 @@ def _read_segment_filters():
         customer_type = "all"
     min_orders, max_orders = CUSTOMER_TYPES[customer_type]["bounds"]
 
-    return skus, months, customer_type, min_orders, max_orders
+    try:
+        exclude_days = int(request.args.get("exclude_contacted", DEFAULT_EXCLUDE_DAYS))
+    except (TypeError, ValueError):
+        exclude_days = DEFAULT_EXCLUDE_DAYS
+    if exclude_days not in EXCLUDE_DAYS_CHOICES:
+        exclude_days = DEFAULT_EXCLUDE_DAYS
+
+    return skus, months, customer_type, min_orders, max_orders, exclude_days
+
+
+def _contacted_since(days: int) -> set[str]:
+    """Lowercased emails of everyone logged as contacted in the last N days."""
+    if days <= 0:
+        return set()
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    rows = (db.session.query(CustomerContact.email)
+            .filter(CustomerContact.sent_at >= cutoff)
+            .distinct().all())
+    return {e for (e,) in rows}
+
+
+def _attach_last_contact(rows):
+    """The most recent logged contact for each page row (None when never)."""
+    by_email = {}
+    for row in rows:
+        by_email.setdefault((row.get("email") or "").lower(), []).append(row)
+        row["last_contact"] = None
+    emails = [e for e in by_email if e]
+    for i in range(0, len(emails), 500):
+        found = (CustomerContact.query
+                 .filter(CustomerContact.email.in_(emails[i:i + 500]))
+                 .order_by(CustomerContact.sent_at.desc()).all())
+        for contact in found:
+            for row in by_email.get(contact.email, []):
+                if row["last_contact"] is None:
+                    row["last_contact"] = contact.to_dict()
+
+
+def _record_contacts(channel: str, label: str, entries: list[dict], template_id: int | None = None) -> int:
+    """Log successful sends. entries carry at least "email"; returns rows written."""
+    who = getattr(current_user, "username", None)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    rows = [
+        CustomerContact(email=(e.get("email") or "").strip().lower(), phone=(e.get("phone") or "")[:20] or None,
+                        channel=channel, label=label[:150], template_id=template_id, sent_at=now, sent_by=who)
+        for e in entries if (e.get("email") or "").strip()
+    ]
+    if rows:
+        db.session.add_all(rows)
+        db.session.commit()
+    return len(rows)
+
+
+def _merge_results(total: dict | None, part: dict) -> dict:
+    """Combine per-chunk send results into one summary of the same shape."""
+    if total is None:
+        return dict(part)
+    for key in ("selected", "tagged", "sent", "skipped", "failed"):
+        if key in part:
+            total[key] = total.get(key, 0) + part[key]
+    for key in ("skipped_detail", "failed_detail", "tagged_detail", "sent_detail"):
+        if key in part:
+            total[key] = total.get(key, []) + part[key]
+    return total
 
 
 def _attach_interviews(rows):
@@ -133,7 +206,7 @@ def _segment_page() -> dict:
     and the template context for the filter controls. The page-specific action
     (WATI tag, email send) is layered on by the route.
     """
-    skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
+    skus, months, customer_type, min_orders, max_orders, exclude_days = _read_segment_filters()
 
     error = None
     result = None
@@ -151,6 +224,7 @@ def _segment_page() -> dict:
             max_orders=max_orders,
             sku_filter=set(skus),
             inactive_months=months,
+            exclude_emails=_contacted_since(exclude_days),
         )
     except Exception as e:
         logger.exception("Failed to build lapsed customers listing")
@@ -158,6 +232,7 @@ def _segment_page() -> dict:
 
     if result:
         _attach_interviews(result["rows"])
+        _attach_last_contact(result["rows"])
 
     return dict(
         error=error,
@@ -169,6 +244,8 @@ def _segment_page() -> dict:
         months_label=inactivity_label(months),
         customer_type=customer_type,
         customer_types=CUSTOMER_TYPES,
+        exclude_days=exclude_days,
+        exclude_choices=EXCLUDE_DAYS_CHOICES,
     )
 
 
@@ -253,7 +330,7 @@ def lapsed_customers_export():
     when unknown). Phones are E.164 with the leading "+", as in the sample, and
     value is lifetime spend for value-based lookalikes.
     """
-    skus, months, customer_type, min_orders, max_orders = _read_segment_filters()
+    skus, months, customer_type, min_orders, max_orders, exclude_days = _read_segment_filters()
 
     refresh_all_orders_if_needed()
     result = get_recurrent_customers(
@@ -265,6 +342,7 @@ def lapsed_customers_export():
         max_orders=max_orders,
         sku_filter=set(skus),
         inactive_months=months,
+        exclude_emails=_contacted_since(exclude_days),
         paginate=False,
     )
 
@@ -357,19 +435,33 @@ def lapsed_customers_wati_remarketing():
     try:
         selected, missing = _resolve_selected(emails)
 
-        result = tag_contacts(
-            tenant_url=tenant_url,
-            api_token=api_token,
-            customers=selected,
-            label=label,
-            attribute=attribute,
-        )
+        result = None
+        logged = 0
+        for i in range(0, len(selected), SEND_CHUNK):
+            part = tag_contacts(
+                tenant_url=tenant_url,
+                api_token=api_token,
+                customers=selected[i:i + SEND_CHUNK],
+                label=label,
+                attribute=attribute,
+            )
+            logged += _record_contacts(CustomerContact.CHANNEL_WATI, label, part.get("tagged_detail", []))
+            result = _merge_results(result, part)
+        if result is None:
+            result = tag_contacts(tenant_url=tenant_url, api_token=api_token, customers=selected,
+                                  label=label, attribute=attribute)  # raises the "No customers" error
+        result.pop("tagged_detail", None)
+        result["skipped_detail"] = result["skipped_detail"][:50]
+        result["failed_detail"] = result["failed_detail"][:50]
+        result["logged"] = logged
         if missing:
             result["skipped"] += len(missing)
             result["skipped_detail"] += [
                 {"email": e, "phone": "", "reason": "customer not found"} for e in missing
             ][:50]
 
+        logger.info("%s tagged %d contacts with %s=%r (%d logged)",
+                    getattr(current_user, "username", "unknown"), result["tagged"], attribute, label, logged)
         return jsonify({"status": "success", **result}), 200
 
     except ValueError as e:
@@ -426,7 +518,7 @@ def reconnect_lapsed_customers_send():
     try:
         selected, missing = _resolve_selected(emails)
 
-        result = send_template(
+        send_kwargs = dict(
             api_key=cfg["api_key"],
             from_email=cfg["from_email"],
             from_name=cfg["from_name"],
@@ -434,19 +526,31 @@ def reconnect_lapsed_customers_send():
             asm_group_id=cfg["asm_group_id"],
             subject=template.subject,
             html_body=template.html_body,
-            customers=selected,
             template_name=template.name,
             template_id=template.id,
             extra_context=template_context(template),
         )
+        result = None
+        logged = 0
+        for i in range(0, len(selected), SEND_CHUNK):
+            part = send_template(customers=selected[i:i + SEND_CHUNK], **send_kwargs)
+            logged += _record_contacts(CustomerContact.CHANNEL_EMAIL, template.name,
+                                       part.get("sent_detail", []), template_id=template.id)
+            result = _merge_results(result, part)
+        if result is None:
+            result = send_template(customers=selected, **send_kwargs)  # raises the "No customers" error
+        result.pop("sent_detail", None)
+        result["skipped_detail"] = result["skipped_detail"][:50]
+        result["failed_detail"] = result["failed_detail"][:50]
+        result["logged"] = logged
         if missing:
             result["skipped"] += len(missing)
             result["skipped_detail"] += [
                 {"email": e, "reason": "customer not found"} for e in missing
             ][:50]
 
-        logger.info("%s emailed template %r: sent=%d skipped=%d failed=%d",
-                    who, template.name, result["sent"], result["skipped"], result["failed"])
+        logger.info("%s emailed template %r: sent=%d skipped=%d failed=%d (%d logged)",
+                    who, template.name, result["sent"], result["skipped"], result["failed"], logged)
         return jsonify({"status": "success", **result}), 200
 
     except ValueError as e:

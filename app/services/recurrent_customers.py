@@ -277,6 +277,7 @@ def get_recurrent_customers(
     inactive_months: int | None = None,
     max_orders: int | None = None,
     emails: list | None = None,
+    exclude_emails: set | list | None = None,
     paginate: bool = True,
 ) -> dict:
     """
@@ -301,6 +302,10 @@ def get_recurrent_customers(
             match). Used to resolve a checkbox selection: without it a caller
             would have to page through the spend-ranked listing and anyone
             below the page cap would silently resolve as missing.
+        exclude_emails: if given, drop these customers (lowercased emails),
+            e.g. everyone contacted recently. Applied before the summary, so
+            the tiles describe the customers actually listed; the number
+            dropped is reported as summary["excluded"].
 
     Both filters default to None, leaving the returned figures identical to a
     call without them.
@@ -341,6 +346,12 @@ def get_recurrent_customers(
         wanted = {str(e).strip().lower() for e in emails if str(e).strip()}
         recurrent = recurrent[recurrent.index.isin(wanted)].copy()
 
+    excluded = 0
+    if exclude_emails:
+        before = len(recurrent)
+        recurrent = recurrent[~recurrent.index.isin(list(exclude_emails))].copy()
+        excluded = before - len(recurrent)
+
     if max_orders:
         recurrent = recurrent[recurrent["orders_count"] <= int(max_orders)].copy()
 
@@ -368,6 +379,7 @@ def get_recurrent_customers(
         "recurrent_customers": int(len(recurrent)),
         "recurrent_orders": int(recurrent["orders_count"].sum()) if len(recurrent) else 0,
         "recurrent_revenue": float(recurrent["total_spent"].sum()) if len(recurrent) else 0.0,
+        "excluded": int(excluded),
     }
 
     search = (search or "").strip()

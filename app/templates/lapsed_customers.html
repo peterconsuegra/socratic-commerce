@@ -102,6 +102,7 @@
                  + esc(data.attribute) + ' = ' + esc(data.label) + '</code>'
                  + ' · <strong>' + data.skipped + '</strong> skipped'
                  + ' · <strong>' + data.failed + '</strong> failed'
+                 + (data.logged !== undefined ? ' · <strong>' + data.logged + '</strong> logged as contacted' : '')
                  + (data.v3_base ? '<br><small class="text-muted">endpoint base: ' + esc(data.v3_base)
                                    + ' · configured: ' + esc(data.tenant_url || "") + '</small>' : "")
                  + '</div>';

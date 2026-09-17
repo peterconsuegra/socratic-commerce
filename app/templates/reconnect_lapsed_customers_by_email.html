@@ -135,6 +135,7 @@
                  + '<strong>' + data.sent + '</strong> sent with template <code>' + esc(data.template) + '</code>'
                  + ' · <strong>' + data.skipped + '</strong> skipped'
                  + ' · <strong>' + data.failed + '</strong> failed'
+                 + (data.logged !== undefined ? ' · <strong>' + data.logged + '</strong> logged as contacted' : '')
                  + '<br><small class="text-muted">subject: ' + esc(data.subject) + ' · from: ' + esc(data.from_email || "") + '</small>'
                  + '</div>';
         function list(title, items) {

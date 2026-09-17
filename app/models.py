@@ -219,3 +219,41 @@ class EmailAsset(db.Model):
 
     def __repr__(self):
         return f"<EmailAsset {self.id} {self.kind} {self.filename!r} {self.width}x{self.height}>"
+
+
+class CustomerContact(db.Model):
+    """
+    One outbound contact with a customer: a WATI remarketing tag (which
+    precedes a broadcast on that label) or an email sent through SendGrid.
+
+    Keyed by the lowercased email, like every customer row on the platform,
+    so the lapsed pages can hide customers contacted in the last N days and
+    a daily batch never reaches the same person twice in a month.
+    """
+    __tablename__ = "customer_contacts"
+
+    CHANNEL_WATI = "wati"
+    CHANNEL_EMAIL = "email"
+    CHANNELS = {CHANNEL_WATI, CHANNEL_EMAIL}
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, index=True)
+    phone = db.Column(db.String(20), nullable=True)
+    channel = db.Column(db.String(10), nullable=False)
+    label = db.Column(db.String(150), nullable=False)
+    template_id = db.Column(db.Integer, nullable=True)
+    sent_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
+    sent_by = db.Column(db.String(150), nullable=True)
+
+    __table_args__ = (db.Index("ix_customer_contacts_email_sent_at", "email", "sent_at"),)
+
+    def to_dict(self) -> dict:
+        return {
+            "channel": self.channel,
+            "label": self.label,
+            "sent_at": self.sent_at.strftime("%Y-%m-%d") if self.sent_at else "",
+            "sent_by": self.sent_by or "",
+        }
+
+    def __repr__(self):
+        return f"<CustomerContact {self.email} {self.channel} {self.label!r} {self.sent_at:%Y-%m-%d}>"

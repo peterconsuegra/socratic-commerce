@@ -33,8 +33,9 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://api.sendgrid.com/v3"
 MAIL_SEND_URL = f"{API_BASE}/mail/send"
 
-# Cap on one request, so a mis-click cannot fan out unbounded sends.
-MAX_RECIPIENTS_PER_RUN = 500
+# Cap on one request, so a mis-click cannot fan out unbounded sends. 1000 is
+# one day's batch; the route sends in chunks and logs each as it completes.
+MAX_RECIPIENTS_PER_RUN = 1000
 
 # SendGrid's mail/send limit is far higher; this keeps one run quick without
 # holding many sockets open from a web worker.
@@ -424,4 +425,6 @@ def send_template(
         "failed": len(failed),
         "skipped_detail": skipped[:50],
         "failed_detail": failed[:50],
+        # Every accepted recipient, so the caller can log who was reached.
+        "sent_detail": sent,
     }

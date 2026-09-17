@@ -35,8 +35,9 @@ MAX_VALUE_CHARS = 60
 # Enough to make a full page quick without tripping WATI's rate limits.
 CONCURRENCY = 5
 
-# Cap on one request, so a mis-click cannot fan out unbounded writes.
-MAX_CONTACTS_PER_RUN = 500
+# Cap on one request, so a mis-click cannot fan out unbounded writes. 1000 is
+# one day's batch; the route sends in chunks and logs each as it completes.
+MAX_CONTACTS_PER_RUN = 1000
 
 REQUEST_TIMEOUT = 20
 
@@ -565,4 +566,6 @@ def tag_contacts(
         "v3_base": _v3_base(tenant_url),
         "skipped_detail": skipped[:50],
         "failed_detail": failed[:50],
+        # Every tagged contact, so the caller can log who was reached.
+        "tagged_detail": tagged,
     }
