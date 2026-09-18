@@ -1,0 +1,276 @@
+{% extends "layout.html" %}
+
+{% block title %}Repurchase Stats{% endblock %}
+
+{% macro pct(x) -%}{{ "%.1f"|format((x or 0) * 100) }}%{%- endmacro %}
+{% macro num(x) -%}{{ "{:,}".format(x or 0) }}{%- endmacro %}
+{# Money in a stat tile: millions with one decimal so the value stays on one line. #}
+{% macro money(x) -%}
+{%- set v = x or 0 -%}
+{%- if v >= 1000000000 -%}COP ${{ "{:,.0f}".format(v / 1000000).replace(",", ".") }} M
+{%- elif v >= 1000000 -%}COP ${{ "%.1f"|format(v / 1000000) }} M
+{%- else -%}{{ v | cop }}{%- endif -%}
+{%- endmacro %}
+
+{% macro tile(label, value, sub=None) -%}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card shadow-sm h-100"><div class="card-body py-2 px-3">
+      <div class="text-muted small">{{ label }}</div>
+      <div class="fw-semibold" style="font-size:1.35rem; line-height:1.3;">{{ value }}</div>
+      {% if sub %}<div class="text-muted small">{{ sub }}</div>{% endif %}
+    </div></div>
+  </div>
+{%- endmacro %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+  <h2 class="text-center mb-1">Repurchase Stats</h2>
+  <p class="text-center text-muted mb-4">
+    How customers come back to buy again, and what the win-back contacts bring back.
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif repurchase %}
+    {% set r = repurchase %}
+    {% set w = winback %}
+
+    <!-- ============ Repeat buying, all time ============ -->
+    <h5 class="mb-2">Repeat buying <span class="text-muted small fw-normal">· every order on record</span></h5>
+    <div class="row g-2 mb-4">
+      {{ tile("Customers", num(r.customers)) }}
+      {{ tile("Repeat customers", num(r.repeat_customers), pct(r.repeat_rate) ~ " of customers") }}
+      {{ tile("Repeat orders", num(r.repeat_orders), pct(r.repeat_order_share) ~ " of all orders") }}
+      {{ tile("Repeat revenue", money(r.repeat_revenue), pct(r.repeat_revenue_share) ~ " of revenue") }}
+      {{ tile("Median days to 2nd order", r.median_first_to_second_days if r.median_first_to_second_days is not none else "—", pct(r.second_within_90_share) ~ " buy again within 90 days") }}
+      {{ tile("Median days between orders", r.median_gap_days if r.median_gap_days is not none else "—", num(r.gap_count) ~ " gaps measured") }}
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-bold">First vs repeat orders by month</div>
+          <div class="card-body">
+            <div style="position:relative; height:300px;"><canvas id="monthlyChart"></canvas></div>
+            <details class="small mt-2">
+              <summary class="text-muted">Table view</summary>
+              <div class="table-responsive mt-2">
+                <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                  <thead><tr><th>Month</th><th class="text-end">First orders</th><th class="text-end">Repeat orders</th><th class="text-end">Repeat share</th><th class="text-end">Repeat revenue</th></tr></thead>
+                  <tbody>
+                  {% for m in r.monthly %}
+                    <tr><td>{{ m.month }}{% if m.partial %} <span class="text-muted">(to date)</span>{% endif %}</td>
+                        <td class="text-end">{{ num(m.first_orders) }}</td><td class="text-end">{{ num(m.repeat_orders) }}</td>
+                        <td class="text-end">{{ pct(m.repeat_share) }}</td><td class="text-end">{{ m.repeat_revenue | cop }}</td></tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-bold">Days between consecutive orders</div>
+          <div class="card-body">
+            <div style="position:relative; height:300px;"><canvas id="gapChart"></canvas></div>
+            <details class="small mt-2">
+              <summary class="text-muted">Table view</summary>
+              <table class="table table-sm mb-0 mt-2" style="font-variant-numeric: tabular-nums;">
+                <thead><tr><th>Days</th><th class="text-end">Gaps</th><th class="text-end">Share</th></tr></thead>
+                <tbody>
+                {% for b in r.histogram %}
+                  <tr><td>{{ b.bucket }}</td><td class="text-end">{{ num(b.gaps) }}</td><td class="text-end">{{ pct(b.share) }}</td></tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-5">
+      <div class="card-header fw-bold">Repeat rate by first purchase
+        <span class="text-muted small fw-normal">· SKUs with at least {{ r.min_sku_customers }} first-time customers</span></div>
+      <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0 align-middle" style="font-variant-numeric: tabular-nums;">
+          <thead><tr><th>First order SKU</th><th class="text-end">Customers</th><th class="text-end">Repeat customers</th><th class="text-end">Repeat rate</th><th class="text-end">Avg orders</th><th class="text-end">Median days to 2nd order</th></tr></thead>
+          <tbody>
+          {% for s in r.first_sku %}
+            <tr><td>{{ s.sku }}</td><td class="text-end">{{ num(s.customers) }}</td><td class="text-end">{{ num(s.repeat_customers) }}</td>
+                <td class="text-end fw-semibold">{{ pct(s.repeat_rate) }}</td><td class="text-end">{{ "%.2f"|format(s.avg_orders) }}</td>
+                <td class="text-end">{{ s.median_days_to_second if s.median_days_to_second is not none else "—" }}</td></tr>
+          {% else %}
+            <tr><td colspan="6" class="text-center text-muted">No SKU reaches {{ r.min_sku_customers }} first-time customers yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ Win-back programme ============ -->
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-2">
+      <h5 class="mb-0">Win-back contacts <span class="text-muted small fw-normal">· customers who bought after being tagged in WATI or emailed</span></h5>
+      <form method="get" action="{{ url_for('main.stats') }}" class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0" for="period">Contacts made in</label>
+        <select name="period" id="period" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+          {% for days, label in period_choices %}
+            <option value="{{ days }}" {% if days == period %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    {% if not w.contacts %}
+      <div class="alert alert-light border mb-5">
+        No contacts logged in this period yet. Tag customers on
+        <a href="{{ url_for('main.lapsed_customers') }}">Lapsed Customers</a> or email them from
+        <a href="{{ url_for('main.reconnect_lapsed_customers_by_email') }}">Reconnect by Email</a>, and their repurchases will show up here.
+      </div>
+    {% else %}
+      <div class="row g-2 mb-3">
+        {{ tile("Contacts", num(w.contacts), num(w.customers) ~ " customers") }}
+        {{ tile("Recovered customers", num(w.recovered_customers), "bought after a contact") }}
+        {{ tile("Conversion", pct(w.conversion), "of contacted customers") }}
+        {{ tile("Orders after contact", num(w.orders)) }}
+        {{ tile("Revenue after contact", money(w.revenue), "exact: " ~ (w.revenue | cop)) }}
+        {{ tile("Median days to order", w.median_days_to_order if w.median_days_to_order is not none else "—", "from contact to purchase") }}
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+          <div class="card shadow-sm h-100">
+            <div class="card-header fw-bold">Contacted vs recovered customers, by label</div>
+            <div class="card-body">
+              <div style="position:relative; height:320px;"><canvas id="labelChart"></canvas></div>
+              <details class="small mt-2" open>
+                <summary class="text-muted">Table view</summary>
+                <div class="table-responsive mt-2" style="max-height:340px; overflow:auto;">
+                  <table class="table table-sm table-striped mb-0" style="font-variant-numeric: tabular-nums;">
+                    <thead><tr><th>Label</th><th>Channel</th><th>First sent</th><th class="text-end">Customers</th><th class="text-end">Recovered</th><th class="text-end">Conversion</th><th class="text-end">Orders</th><th class="text-end">Revenue</th><th class="text-end">Median days</th></tr></thead>
+                    <tbody>
+                    {% for l in w.by_label %}
+                      <tr><td>{{ l.label }}</td><td>{{ 'WATI' if l.channel == 'wati' else 'Email' }}</td><td class="text-muted">{{ l.first_sent }}</td>
+                          <td class="text-end">{{ num(l.customers) }}</td><td class="text-end">{{ num(l.recovered_customers) }}</td>
+                          <td class="text-end fw-semibold">{{ pct(l.conversion) }}</td><td class="text-end">{{ num(l.orders) }}</td>
+                          <td class="text-end">{{ l.revenue | cop }}</td><td class="text-end">{{ l.median_days_to_order if l.median_days_to_order is not none else "—" }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card shadow-sm mb-3">
+            <div class="card-header fw-bold">By channel</div>
+            <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+              <thead><tr><th>Channel</th><th class="text-end">Customers</th><th class="text-end">Recovered</th><th class="text-end">Conversion</th><th class="text-end">Revenue</th></tr></thead>
+              <tbody>
+              {% for ch in w.by_channel %}
+                <tr><td>{{ 'WATI' if ch.channel == 'wati' else 'Email' }}</td><td class="text-end">{{ num(ch.customers) }}</td>
+                    <td class="text-end">{{ num(ch.recovered_customers) }}</td><td class="text-end fw-semibold">{{ pct(ch.conversion) }}</td>
+                    <td class="text-end">{{ ch.revenue | cop }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-header fw-bold">Attempts before the order
+              <span class="text-muted small fw-normal">· all contacts, any channel</span></div>
+            <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+              <thead><tr><th>Contacts before buying</th><th class="text-end">Orders</th><th class="text-end">Share</th></tr></thead>
+              <tbody>
+              {% for a in w.attempts %}
+                <tr><td>{{ a.attempts }}</td><td class="text-end">{{ num(a.orders) }}</td><td class="text-end">{{ pct(a.share) }}</td></tr>
+              {% else %}
+                <tr><td colspan="3" class="text-center text-muted">No recoveries yet.</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+            <div class="card-footer small text-muted">
+              Read this against the "max contacts" limit: if almost every recovery happens on the first or second contact, the third is rarely worth a credit.
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+{% if repurchase and not error %}
+<script>
+(function () {
+  var SERIES = {{ series | tojson }};
+  var INK = "#15181D", MUTED = "#6B7883", GRID = "#E5E9EC";
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = MUTED;
+
+  function bars(color) {
+    return { backgroundColor: color, borderColor: color, borderWidth: 0,
+             maxBarThickness: 24, borderRadius: 4, borderSkipped: "start",
+             categoryPercentage: 0.7, barPercentage: 0.9 };
+  }
+  var axes = {
+    x: { grid: { display: false }, ticks: { color: MUTED, maxRotation: 0, autoSkip: true } },
+    y: { beginAtZero: true, grid: { color: GRID, drawBorder: false }, border: { display: false },
+         ticks: { color: MUTED, precision: 0, callback: function (v) { return v.toLocaleString(); } } }
+  };
+  function legend(show) {
+    return { display: show, position: "top", align: "start",
+             labels: { color: INK, usePointStyle: true, pointStyle: "circle", boxWidth: 8, padding: 16 } };
+  }
+  var tooltip = { backgroundColor: "#15181D", titleColor: "#fff", bodyColor: "#fff", padding: 10, cornerRadius: 4,
+                  callbacks: { label: function (c) { return " " + c.dataset.label + ": " + c.parsed.y.toLocaleString(); } } };
+
+  /* First vs repeat orders by month: two series, categorical slots 1 and 2. */
+  var monthly = {{ repurchase.monthly | tojson }};
+  new Chart(document.getElementById("monthlyChart"), {
+    type: "bar",
+    data: { labels: monthly.map(function (m) { return m.month + (m.partial ? " (to date)" : ""); }),
+            datasets: [
+              Object.assign({ label: "Repeat orders", data: monthly.map(function (m) { return m.repeat_orders; }) }, bars(SERIES[0])),
+              Object.assign({ label: "First orders", data: monthly.map(function (m) { return m.first_orders; }) }, bars(SERIES[1]))
+            ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+               plugins: { legend: legend(true), tooltip: tooltip }, scales: axes }
+  });
+
+  /* Days between consecutive orders: one series, one hue - the title names it. */
+  var hist = {{ repurchase.histogram | tojson }};
+  new Chart(document.getElementById("gapChart"), {
+    type: "bar",
+    data: { labels: hist.map(function (b) { return b.bucket + " d"; }),
+            datasets: [Object.assign({ label: "Gaps", data: hist.map(function (b) { return b.gaps; }) }, bars(SERIES[0]))] },
+    options: { responsive: true, maintainAspectRatio: false,
+               plugins: { legend: legend(false), tooltip: Object.assign({}, tooltip, { callbacks: { label: function (c) {
+                 return " " + c.parsed.y.toLocaleString() + " gaps · " + (hist[c.dataIndex].share * 100).toFixed(1) + "%"; } } }) },
+               scales: Object.assign({}, axes, { x: Object.assign({}, axes.x, { ticks: { color: MUTED, maxRotation: 0, autoSkip: false } }) }) }
+  });
+
+  /* Win-back by label: contacted vs recovered customers, oldest label first. */
+  var labelsEl = document.getElementById("labelChart");
+  if (labelsEl) {
+    var byLabel = {{ (winback.by_label if winback else []) | tojson }}.slice().reverse();
+    new Chart(labelsEl, {
+      type: "bar",
+      data: { labels: byLabel.map(function (l) { return l.label; }),
+              datasets: [
+                Object.assign({ label: "Customers contacted", data: byLabel.map(function (l) { return l.customers; }) }, bars(SERIES[1])),
+                Object.assign({ label: "Recovered", data: byLabel.map(function (l) { return l.recovered_customers; }) }, bars(SERIES[0]))
+              ] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+                 plugins: { legend: legend(true), tooltip: Object.assign({}, tooltip, { callbacks: { afterBody: function (items) {
+                   var l = byLabel[items[0].dataIndex]; return [" Conversion: " + (l.conversion * 100).toFixed(1) + "%", " Revenue: " + l.revenue.toLocaleString()]; } } }) },
+                 scales: axes }
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}
