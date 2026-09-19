@@ -245,14 +245,18 @@ def _attach_interviews(rows):
             row["interview"] = interview.to_dict()
 
 
-def _segment_page(channel: str) -> dict:
+def _segment_page(channel: str | None) -> dict:
     """
     Build what every segment page shares: the filtered, paginated customer rows
     and the template context for the filter controls. The page-specific action
     (WATI tag, email send) is layered on by the route; channel scopes the
-    contact window and limit to that action's channel.
+    contact window and limit to that action's channel. With channel=None
+    (the export page) the contact log plays no part: nobody is hidden and
+    the contact controls and columns are not rendered.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
+    if channel is None:
+        exclude_days, max_contacts = 0, 0
 
     error = None
     result = None
@@ -270,8 +274,8 @@ def _segment_page(channel: str) -> dict:
             max_orders=max_orders,
             sku_filter=set(skus),
             inactive_months=months,
-            exclude_emails=_contacted_since(exclude_days, channel),
-            contact_counts=_contact_counts(channel),
+            exclude_emails=_contacted_since(exclude_days, channel) if channel else None,
+            contact_counts=_contact_counts(channel) if channel else None,
             max_contacts=max_contacts,
         )
     except Exception as e:
@@ -280,7 +284,8 @@ def _segment_page(channel: str) -> dict:
 
     if result:
         _attach_interviews(result["rows"])
-        _attach_last_contact(result["rows"])
+        if channel:
+            _attach_last_contact(result["rows"])
 
     return dict(
         error=error,
@@ -297,7 +302,20 @@ def _segment_page(channel: str) -> dict:
         max_contacts=max_contacts,
         max_contacts_choices=MAX_CONTACTS_CHOICES,
         channel=channel,
-        wording=CHANNEL_WORDING[channel],
+        wording=CHANNEL_WORDING.get(channel),
+    )
+
+
+@main.route("/export-lapsed-customers")
+@login_required
+def export_lapsed_customers():
+    """The lapsed segment with no contact filtering: every matching customer, for export."""
+    return render_template(
+        "export_lapsed_customers.html",
+        page_title="Export Lapsed Customers",
+        page_heading="Export Lapsed Customers",
+        endpoint="main.export_lapsed_customers",
+        **_segment_page(None),
     )
 
 
@@ -387,8 +405,13 @@ def lapsed_customers_export():
     value is lifetime spend for value-based lookalikes.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
+    # channel=wati|email scopes the contact filters like the page that linked
+    # here; channel=all (the export page) applies none.
     channel = (request.args.get("channel") or CustomerContact.CHANNEL_WATI).strip().lower()
-    if channel not in CustomerContact.CHANNELS:
+    if channel == "all":
+        channel = None
+        exclude_days, max_contacts = 0, 0
+    elif channel not in CustomerContact.CHANNELS:
         channel = CustomerContact.CHANNEL_WATI
 
     refresh_all_orders_if_needed()
@@ -401,8 +424,8 @@ def lapsed_customers_export():
         max_orders=max_orders,
         sku_filter=set(skus),
         inactive_months=months,
-        exclude_emails=_contacted_since(exclude_days, channel),
-        contact_counts=_contact_counts(channel),
+        exclude_emails=_contacted_since(exclude_days, channel) if channel else None,
+        contact_counts=_contact_counts(channel) if channel else None,
         max_contacts=max_contacts,
         paginate=False,
     )

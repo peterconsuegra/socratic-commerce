@@ -1,0 +1,30 @@
+{% extends "lapsed_customers_base.html" %}
+
+{% block subtitle %}
+  The same win-back segment as Lapsed Customers, <strong>without hiding anyone</strong>: customers
+  contacted recently or past the contact limit are listed too. Use it to export the full audience,
+  for example for Meta custom audiences.
+{% endblock %}
+
+{% block action_panel %}
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <h6 class="mb-1">Export this segment</h6>
+            <span class="text-muted small">
+              Every customer matching the filters above, all pages, as a CSV shaped for Meta Ads custom
+              audiences (country fixed to CO). Nothing is sent and nothing is logged.
+            </span>
+          </div>
+          <a class="btn btn-success"
+             href="{{ url_for('main.lapsed_customers_export',
+                              months=months, customer_type=customer_type, sku=selected_skus,
+                              sort=result.sort.key, direction=result.sort.direction, channel='all',
+                              q=result.search or None) }}">
+            Export CSV for Meta ({{ "{:,}".format(result.pagination.total_rows) }})
+          </a>
+        </div>
+      </div>
+    </div>
+{% endblock %}

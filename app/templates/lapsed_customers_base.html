@@ -200,7 +200,7 @@ window.LapsedSelection = (function () {
       </div>
     </div>
 
-    {% if s.excluded or s.exhausted %}
+    {% if channel and (s.excluded or s.exhausted) %}
       <p class="text-center text-muted small mb-3">
         <span class="material-icons align-middle" style="font-size:16px;">visibility_off</span>
         {% if s.excluded %}
@@ -262,6 +262,7 @@ window.LapsedSelection = (function () {
             </select>
           </div>
 
+          {% if channel %}
           <div class="col-sm-4">
             <label class="form-label small text-muted mb-1">Hide customers {{ wording.past }} in the last</label>
             <select name="exclude_contacted" class="form-select"
@@ -281,8 +282,9 @@ window.LapsedSelection = (function () {
               {% endfor %}
             </select>
           </div>
+          {% endif %}
 
-          <div class="col-sm-4 d-flex align-items-end justify-content-end">
+          <div class="{{ 'col-sm-4' if channel else 'col-sm-12' }} d-flex align-items-end justify-content-end">
             <button type="submit" class="btn btn-primary px-4">Apply</button>
           </div>
         </div>
@@ -302,7 +304,7 @@ window.LapsedSelection = (function () {
            href="{{ url_for('main.lapsed_customers_export',
                             months=months, customer_type=customer_type, sku=selected_skus,
                             sort=result.sort.key, direction=result.sort.direction,
-                            exclude_contacted=exclude_days, max_contacts=max_contacts, channel=channel,
+                            exclude_contacted=exclude_days, max_contacts=max_contacts, channel=channel or 'all',
                             q=result.search or None) }}"
            title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
           Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
@@ -328,8 +330,10 @@ window.LapsedSelection = (function () {
             <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
             <th class="text-end">{{ sort_link('days_since', 'Days since', first='asc') }}</th>
+            {% if channel %}
             <th class="text-end" title="{{ wording.column }} since the customer's last order; contacts on the other channel are not counted">{{ wording.column }}</th>
             <th title="Most recent contact on any channel">Last contacted</th>
+            {% endif %}
             <th>Entrevista</th>
           </tr>
         </thead>
@@ -354,6 +358,7 @@ window.LapsedSelection = (function () {
               </td>
               <td class="text-muted small">{{ c.last_order_utc }}</td>
               <td class="text-end">{% if c.days_since_last_order is not none %}{{ c.days_since_last_order }}{% endif %}</td>
+              {% if channel %}
               <td class="text-end small">
                 {% if c.contacts_since_order %}
                   <span class="{{ 'text-danger fw-bold' if max_contacts and c.contacts_since_order >= max_contacts else '' }}"
@@ -375,6 +380,7 @@ window.LapsedSelection = (function () {
                   <span class="text-muted">—</span>
                 {% endif %}
               </td>
+              {% endif %}
               <td style="min-width:120px;">
                 {% if c.interview_phone %}
                   <button type="button"
@@ -393,7 +399,7 @@ window.LapsedSelection = (function () {
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="14" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="{{ 14 if channel else 12 }}" class="text-center text-muted">No customers found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
