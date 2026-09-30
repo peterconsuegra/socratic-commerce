@@ -7,6 +7,10 @@ flask-bcrypt
 gunicorn
 psycopg2-binary
 flask_sqlalchemy
+# 2.1 made psycopg 3 the default driver for postgresql:// URLs and crashed the
+# deploy of 2026-09-30; the app runs on psycopg2 (above). Lift the cap only
+# after testing on 2.1.
+SQLAlchemy>=2.0,<2.1
 flask_migrate
 gender_guesser
 statsmodels

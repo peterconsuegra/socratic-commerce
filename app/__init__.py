@@ -40,9 +40,14 @@ def create_app():
 
     database_url = os.getenv("DATABASE_URL")
     if database_url:
-        # Railway ships `postgres://`; SQLAlchemy 1.4+ requires `postgresql://`.
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        # Railway ships `postgres://` (or `postgresql://`) with no driver.
+        # SQLAlchemy 1.4+ rejects `postgres://`, and a bare `postgresql://`
+        # means psycopg 3 from SQLAlchemy 2.1 on, so name psycopg2, the
+        # driver requirements.txt installs.
+        for scheme in ("postgres://", "postgresql://"):
+            if database_url.startswith(scheme):
+                database_url = "postgresql+psycopg2://" + database_url[len(scheme):]
+                break
         app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     else:
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_path
