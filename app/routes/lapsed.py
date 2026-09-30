@@ -16,6 +16,7 @@ from app.services.recurrent_customers import (
     get_recurrent_customers,
 )
 
+from app.services.email_subscriptions import unsubscribed_emails
 from app.services.secrets import get_secret
 from app.services.sendgrid import MAX_RECIPIENTS_PER_RUN, send_template
 from app.services.wati import prepare_target
@@ -28,8 +29,9 @@ from app.services.wati import (
 
 from . import main
 from .common import get_option_value, refresh_all_orders_if_needed
-from .email_templates import hero_missing_error, template_context
+from .email_templates import hero_missing_error, template_context, unsubscribe_missing_error
 from .options import WATI_TENANT_URL_KEY, WATI_TOKEN_KEY, get_sendgrid_config
+from .unsubscribe import unsubscribe_urls
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +254,8 @@ def _segment_page(channel: str | None) -> dict:
     (WATI tag, email send) is layered on by the route; channel scopes the
     contact window and limit to that action's channel. With channel=None
     (the export page) the contact log plays no part: nobody is hidden and
-    the contact controls and columns are not rendered.
+    the contact controls and columns are not rendered. The email page also
+    hides everyone who unsubscribed from email; WhatsApp is unaffected.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
     if channel is None:
@@ -277,6 +280,8 @@ def _segment_page(channel: str | None) -> dict:
             exclude_emails=_contacted_since(exclude_days, channel) if channel else None,
             contact_counts=_contact_counts(channel) if channel else None,
             max_contacts=max_contacts,
+            unsubscribed_emails=(unsubscribed_emails()
+                                 if channel == CustomerContact.CHANNEL_EMAIL else None),
         )
     except Exception as e:
         logger.exception("Failed to build lapsed customers listing")
@@ -596,12 +601,26 @@ def reconnect_lapsed_customers_send():
     missing_hero = hero_missing_error(template)
     if missing_hero:
         return jsonify({"status": "error", "message": missing_hero}), 400
+    missing_link = unsubscribe_missing_error(template)
+    if missing_link:
+        return jsonify({"status": "error", "message": missing_link}), 400
 
     who = getattr(current_user, "username", "unknown")
     logger.info("%s is emailing template %r to %d customers", who, template.name, len(emails))
 
     try:
         selected, missing = _resolve_selected(emails)
+
+        # The page already hides them, but it can be stale by now (or the
+        # request hand-made), so the switch is checked again right before sending.
+        opted_out = unsubscribed_emails(r["email"] for r in selected)
+        selected = [r for r in selected if r["email"].lower() not in opted_out]
+        if not selected:
+            reasons = ([f"{len(opted_out)} unsubscribed"] if opted_out else []) + \
+                      ([f"{len(missing)} not found"] if missing else [])
+            return jsonify({"status": "error",
+                            "message": "Nothing sent: none of the selected customers can be emailed ("
+                                       + ", ".join(reasons) + ")."}), 400
 
         send_kwargs = dict(
             api_key=cfg["api_key"],
@@ -614,6 +633,7 @@ def reconnect_lapsed_customers_send():
             template_name=template.name,
             template_id=template.id,
             extra_context=template_context(template),
+            unsubscribe_urls=unsubscribe_urls(r["email"] for r in selected),
         )
         result = None
         logged = 0
@@ -623,12 +643,15 @@ def reconnect_lapsed_customers_send():
                                        part.get("sent_detail", []), template_id=template.id,
                                        last_orders=_last_orders(selected))
             result = _merge_results(result, part)
-        if result is None:
-            result = send_template(customers=selected, **send_kwargs)  # raises the "No customers" error
         result.pop("sent_detail", None)
         result["skipped_detail"] = result["skipped_detail"][:50]
         result["failed_detail"] = result["failed_detail"][:50]
         result["logged"] = logged
+        if opted_out:
+            result["skipped"] += len(opted_out)
+            result["skipped_detail"] += [
+                {"email": e, "reason": "unsubscribed"} for e in sorted(opted_out)
+            ][:50]
         if missing:
             result["skipped"] += len(missing)
             result["skipped_detail"] += [

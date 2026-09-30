@@ -33,8 +33,16 @@
                     placeholder="&lt;html&gt;&lt;body&gt;…&lt;/body&gt;&lt;/html&gt;" required>{{ values.html_body }}</textarea>
           <div class="form-text">
             Paste a full HTML email. Keep CSS inline; most mail clients ignore &lt;style&gt; blocks.
-            {% if sendgrid_ready %}An unsubscribe link is added automatically when an unsubscribe group is set in Settings.{% endif %}
+            Link <code>{{ '{{' }}unsubscribe_url{{ '}}' }}</code> in the footer: it becomes each customer's own
+            unsubscribe page, and templates without it cannot be sent to customers.
           </div>
+          {% if values.html_body and not uses_unsubscribe %}
+            <div class="alert alert-warning py-2 small mt-2 mb-0">
+              This HTML has no <code>{{ '{{' }}unsubscribe_url{{ '}}' }}</code> link, so sending it to customers is
+              blocked (test sends still work). Add e.g.
+              <code>&lt;a href="{{ '{{' }}unsubscribe_url{{ '}}' }}"&gt;Cancelar suscripción&lt;/a&gt;</code> to the footer.
+            </div>
+          {% endif %}
         </div>
 
         <div class="mb-3">

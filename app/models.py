@@ -265,3 +265,44 @@ class CustomerContact(db.Model):
 
     def __repr__(self):
         return f"<CustomerContact {self.email} {self.channel} {self.label!r} {self.sent_at:%Y-%m-%d}>"
+
+
+class EmailSubscription(db.Model):
+    """
+    A customer's marketing-email switch, and the token their unsubscribe
+    links carry.
+
+    Keyed by the lowercased email, like CustomerContact. The row is created
+    the first time the address is emailed, because every email needs the
+    token for its link, so every customer ever emailed has one. unsubscribed
+    is the switch: once on, the email page hides the customer and every
+    send skips them. WhatsApp (WATI) contact is a separate channel and is
+    not affected.
+
+    The token is random rather than derived from the email or FLASK_KEY, so
+    a link reveals nothing about the address and keeps working if the key
+    is ever rotated.
+    """
+    __tablename__ = "email_subscriptions"
+
+    TOKEN_BYTES = 16  # 32 hex chars
+
+    # How the switch was turned on.
+    SOURCE_PAGE = "page"            # the button on the unsubscribe page
+    SOURCE_ONE_CLICK = "one_click"  # the mailbox's own Unsubscribe button (RFC 8058 POST)
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    token = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    unsubscribed = db.Column(db.Boolean, nullable=False, default=False)
+    unsubscribed_at = db.Column(db.DateTime, nullable=True)
+    unsubscribe_source = db.Column(db.String(20), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+    @staticmethod
+    def new_token() -> str:
+        return secrets.token_hex(EmailSubscription.TOKEN_BYTES)
+
+    def __repr__(self):
+        return f"<EmailSubscription {self.email} unsubscribed={self.unsubscribed}>"

@@ -62,6 +62,7 @@
           Only customers on this page can be selected, up to {{ email_max }} per run.
           From: <strong>{{ sendgrid_from or 'not set' }}</strong>{% if sendgrid_from_name %} ({{ sendgrid_from_name }}){% endif %}.
           Rows without a valid email are skipped and listed in the result.
+          Every email carries the customer's own unsubscribe link; customers who used it are hidden and never emailed.
         </div>
 
         <div id="emailResult" class="mt-3"></div>

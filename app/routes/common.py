@@ -28,6 +28,17 @@ def get_option_value(meta_key: str, default=None):
     return row.meta_value if row and row.meta_value is not None else default
 
 
+def external_url(endpoint: str, **values) -> str:
+    """
+    Absolute URL for a link that goes into a sent email. Forced to https
+    except on localhost, because the app sits behind a proxy that terminates
+    TLS and would otherwise report plain http.
+    """
+    host = request.host.split(":")[0]
+    scheme = request.scheme if host in ("localhost", "127.0.0.1") else "https"
+    return url_for(endpoint, _external=True, _scheme=scheme, **values)
+
+
 def should_refresh_all_orders(max_age_seconds: int | None = None) -> bool:
     if max_age_seconds is None:
         max_age_seconds = CACHE_TTL_SECONDS

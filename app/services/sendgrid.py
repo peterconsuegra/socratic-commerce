@@ -79,6 +79,10 @@ PLACEHOLDERS = {
     # Not a customer field: filled from the image uploaded on the template.
     "hero_image_url": ("URL of the template's uploaded hero image (use as an img src)",
                        "https://…/email-assets/…/hero.jpg"),
+    # Not a customer field either: the recipient's own unsubscribe page,
+    # filled at send time. Bulk sends require it (see routes.email_templates).
+    "unsubscribe_url": ("This customer's unsubscribe page (use as the href of the footer link)",
+                        "https://…/unsubscribe/…"),
 }
 
 # Placeholders that come from the template itself rather than the customer.
@@ -139,6 +143,19 @@ _BLOCK_END = re.compile(r"</(p|div|h[1-6]|li|tr|table|blockquote|section|article
 _LINE_BREAK = re.compile(r"<br\s*/?>", re.I)
 _DROP_BLOCKS = re.compile(r"<(style|script|head)[^>]*>.*?</\1\s*>", re.I | re.S)
 _TAGS = re.compile(r"<[^>]+>")
+_LINK = re.compile(r"<a\b[^>]*?\bhref\s*=\s*[\"']([^\"'<>]*)[\"'][^>]*>(.*?)</a\s*>", re.I | re.S)
+
+
+def _link_to_text(match) -> str:
+    """'Label (url)', or the bare url for an image link, so a plain-text
+    reader can still reach every link - the unsubscribe one above all."""
+    href = match.group(1).strip()
+    label = re.sub(r"\s+", " ", _TAGS.sub("", match.group(2))).strip()
+    if not href or href.startswith("#"):
+        return label
+    if not label or label == href:
+        return href
+    return f"{label} ({href})"
 
 
 def html_to_text(markup: str) -> str:
@@ -147,6 +164,7 @@ def html_to_text(markup: str) -> str:
     filters both expect one; deriving it keeps the editor to a single field.
     """
     text = _DROP_BLOCKS.sub("", markup or "")
+    text = _LINK.sub(_link_to_text, text)
     text = _LINE_BREAK.sub("\n", text)
     text = _BLOCK_END.sub("\n\n", text)
     text = _TAGS.sub("", text)
@@ -330,6 +348,7 @@ def send_template(
     template_name: str = "",
     template_id: int | None = None,
     extra_context: dict | None = None,
+    unsubscribe_urls: dict | None = None,
     session: requests.Session | None = None,
 ) -> dict:
     """
@@ -337,6 +356,14 @@ def send_template(
     get_recurrent_customers (email, name, last_skus, ...). extra_context
     holds template-level values (the hero image URL) merged into every
     recipient's placeholders.
+
+    unsubscribe_urls maps each lowercased email to that customer's
+    unsubscribe page. With it, every recipient's {{unsubscribe_url}} is
+    filled and the email carries List-Unsubscribe headers, which give Gmail
+    and Yahoo their one-click Unsubscribe button. The headers are left out
+    when an unsubscribe group is set, because SendGrid then adds its own. A
+    recipient missing from the map is skipped, so no email goes out without
+    a working link.
 
     Returns counts plus per-customer skipped/failed detail, so the caller can
     report exactly who was and was not emailed. Sending is irreversible; the
@@ -370,11 +397,18 @@ def send_template(
 
     sent, skipped, failed = [], [], []
 
+    # SendGrid adds its own List-Unsubscribe when an unsubscribe group is
+    # set; a second one would leave mailboxes guessing which to honour.
+    list_unsubscribe = unsubscribe_urls is not None and not asm_group_id
+
     sendable = []
     for c in customers:
         email = (c.get("email") or "").strip()
         if not is_sendable_email(email):
             skipped.append({"email": email, "reason": "invalid email address"})
+            continue
+        if unsubscribe_urls is not None and not unsubscribe_urls.get(email.lower()):
+            skipped.append({"email": email, "reason": "no unsubscribe link"})
             continue
         sendable.append((c, email))
 
@@ -391,17 +425,33 @@ def send_template(
     if template_name:
         custom_args["template_name"] = template_name[:100]
 
-    def send_one(entry):
-        c, email = entry
-        rendered = render_email(subject, html_body, {**customer_context(c), **(extra_context or {})})
+    def context_for(c, email):
+        ctx = {**customer_context(c), **(extra_context or {})}
+        if unsubscribe_urls is not None:
+            ctx["unsubscribe_url"] = unsubscribe_urls[email.lower()]
+        return ctx
+
+    def personalization_for(c, email):
+        """The recipient's "to", with their name, plus their List-Unsubscribe headers."""
         to = {"email": email}
         full_name = " ".join(p for p in ((c.get("name") or "").strip(),
                                          (c.get("last_name") or "").strip()) if p)
         if full_name:
             to["name"] = full_name
+        personalization = {"to": [to]}
+        if list_unsubscribe:
+            personalization["headers"] = {
+                "List-Unsubscribe": f"<{unsubscribe_urls[email.lower()]}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            }
+        return personalization
+
+    def send_one(entry):
+        c, email = entry
+        rendered = render_email(subject, html_body, context_for(c, email))
         payload = {
             **base_payload,
-            "personalizations": [{"to": [to]}],
+            "personalizations": [personalization_for(c, email)],
             "subject": rendered["subject"],
             "content": [
                 {"type": "text/plain", "value": rendered["text"] or " "},
@@ -435,14 +485,9 @@ def send_template(
         tags = sorted(placeholders_used(body_html))
         personalizations = []
         for c, email in entries:
-            ctx = {**customer_context(c), **(extra_context or {})}
-            to = {"email": email}
-            full_name = " ".join(p for p in ((c.get("name") or "").strip(),
-                                             (c.get("last_name") or "").strip()) if p)
-            if full_name:
-                to["name"] = full_name
+            ctx = context_for(c, email)
             personalizations.append({
-                "to": [to],
+                **personalization_for(c, email),
                 "subject": render_placeholders(subject, ctx, escape=False),
                 "substitutions": {"{{" + t + "}}": html.escape("" if ctx.get(t) is None else str(ctx[t]), quote=True)
                                   for t in tags if t in ctx},

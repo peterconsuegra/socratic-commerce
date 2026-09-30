@@ -32,7 +32,9 @@ from app.services.sendgrid import (
 )
 
 from . import main
+from .common import external_url
 from .options import _to_bogota, get_sendgrid_config, sendgrid_ready
+from .unsubscribe import unsubscribe_urls
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +72,7 @@ _HERO_PLACEHOLDER_URL = "data:image/svg+xml;utf8," + quote(
 def hero_url(template, external: bool) -> str | None:
     """
     Public URL of the template's hero image, or None without one.
-
-    external=True builds the absolute URL that goes into sent emails. It is
-    forced to https except on localhost, because the app sits behind a proxy
-    that terminates TLS and would otherwise report plain http.
+    external=True builds the absolute URL that goes into sent emails.
     """
     hero = template.hero
     if not hero:
@@ -81,9 +80,7 @@ def hero_url(template, external: bool) -> str | None:
     kwargs = {"token": hero.token, "filename": hero.filename}
     if not external:
         return url_for("main.email_asset", **kwargs)
-    host = request.host.split(":")[0]
-    scheme = request.scheme if host in ("localhost", "127.0.0.1") else "https"
-    return url_for("main.email_asset", _external=True, _scheme=scheme, **kwargs)
+    return external_url("main.email_asset", **kwargs)
 
 
 def template_context(template) -> dict:
@@ -100,6 +97,16 @@ def hero_missing_error(template, subject: str | None = None, html_body: str | No
     if "hero_image_url" in placeholders_used(subject, html_body) and not template.hero:
         return ("The template uses {{hero_image_url}} but has no hero image. Upload one in the "
                 "editor or remove the placeholder from the HTML.")
+    return None
+
+
+def unsubscribe_missing_error(template) -> str | None:
+    """Customers must always be able to opt out, so a template without its
+    unsubscribe link cannot go to them. Test sends are not held to this."""
+    if "unsubscribe_url" not in placeholders_used(template.html_body):
+        return ("The template has no {{unsubscribe_url}} link, so customers could not unsubscribe. "
+                'Add one to the footer, e.g. <a href="{{unsubscribe_url}}">Cancelar suscripción</a>, '
+                "and save.")
     return None
 
 
@@ -154,6 +161,7 @@ def _render_form(template, values, **extra):
         hero_recommended=(RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT),
         hero_max_mb=HERO_MAX_BYTES // 1024 // 1024,
         uses_hero="hero_image_url" in placeholders_used(values["subject"], values["html_body"]),
+        uses_unsubscribe="unsubscribe_url" in placeholders_used(values["html_body"]),
         **extra,
     )
 
@@ -326,6 +334,10 @@ def email_templates_send_test(template_id):
             template_name=template.name,
             template_id=template.id,
             extra_context=template_context(template),
+            # A real link for the test address, so the whole opt-out can be
+            # tried from the inbox (it unsubscribes that address; the page
+            # offers to undo it).
+            unsubscribe_urls=unsubscribe_urls([to]),
         )
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400

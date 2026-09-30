@@ -214,6 +214,13 @@ window.LapsedSelection = (function () {
                             q=result.search or None, exclude_contacted=0, max_contacts=0) }}">Show them</a>
       </p>
     {% endif %}
+    {% if channel and s.unsubscribed %}
+      <p class="text-center text-muted small mb-3">
+        <span class="material-icons align-middle" style="font-size:16px;">unsubscribe</span>
+        {{ "{:,}".format(s.unsubscribed) }} customer{{ 's' if s.unsubscribed != 1 else '' }} hidden: unsubscribed
+        from these emails. They are never emailed again unless they resubscribe from the same link.
+      </p>
+    {% endif %}
 
     <!-- Segment controls -->
     <form method="get" action="{{ url_for(endpoint) }}" class="card shadow-sm mb-3">

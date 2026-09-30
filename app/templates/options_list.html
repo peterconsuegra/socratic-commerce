@@ -208,8 +208,9 @@
                             <input type="text" name="unsubscribe_group_id" class="form-control" inputmode="numeric"
                                    value="{{ sendgrid.unsubscribe_group_id }}" placeholder="12345">
                             <div class="form-text">
-                                SendGrid → Marketing → Unsubscribe Groups. When set, every email carries that
-                                group's unsubscribe link and opt-outs are honoured automatically.
+                                SendGrid → Marketing → Unsubscribe Groups. Not needed for opt-outs: every email
+                                links to this app's own unsubscribe page. When set, SendGrid also drops sends to
+                                the group's past opt-outs and adds its own List-Unsubscribe header instead of the app's.
                             </div>
                         </div>
 

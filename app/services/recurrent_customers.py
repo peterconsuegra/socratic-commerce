@@ -280,6 +280,7 @@ def get_recurrent_customers(
     exclude_emails: set | list | None = None,
     contact_counts: dict | None = None,
     max_contacts: int | None = None,
+    unsubscribed_emails: set | list | None = None,
     paginate: bool = True,
 ) -> dict:
     """
@@ -314,6 +315,10 @@ def get_recurrent_customers(
         max_contacts: with contact_counts, drop customers contacted at least
             this many times since their last order; the number dropped is
             reported as summary["exhausted"]. None or 0 means no limit.
+        unsubscribed_emails: if given, drop these customers (lowercased
+            emails), who used an email's unsubscribe link. Applied after the
+            segment filters, so summary["unsubscribed"] counts the ones this
+            segment hides.
 
     Both filters default to None, leaving the returned figures identical to a
     call without them.
@@ -395,6 +400,12 @@ def get_recurrent_customers(
             & (recurrent["last_order_utc"] < cutoff)
         ].copy()
 
+    unsubscribed = 0
+    if unsubscribed_emails:
+        before = len(recurrent)
+        recurrent = recurrent[~recurrent.index.isin(list(unsubscribed_emails))].copy()
+        unsubscribed = before - len(recurrent)
+
     # Summary over ALL recurrent customers, before search/pagination.
     summary = {
         "total_customers": total_customers,
@@ -403,6 +414,7 @@ def get_recurrent_customers(
         "recurrent_revenue": float(recurrent["total_spent"].sum()) if len(recurrent) else 0.0,
         "excluded": int(excluded),
         "exhausted": int(exhausted),
+        "unsubscribed": int(unsubscribed),
     }
 
     search = (search or "").strip()

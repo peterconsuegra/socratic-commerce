@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ 'Suscripción activa' if state == 'resubscribed' else 'Cancelar suscripción' }} · Save a Playa</title>
+  <!-- Customer-facing: styled like the emails it is linked from, not like the admin app. -->
+  <style>
+    body { margin: 0; background: #f2f5f6; color: #2f3e4e; font-family: Arial, Helvetica, sans-serif; }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 32px 16px; }
+    .card { background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(47, 62, 78, 0.08); }
+    .brand { padding: 18px 24px; background: #3a7b78; color: #ffffff; font-size: 18px; font-weight: bold;
+             letter-spacing: 2px; text-align: center; }
+    .content { padding: 28px 28px 32px; }
+    h1 { margin: 0 0 12px; font-size: 22px; line-height: 28px; }
+    p { margin: 0 0 14px; font-size: 16px; line-height: 24px; }
+    .muted { color: #6b7883; font-size: 14px; line-height: 20px; }
+    form { margin: 20px 0 16px; }
+    .btn { display: block; width: 100%; box-sizing: border-box; padding: 14px 20px; border: 2px solid #3a7b78;
+           border-radius: 6px; font: bold 16px Arial, Helvetica, sans-serif; text-align: center;
+           text-decoration: none; cursor: pointer; }
+    .btn-primary { background: #3a7b78; color: #ffffff; }
+    .btn-secondary { background: #ffffff; color: #3a7b78; }
+    .center { text-align: center; }
+    a { color: #3a7b78; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="card">
+      <div class="brand">SAVE A PLAYA</div>
+      <div class="content">
+        {% if state == 'confirm' %}
+          <h1>¿Cancelar tu suscripción?</h1>
+          <p>Dejarás de recibir nuestros correos de promociones en <strong>{{ masked_email }}</strong>.</p>
+          <form method="post" action="{{ url_for('main.email_unsubscribe', token=token) }}">
+            <button type="submit" class="btn btn-primary">Sí, cancelar mi suscripción</button>
+          </form>
+          <p class="center"><a href="{{ store_url }}">No, volver a la tienda</a></p>
+          <p class="muted center">Los correos sobre tus pedidos no cambian.</p>
+
+        {% elif state in ('done', 'unsubscribed') %}
+          <h1>{{ 'Listo, cancelamos tu suscripción' if state == 'done' else 'Tu suscripción ya está cancelada' }}</h1>
+          <p>No te enviaremos más correos de promociones a <strong>{{ masked_email }}</strong>.</p>
+          <p class="muted">¿Fue un error? Puedes volver a suscribirte.</p>
+          <form method="post" action="{{ url_for('main.email_resubscribe', token=token) }}">
+            <button type="submit" class="btn btn-secondary">Volver a suscribirme</button>
+          </form>
+
+        {% elif state == 'resubscribed' %}
+          <h1>¡Qué bueno tenerte de vuelta! 💙</h1>
+          <p>Volverás a recibir nuestros correos en <strong>{{ masked_email }}</strong>.</p>
+          <p class="center"><a href="{{ store_url }}">Ir a la tienda</a></p>
+
+        {% else %}
+          <h1>Este enlace no es válido</h1>
+          <p>Revisa que hayas abierto el enlace completo desde nuestro correo.</p>
+          <p class="center"><a href="{{ store_url }}">Ir a la tienda</a></p>
+        {% endif %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>
