@@ -25,7 +25,7 @@
 
   <h2 class="text-center mb-1">Recurrent Customers</h2>
   <p class="text-center text-muted mb-4">
-    Customers with more than one order, identified by email.
+    Customers who have bought more than once, as the store counts purchases. One row per email.
   </p>
 
   {% if error %}
@@ -107,7 +107,7 @@
             <th>{{ sort_link('name', 'Name') }}</th>
             <th>Phone</th>
             <th>{{ sort_link('email', 'Email') }}</th>
-            <th class="text-end">{{ sort_link('orders', 'Number of orders') }}</th>
+            <th class="text-end" title="Paid purchases as the store counts them, including any made under another email or phone">{{ sort_link('orders', 'Number of orders') }}</th>
             <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
             <th>Last purchase (SKU)</th>
             <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>

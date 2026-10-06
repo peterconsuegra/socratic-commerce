@@ -1,5 +1,8 @@
 import pandas as pd
 
+from app.services.get_data import load_orders
+
+
 def get_top_ten_sundays_by_sales(file_path):
     import pandas as pd
 
@@ -497,171 +500,31 @@ def get_top_days_of_month_by_gender(file_path):
 
     return {'male': days_data_male, 'female': days_data_female}
 
-def get_top_months_by_sales(repeated_customers_file, data_file):
+def get_top_10_months_by_sales(data_file):
     """
-    Reads both the orders data and the repeated customers file, then aggregates monthly sales data.
-    For each month, the returned information includes:
-      - Month: Formatted month-year (e.g., "December 2024")
-      - Total Orders: Total orders in that month
-      - Repurchases: Number of orders from customers identified as repeated
-      - Repurchase Percentage (%): The percentage of orders coming from repeated customers
-      - Total Sales: Total sales in that month, formatted as currency
-    Only the top 10 months with the highest total sales are returned.
-    """
-    import pandas as pd
-
-    # --- Read the CSV files ---
-    repeated_customers = pd.read_csv(repeated_customers_file)
-    data = pd.read_csv(data_file)
-
-    # --- Validate required columns ---
-    if 'email' not in repeated_customers.columns or 'email' not in data.columns:
-        raise ValueError("Both files must contain an 'email' column.")
-    if 'order_date' not in data.columns:
-        raise ValueError("The data file must contain an 'order_date' column.")
-    if 'total_value' not in data.columns:
-        raise ValueError("The data file must contain a 'total_value' column.")
-
-    # --- Convert dates and extract the monthly period ---
-    data['order_date'] = pd.to_datetime(data['order_date'])
-    data['month_year'] = data['order_date'].dt.to_period('M')
-
-    # --- Filter data to include only repeated customers ---
-    repeated_emails = set(repeated_customers['email'])
-    filtered_data = data[data['email'].isin(repeated_emails)]
-
-    # --- Aggregate the information ---
-    # Repurchases: count orders from repeated customers per month
-    total_repurchases_per_month = filtered_data.groupby('month_year').size().reset_index(name='Repurchases')
-
-    # Total Orders: count all orders per month
-    total_orders_per_month = data.groupby('month_year').size().reset_index(name='Total Orders')
-
-    # Total Sales: sum the 'total_value' column per month
-    total_sales_per_month = data.groupby('month_year')['total_value'].sum().reset_index(name='Total_Sales_Num')
-
-    # --- Combine the aggregated information ---
-    summary = total_repurchases_per_month.merge(total_orders_per_month, on='month_year', how='left')
-    summary = summary.merge(total_sales_per_month, on='month_year', how='left')
-
-    # Calculate the repurchase percentage
-    summary['Repurchase Percentage (%)'] = (summary['Repurchases'] / summary['Total Orders']) * 100
-
-    # Format the total sales as currency (e.g., "$1.234")
-    summary['Total Sales'] = summary['Total_Sales_Num'].apply(lambda x: f"${int(x):,}".replace(",", "."))
-
-    # Convert the period to a readable string (e.g., "December 2024")
-    summary['Month'] = summary['month_year'].apply(lambda x: x.strftime('%B %Y'))
-
-    # Sort the months by total sales (from highest to lowest)
-    summary = summary.sort_values(by='Total_Sales_Num', ascending=False)
-
-    # Limit the results to the top 10 months
-    summary = summary.head(10)
-
-    # Select and reorder the desired columns
-    summary = summary[['Month', 'Total Orders', 'Repurchases', 'Repurchase Percentage (%)', 'Total Sales']]
-
-    # Format the repurchase percentage to two decimals followed by '%'
-    summary['Repurchase Percentage (%)'] = summary['Repurchase Percentage (%)'].map(lambda x: f"{x:.2f}%")
-
-    # Convert to a list of dictionaries for easy passing to an HTML template
-    return summary.to_dict(orient='records')
-
-def get_top_10_months_by_sales(repeated_customers_file, data_file):
-    """
-    Reads both the orders data and the refined repeated customers file, then aggregates monthly sales data.
-    For each month, the returned information includes:
+    The 10 months with the highest total sales, each with:
       - Month: Formatted month-year (e.g., "December 2023")
       - Total Orders: Total orders in that month
-      - Repurchases: Number of orders from repeated customers (excluding orders made in the same month as the customer's first purchase)
-      - Repurchase Total Value: Sum of total_value from repurchase orders (formatted as currency)
+      - Repurchases: Orders the store flags is_repurchase (the customer's
+        second or later purchase)
+      - Repurchase Total Value: Sum of total_value from those orders (formatted as currency)
       - Total Sales: Total sales in that month, formatted as currency
       - Repurchase Sales Percentage (%): The percentage of total sales that comes from repurchases
-      
-    Only the top 10 months (based on Total Sales) are returned.
-    
-    Note: Only orders for emails that appear in the repeated customers file will be processed.
     """
-    # --- Read CSV files ---
-    repeated_customers = pd.read_csv(repeated_customers_file)
-    data = pd.read_csv(data_file)
-
-    # --- Validate required columns ---
-    for col in ['email']:
-        if col not in repeated_customers.columns or col not in data.columns:
-            raise ValueError("Both files must contain an 'email' column.")
-    for col in ['order_date', 'total_value']:
-        if col not in data.columns:
-            raise ValueError(f"The data file must contain a '{col}' column.")
-
-    # --- Process orders data ---
-    data['order_date'] = pd.to_datetime(data['order_date'])
+    data = load_orders(data_file)
     data['month_year'] = data['order_date'].dt.to_period('M')
-    
-    # Aggregate total orders and total sales per month (numeric value) from all orders
-    total_orders_per_month = (
-        data.groupby('month_year')
-            .size()
-            .reset_index(name='Total Orders')
-    )
-    total_sales_per_month = (
-        data.groupby('month_year')['total_value']
-            .sum()
-            .reset_index(name='Total_Sales_Num')
-    )
+    data['repurchase_value'] = data['total_value'].where(data['is_repurchase'], 0.0)
 
-    # --- Process repeated customers using the refined data ---
-    # Drop duplicate emails so that each customer appears only once.
-    repeated_customers_unique = repeated_customers.drop_duplicates(subset=['email'])
-    # Convert the "First Purchase" column (e.g., "December 2023") to a datetime and then to a monthly period.
-    repeated_customers_unique['first_purchase_month'] = (
-        pd.to_datetime(repeated_customers_unique['First Purchase'], format='%B %Y', errors='coerce')
-          .dt.to_period('M')
-    )
-
-    # --- Filter orders to include only those for emails in the refined repeated customers file ---
-    repeated_emails = set(repeated_customers_unique['email'])
-    repeated_orders = data[data['email'].isin(repeated_emails)]
-
-    # Merge repeated orders with the corresponding first purchase month.
-    merged = repeated_orders.merge(
-        repeated_customers_unique[['email', 'first_purchase_month']],
-        on='email',
-        how='left'
-    )
-
-    # Exclude orders that occurred in the same month as the first purchase.
-    repurchase_data = merged[merged['month_year'] != merged['first_purchase_month']]
-
-    # Aggregate repurchase orders count per month.
-    total_repurchases_per_month = (
-        repurchase_data.groupby('month_year')
-                      .size()
-                      .reset_index(name='Repurchases')
-    )
-    
-    # Aggregate the total value of repurchase orders per month.
-    repurchase_value_per_month = (
-        repurchase_data.groupby('month_year')['total_value']
-                       .sum()
-                       .reset_index(name='Repurchase_Total_Value')
-    )
-
-    # --- Combine all monthly aggregates ---
-    summary = total_orders_per_month.merge(
-        total_repurchases_per_month, on='month_year', how='left'
-    ).merge(
-        total_sales_per_month, on='month_year', how='left'
-    ).merge(
-        repurchase_value_per_month, on='month_year', how='left'
-    )
-    summary['Repurchases'] = summary['Repurchases'].fillna(0).astype(int)
-    summary['Repurchase_Total_Value'] = summary['Repurchase_Total_Value'].fillna(0)
+    summary = data.groupby('month_year').agg(
+        **{'Total Orders': ('total_value', 'size')},
+        Repurchases=('is_repurchase', 'sum'),
+        Total_Sales_Num=('total_value', 'sum'),
+        Repurchase_Total_Value=('repurchase_value', 'sum'),
+    ).reset_index()
 
     # Calculate the percentage of total sales coming from repurchases.
     summary['Repurchase Sales Percentage (%)'] = summary.apply(
-        lambda row: (row['Repurchase_Total_Value'] / row['Total_Sales_Num']) * 100 
+        lambda row: (row['Repurchase_Total_Value'] / row['Total_Sales_Num']) * 100
                     if row['Total_Sales_Num'] > 0 else 0,
         axis=1
     )
@@ -670,6 +533,7 @@ def get_top_10_months_by_sales(repeated_customers_file, data_file):
     summary = summary.sort_values(by='Total_Sales_Num', ascending=False).head(10)
 
     # --- Format numeric columns ---
+    summary['Repurchases'] = summary['Repurchases'].astype(int)
     summary['Total Sales'] = summary['Total_Sales_Num'].apply(
         lambda x: f"${int(x):,}".replace(",", ".")
     )

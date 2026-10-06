@@ -273,10 +273,10 @@ class SendTests(AppTestCase):
         self.assertEqual(headers["List-Unsubscribe"], f"<{self.url_for('me@example.com')}>")
 
 
-ORDERS_CSV = """email,name,order_date,order_date_utc,total_value,sku,phone
-ana@example.com,Ana,2025-01-10 10:00:00,2025-01-10T15:00:00Z,50000,pack_favorito,
-Luis@Example.com,Luis,2025-02-10 10:00:00,2025-02-10T15:00:00Z,60000,pack_favorito,
-eva@example.com,Eva,2025-03-10 10:00:00,2025-03-10T15:00:00Z,70000,una_unidad,
+ORDERS_CSV = """email,name,order_date,order_date_utc,total_value,sku,phone,purchase_number,is_repurchase
+ana@example.com,Ana,2025-01-10 10:00:00,2025-01-10T15:00:00Z,50000,pack_favorito,,1,false
+Luis@Example.com,Luis,2025-02-10 10:00:00,2025-02-10T15:00:00Z,60000,pack_favorito,,1,false
+eva@example.com,Eva,2025-03-10 10:00:00,2025-03-10T15:00:00Z,70000,una_unidad,,1,false
 """
 
 

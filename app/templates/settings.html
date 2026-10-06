@@ -15,11 +15,6 @@
     <button type="submit" class="btn btn-primary">Generate orders.csv</button>
 </form>
 
-<!-- Get Unknown Genders -->
-<form id="unknown-genders-form" method="post" class="mt-3">
-    <button type="submit" class="btn btn-secondary">Generate unknown_genders.csv</button>
-</form>
-
 {% endblock %}
 
 {% block page_scripts %}
@@ -40,27 +35,6 @@
               url: '/get_data',
               method: 'POST',
               data: { json_url: jsonUrl },
-              success: function (response) {
-                  displayAlert(response.status === 'success' ? 'success' : 'danger', response.message);
-              },
-              error: function (xhr) {
-                  displayAlert('danger',
-                     xhr.responseJSON ? xhr.responseJSON.message : 'An unexpected error occurred.'
-                  );
-              },
-              complete: function () {
-                  loader.hide();
-              }
-          });
-      });
-
-      // Handle Get Unknown Genders
-      $('#unknown-genders-form').on('submit', function (e) {
-          e.preventDefault();
-          loader.show();
-          $.ajax({
-              url: '/get_unknown_genders',
-              method: 'POST',
               success: function (response) {
                   displayAlert(response.status === 'success' ? 'success' : 'danger', response.message);
               },

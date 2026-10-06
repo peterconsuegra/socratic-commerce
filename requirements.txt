@@ -12,7 +12,6 @@ flask_sqlalchemy
 # after testing on 2.1.
 SQLAlchemy>=2.0,<2.1
 flask_migrate
-gender_guesser
 statsmodels
 shapely
 cryptography

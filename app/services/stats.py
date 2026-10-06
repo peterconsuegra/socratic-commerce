@@ -9,6 +9,12 @@ over ~60k orders. What the contact log says about the win-back programme
 (who bought after being contacted) is cheap and computed per request, so a
 send made a minute ago shows up.
 
+Customers, repeat customers and first-vs-repeat orders are the store's own
+numbers (purchase_number, is_repurchase). Time between orders and the repeat
+rate by first SKU need each customer's orders together, and the orders API
+has no customer id yet, so those group the orders by email - like the
+customer lists, and so does the win-back join with the contact log.
+
 Attribution is last-touch: an order counts for the most recent contact that
 preceded it, so a customer tagged on the 3rd and emailed on the 10th who buys
 on the 12th is a recovery for the email, not both.
@@ -20,7 +26,8 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from app.services.recurrent_customers import _file_key, _load_orders
+from app.services.get_data import load_orders
+from app.services.recurrent_customers import _file_key, customer_orders
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +57,10 @@ def orders_stats(orders_csv_path: str) -> tuple[dict, pd.DataFrame]:
     with _LOCK:
         if _CACHE["key"] == key:
             return _CACHE["stats"], _CACHE["orders"]
-        data = _load_orders(orders_csv_path)
-        stats = _compute_orders_stats(data)
-        orders = _light_orders(data)
+        data = load_orders(orders_csv_path)
+        by_email = customer_orders(data)
+        stats = _compute_orders_stats(data, by_email)
+        orders = _light_orders(by_email)
         _CACHE.update(key=key, stats=stats, orders=orders)
         logger.info("repurchase stats rebuilt from %s (%d orders)", orders_csv_path, len(data))
         return stats, orders
@@ -78,17 +86,43 @@ def _bucket(days: float) -> str:
     return GAP_BUCKETS[-1][2]
 
 
-def _compute_orders_stats(data: pd.DataFrame) -> dict:
-    d = data.sort_values(["email_key", "order_date"], kind="mergesort").copy()
-    d["order_rank"] = d.groupby("email_key").cumcount() + 1  # 1 = the customer's first order
+def _compute_orders_stats(data: pd.DataFrame, by_email: pd.DataFrame) -> dict:
+    # Every customer has exactly one first purchase (purchase_number 1) and,
+    # if they came back, exactly one second (2): counting those orders counts
+    # customers, with no matching in the app. An order the store has not
+    # numbered yet is neither.
+    first = data["purchase_number"].eq(1)
+    repeat = data["is_repurchase"]
+    customers = int(first.sum())
+    repeat_customers = int(data["purchase_number"].eq(2).sum())
+    orders_total = int(len(data))
+    repeat_orders = int(repeat.sum())
+    revenue = float(data["total_value"].sum())
+    repeat_revenue = float(data.loc[repeat, "total_value"].sum())
+
+    # First vs repeat orders per month, the last MONTHS_BACK months incl. the current one.
+    by_month = pd.DataFrame({
+        "month": data["order_date"].dt.to_period("M"),
+        "first_orders": first.astype(int),
+        "repeat_orders": repeat.astype(int),
+        "repeat_revenue": data["total_value"].where(repeat, 0.0),
+    }).groupby("month").sum()
+    months = pd.period_range(end=pd.Timestamp.now().to_period("M"), periods=MONTHS_BACK, freq="M")
+    by_month = by_month.reindex(months, fill_value=0)
+    current = str(months[-1])
+    monthly = [
+        {"month": str(m), "first_orders": int(r.first_orders), "repeat_orders": int(r.repeat_orders),
+         "repeat_revenue": float(r.repeat_revenue),
+         "repeat_share": float(r.repeat_orders) / (r.first_orders + r.repeat_orders) if (r.first_orders + r.repeat_orders) else 0.0,
+         "partial": str(m) == current}
+        for m, r in by_month.iterrows()
+    ]
+
+    # Per email from here on (see the module docstring).
+    d = by_email.sort_values(["email_key", "order_date"], kind="mergesort").copy()
+    d["order_rank"] = d.groupby("email_key").cumcount() + 1  # 1 = the email's first order
 
     per_customer = d.groupby("email_key").agg(orders=("order_id", "size"), first_date=("order_date", "min"))
-    customers = int(len(per_customer))
-    repeat_customers = int((per_customer["orders"] >= 2).sum())
-    orders_total = int(len(d))
-    repeat_orders = orders_total - customers
-    revenue = float(d["total_value"].sum())
-    repeat_revenue = float(d.loc[d["order_rank"] > 1, "total_value"].sum())
 
     # Gaps between consecutive orders (any rank), and first -> second specifically.
     gaps = d.groupby("email_key")["order_date"].diff().dt.days.dropna()
@@ -103,24 +137,6 @@ def _compute_orders_stats(data: pd.DataFrame) -> dict:
         {"bucket": label, "gaps": int(hist_counts.get(label, 0)),
          "share": float(hist_counts.get(label, 0)) / len(gaps) if len(gaps) else 0.0}
         for _lo, _hi, label in GAP_BUCKETS
-    ]
-
-    # First vs repeat orders per month, the last MONTHS_BACK months incl. the current one.
-    d["month"] = d["order_date"].dt.to_period("M")
-    by_month = d.groupby("month").agg(
-        first_orders=("order_rank", lambda s: int((s == 1).sum())),
-        repeat_orders=("order_rank", lambda s: int((s > 1).sum())),
-        repeat_revenue=("total_value", lambda s: float(s[d.loc[s.index, "order_rank"] > 1].sum())),
-    )
-    months = pd.period_range(end=pd.Timestamp.now().to_period("M"), periods=MONTHS_BACK, freq="M")
-    by_month = by_month.reindex(months, fill_value=0)
-    current = str(months[-1])
-    monthly = [
-        {"month": str(m), "first_orders": int(r.first_orders), "repeat_orders": int(r.repeat_orders),
-         "repeat_revenue": float(r.repeat_revenue),
-         "repeat_share": float(r.repeat_orders) / (r.first_orders + r.repeat_orders) if (r.first_orders + r.repeat_orders) else 0.0,
-         "partial": str(m) == current}
-        for m, r in by_month.iterrows()
     ]
 
     # Repeat rate by the SKU of the first order.

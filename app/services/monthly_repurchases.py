@@ -6,6 +6,8 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+from app.services.get_data import load_orders
+
 logger = logging.getLogger(__name__)
 
 
@@ -223,29 +225,15 @@ def _weekday_weighted_projection(
     }
 
 
-def _compute_repurchase_flag_and_subset(
+def _repurchase_orders(
     data: pd.DataFrame,
     utm_source_filter: str | None = None,
 ) -> pd.DataFrame:
-    """
-    Returns a DF containing only repurchase orders, optionally filtered by utm_source.
-    First purchase and repeat-email classification are computed from ALL orders in 'data',
-    then filtering is applied to repurchase orders only.
-    """
-    email_counts = data["email"].value_counts(dropna=True)
-    repeat_emails = set(email_counts[email_counts > 1].index)
-
-    first_order_dt = data.groupby("email")["order_date"].min()
-    data = data.join(first_order_dt, on="email", rsuffix="_first")
-
-    data["is_repurchase"] = (data["email"].isin(repeat_emails)) & (data["order_date"] > data["order_date_first"])
+    """The orders the store flags is_repurchase, optionally of one utm_source only."""
     rep = data[data["is_repurchase"]].copy()
 
     if utm_source_filter is not None:
-        if "utm_source" not in rep.columns:
-            raise ValueError("Orders file is missing utm_source column, needed for utm_source_filter.")
-
-        rep["utm_source"] = rep["utm_source"].fillna("").astype(str).str.strip().str.lower()
+        rep["utm_source"] = rep["utm_source"].str.strip().str.lower()
         rep = rep[rep["utm_source"] == utm_source_filter.strip().lower()].copy()
 
     return rep
@@ -288,25 +276,7 @@ def get_monthly_repurchases_trend(
         "current_month_days_in_month": 0,
     }
 
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    data = pd.read_csv(orders_csv_path)
-
-    required_cols = {"email", "order_date", "total_value"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    # Types
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    before = len(data)
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    after = len(data)
-    if after < before:
-        logger.warning("Dropped %s rows with invalid order_date or email", before - after)
-
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
+    data = load_orders(orders_csv_path)
 
     # Bogota cutoffs (naive)
     today_bogota = _now_bogota_naive().normalize()
@@ -316,9 +286,8 @@ def get_monthly_repurchases_trend(
 
     meta["current_month_label"] = start_current_month.strftime("%Y-%m")
 
-    # Cut repurchase classification base:
-    # We classify repurchases from all orders up to end_prev_month for history chart,
-    # and up to end_yesterday for model series.
+    # The history chart covers complete months (up to end_prev_month); the
+    # model series runs up to end_yesterday.
     data_hist_base = data[data["order_date"] <= end_prev_month].copy()
     data_model_base = data[data["order_date"] <= end_yesterday_bogota].copy()
 
@@ -339,7 +308,7 @@ def get_monthly_repurchases_trend(
             return [], meta
         return []
 
-    rep_hist = _compute_repurchase_flag_and_subset(data_hist_base, utm_source_filter=utm_source_filter)
+    rep_hist = _repurchase_orders(data_hist_base, utm_source_filter=utm_source_filter)
 
     rep_hist["month_year"] = rep_hist["order_date"].dt.to_period("M")
     rep_value_per_month = (
@@ -365,7 +334,7 @@ def get_monthly_repurchases_trend(
     # ---------------------------
     forecast_rows = []
     if return_forecast:
-        rep_model = _compute_repurchase_flag_and_subset(data_model_base, utm_source_filter=utm_source_filter)
+        rep_model = _repurchase_orders(data_model_base, utm_source_filter=utm_source_filter)
 
         if not rep_model.empty:
             rep_model["month_year"] = rep_model["order_date"].dt.to_period("M")

@@ -5,6 +5,7 @@ import pandas as pd
 from flask import current_app, render_template
 from flask_login import login_required
 
+from app.services.get_data import load_orders
 from app.services.monthly_repurchases import get_monthly_repurchases_trend
 from app.services.monthly_sales import get_monthly_sales_trend
 
@@ -278,45 +279,15 @@ def monthly_repurchases_by_month():
         current_month_remaining_days = int(meta.get("current_month_remaining_days", 0) or 0)
         current_month_days_in_month = int(meta.get("current_month_days_in_month", 0) or 0)
 
-        df = pd.read_csv(all_orders)
-
-        required_cols = {"email", "order_date", "total_value", "utm_source", "order_id"}
-        missing = required_cols - set(df.columns)
-
-        if missing:
-            raise ValueError(
-                f"Orders file is missing required columns for pie chart: {sorted(missing)}"
-            )
-
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-        df = df.dropna(subset=["order_date", "email"]).copy()
-        df["total_value"] = pd.to_numeric(df["total_value"], errors="coerce").fillna(0.0)
+        df = load_orders(all_orders)
 
         today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
         start_current_month = today_bogota.replace(day=1)
         end_prev_month = start_current_month - pd.Timedelta(microseconds=1)
 
-        df = df[df["order_date"] <= end_prev_month].copy()
+        rep = df[(df["order_date"] <= end_prev_month) & df["is_repurchase"]].copy()
 
-        email_counts = df["email"].value_counts(dropna=True)
-        repeat_emails = set(email_counts[email_counts > 1].index)
-
-        first_order_dt = df.groupby("email")["order_date"].min()
-        df = df.join(first_order_dt, on="email", rsuffix="_first")
-        df["is_repurchase"] = (
-            df["email"].isin(repeat_emails)
-            & (df["order_date"] > df["order_date_first"])
-        )
-
-        rep = df[df["is_repurchase"]].copy()
-
-        rep["utm_source"] = (
-            rep["utm_source"]
-            .fillna("unknown")
-            .astype(str)
-            .str.strip()
-            .str.lower()
-        )
+        rep["utm_source"] = rep["utm_source"].str.strip().str.lower()
         rep.loc[rep["utm_source"] == "", "utm_source"] = "unknown"
 
         grouped_value = (
@@ -371,9 +342,11 @@ def monthly_repurchases_by_month():
         for item in included:
             channel = item["key"]
             pct = item["pct"]
+            # Channel values are free text ("n/a" among them): keep them out of paths.
+            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             ch_trend, ch_forecast, ch_meta = get_monthly_repurchases_trend(
-                output_file=f"monthly_repurchases_trend_{channel}.csv",
+                output_file=f"monthly_repurchases_trend_{safe}.csv",
                 forecast_periods=12,
                 return_forecast=True,
                 return_meta=True,
@@ -386,8 +359,6 @@ def monthly_repurchases_by_month():
 
             if not ch_trend:
                 continue
-
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             channel_charts.append({
                 "key": channel,

@@ -4,19 +4,18 @@ Total sales and repurchase percentage grouped by utm_campaign, for a set of
 trailing time windows (Today, Last 7/30/90/180 days).
 
 This is the utm_campaign counterpart of utm_source_summary (which groups by
-utm_source). Repurchase classification is identical: an order is a "repurchase"
-if its email has more than one order in the FULL history and the order is not
-that email's first order. Classification runs over ALL orders, then the time
-window is applied for aggregation.
+utm_source). A "repurchase" is an order the store flags is_repurchase, as
+there.
 
 Because there are hundreds of campaigns, results are limited to the top N
 campaigns by sales per period; the remainder is rolled up into an "others"
 bucket so the per-campaign rows plus "others" reconcile to the period totals.
 """
 import logging
-import os
 
 import pandas as pd
+
+from app.services.get_data import load_orders
 
 from app.services.facebook_insights import _normalize_city, _normalize_gender
 
@@ -137,29 +136,8 @@ def _city_share_sales(window_subset: pd.DataFrame, top_n: int = 12) -> list[dict
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    data = pd.read_csv(orders_csv_path)
-
-    required_cols = {"email", "order_date", "total_value", "utm_campaign"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
-
-    # Repurchase classification over the FULL history.
-    email_counts = data["email"].value_counts(dropna=True)
-    repeat_emails = set(email_counts[email_counts > 1].index)
-    first_order_dt = data.groupby("email")["order_date"].min()
-    data = data.join(first_order_dt, on="email", rsuffix="_first")
-    data["is_repurchase"] = (
-        data["email"].isin(repeat_emails)
-        & (data["order_date"] > data["order_date_first"])
-    )
+    # is_repurchase comes with each order from the store.
+    data = load_orders(orders_csv_path)
 
     data["utm_campaign_norm"] = _normalize_campaign(data["utm_campaign"])
     return data

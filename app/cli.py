@@ -1,3 +1,5 @@
+import time
+
 import click
 from flask import current_app
 from app import db
@@ -5,6 +7,20 @@ from app.models import ApiToken, User
 
 
 def register_cli(app):
+    @app.cli.command("resync-orders")
+    def resync_orders():
+        """Re-fetch every order file: the full history by year, then the saved date ranges."""
+        from app.routes.common import generate_all_orders_csv, resync_range_files
+
+        started = time.monotonic()
+        path = generate_all_orders_csv()
+        click.echo(f"OK: {path} re-synced in {time.monotonic() - started:.1f}s")
+
+        started = time.monotonic()
+        synced = resync_range_files()
+        click.echo(f"OK: {len(synced)} date-range files re-synced in {time.monotonic() - started:.1f}s"
+                   + (f": {', '.join(synced)}" if synced else ""))
+
     @app.cli.command("make-admin")
     @click.argument("email")
     def make_admin(email):

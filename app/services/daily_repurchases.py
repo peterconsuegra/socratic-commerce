@@ -6,6 +6,8 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+from app.services.get_data import load_orders
+
 
 def _now_bogota_naive() -> pd.Timestamp:
     """
@@ -85,8 +87,8 @@ def get_daily_repurchases_trend(
     """
     Builds daily repurchases summary and (optionally) produces a daily forecast.
 
-    Repurchase classification is computed from ALL orders up to end of yesterday (Bogota),
-    then the date window is applied for the output rows only.
+    A repurchase is an order the store flags is_repurchase: the customer's
+    second or later paid purchase across their whole history.
 
     Selector window (optional):
       If start_date and end_date are provided (DD/MM/YYYY), output is filtered to that window.
@@ -96,7 +98,7 @@ def get_daily_repurchases_trend(
 
     Optional filter:
       If utm_source_filter is provided, only repurchase orders with that utm_source are included
-      in the repurchase aggregation, but repurchase classification still uses ALL orders.
+      in the repurchase aggregation; the daily totals still cover every order.
 
     Returns:
       - if return_forecast is False: summary_rows
@@ -107,25 +109,7 @@ def get_daily_repurchases_trend(
     logger = logging.getLogger(__name__)
     logger.info("Building daily repurchases trend from %s", orders_csv_path)
 
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    data = pd.read_csv(orders_csv_path)
-
-    required_cols = {"email", "order_date", "total_value"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    # Types
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    before = len(data)
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    after = len(data)
-    if after < before:
-        logger.warning("Dropped %s rows with invalid order_date or email", before - after)
-
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
+    data = load_orders(orders_csv_path)
 
     # Cut to end of yesterday in Bogota (avoid partial day)
     today_bogota = _now_bogota_naive().normalize()
@@ -141,16 +125,7 @@ def get_daily_repurchases_trend(
         pd.DataFrame(columns=["Day", "Sales"]).to_csv(csv_path, index=False)
         return ([], []) if return_forecast else []
 
-    # Repurchase classification computed from ALL orders (up to cutoff)
-    email_counts = data["email"].value_counts(dropna=True)
-    repeat_emails = set(email_counts[email_counts > 1].index)
-
-    first_order_dt = data.groupby("email")["order_date"].min()
-    data = data.join(first_order_dt, on="email", rsuffix="_first")
-
-    data["is_repurchase"] = (data["email"].isin(repeat_emails)) & (data["order_date"] > data["order_date_first"])
-
-    # Apply selector date window AFTER classification (output-only filter)
+    # Selector date window
     if start_date and end_date:
         try:
             start_dt = pd.to_datetime(start_date, format="%d/%m/%Y", errors="raise")

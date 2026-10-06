@@ -3,16 +3,15 @@
 Total sales and repurchase percentage grouped by utm_source, for a set of
 trailing time windows (Today, Last 7/30/90/180 days).
 
-Repurchase classification follows the same convention used across the app
-(see daily_repurchases.py): an order is a "repurchase" if its email has more
-than one order in the FULL history and the order is not that email's first
-order. Classification is computed over ALL orders, then the time window is
-applied only for the aggregation.
+A "repurchase" is an order the store flags is_repurchase: the customer's
+second or later paid purchase across their whole history, so a time window
+never changes how an order is classified.
 """
 import logging
-import os
 
 import pandas as pd
+
+from app.services.get_data import load_orders
 
 logger = logging.getLogger(__name__)
 
@@ -49,29 +48,8 @@ def _round2(x: float) -> float:
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    data = pd.read_csv(orders_csv_path)
-
-    required_cols = {"email", "order_date", "total_value", "utm_source"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
-
-    # Repurchase classification over the FULL history.
-    email_counts = data["email"].value_counts(dropna=True)
-    repeat_emails = set(email_counts[email_counts > 1].index)
-    first_order_dt = data.groupby("email")["order_date"].min()
-    data = data.join(first_order_dt, on="email", rsuffix="_first")
-    data["is_repurchase"] = (
-        data["email"].isin(repeat_emails)
-        & (data["order_date"] > data["order_date_first"])
-    )
+    # is_repurchase comes with each order from the store.
+    data = load_orders(orders_csv_path)
 
     data["utm_source_norm"] = _normalize_utm_source(data["utm_source"])
     return data

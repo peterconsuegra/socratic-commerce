@@ -1,5 +1,4 @@
 # app/routes/data.py
-import csv
 import logging
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -207,46 +206,3 @@ def get_data():
         "status": "error",
         "message": result["message"],
     }), 400
-
-
-@main.route("/get_unknown_genders", methods=["POST"])
-@login_required
-def get_unknown_genders():
-    try:
-        data_file = "data/orders.csv"
-        output_file = "data/unknown_genders.csv"
-        unknown_genders = []
-
-        with open(data_file, mode="r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-
-            for row in reader:
-                if row.get("gender") == "unknown":
-                    unknown_genders.append({
-                        "name": row.get("name", "").lower(),
-                        "gender": "unknown",
-                    })
-
-        if not unknown_genders:
-            return jsonify({
-                "status": "success",
-                "message": "No unknown genders found!",
-            }), 200
-
-        with open(output_file, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=["name", "gender"])
-            writer.writeheader()
-            writer.writerows(unknown_genders)
-
-        return jsonify({
-            "status": "success",
-            "message": f"Unknown genders saved to {output_file}",
-            "details": unknown_genders[:10],
-        }), 200
-
-    except Exception as e:
-        logger.exception("Failed to export unknown genders")
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-        }), 500

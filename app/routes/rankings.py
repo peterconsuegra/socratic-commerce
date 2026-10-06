@@ -1,8 +1,7 @@
 # app/routes/rankings.py
 import logging
-import os
 
-from flask import jsonify, render_template
+from flask import render_template
 from flask_login import login_required
 
 from app.models import Option
@@ -31,7 +30,6 @@ from app.services.rankings import (
     get_utm_answer_ranking,
     get_utm_content_ranking_by_gender,
 )
-from app.services.repurchases import print_customers_with_multiple_purchases
 
 from . import main
 
@@ -132,7 +130,6 @@ def ads_rankings():
 @login_required
 def rankings():
     input_file = "data/rankings_orders.csv"
-    repeated_customers_file = "data/repeated_customers.csv"
 
     try:
         date_range = Option.query.filter_by(meta_key="date_range_repurchases_orders.csv").first()
@@ -154,7 +151,7 @@ def rankings():
         top_hours = get_top_hours_by_gender(input_file)
         top_days_of_the_week = get_top_days_of_the_week(input_file)
         top_days_of_the_month = get_top_days_of_month_by_gender(input_file)
-        top_months = get_top_10_months_by_sales(repeated_customers_file, input_file)
+        top_months = get_top_10_months_by_sales(input_file)
         top_twenty_days = get_top_twenty_days_by_sales(input_file)
         top_ten_mondays = get_top_ten_mondays_by_sales(input_file)
         top_ten_tuesdays = get_top_ten_tuesdays_by_sales(input_file)
@@ -210,26 +207,3 @@ def rankings():
         end_date=end_date,
         orders_percentage=orders_percentage,
     )
-
-
-@main.route("/generate_repeated_customers", methods=["POST"])
-@login_required
-def generate_repeated_customers():
-    input_file = "data/all_orders.csv"
-    repeated_customers_file = "data/repeated_customers.csv"
-
-    try:
-        print_customers_with_multiple_purchases(input_file, repeated_customers_file)
-
-    except Exception:
-        logger.exception("Failed generating repeated customers file")
-
-        return jsonify({
-            "status": "success",
-            "message": "error",
-        }), 200
-
-    return jsonify({
-        "status": "success",
-        "message": f"{repeated_customers_file} created",
-    }), 200

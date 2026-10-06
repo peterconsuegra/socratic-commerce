@@ -5,15 +5,13 @@ utm_campaign, across the trailing time windows (Today, Last 7/30/90/180 days).
 
 This is the drill-down counterpart of utm_campaign_summary: that endpoint lists
 campaigns, this one breaks a single campaign down by its utm_content values.
-Repurchase classification is identical: an order is a "repurchase" if its email
-has more than one order in the FULL history and the order is not that email's
-first order. Classification runs over ALL orders, then the campaign filter and
-time window are applied for aggregation.
+A "repurchase" is an order the store flags is_repurchase, as there.
 """
 import logging
-import os
 
 import pandas as pd
+
+from app.services.get_data import load_orders
 
 from app.services.facebook_insights import _normalize_gender
 
@@ -66,29 +64,8 @@ def _round2(x: float) -> float:
 
 
 def _load_orders(orders_csv_path: str) -> pd.DataFrame:
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    data = pd.read_csv(orders_csv_path)
-
-    required_cols = {"email", "order_date", "total_value", "utm_campaign", "utm_content"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
-
-    # Repurchase classification over the FULL history (before any filtering).
-    email_counts = data["email"].value_counts(dropna=True)
-    repeat_emails = set(email_counts[email_counts > 1].index)
-    first_order_dt = data.groupby("email")["order_date"].min()
-    data = data.join(first_order_dt, on="email", rsuffix="_first")
-    data["is_repurchase"] = (
-        data["email"].isin(repeat_emails)
-        & (data["order_date"] > data["order_date_first"])
-    )
+    # is_repurchase comes with each order from the store.
+    data = load_orders(orders_csv_path)
 
     data["utm_campaign_norm"] = _normalize_label(data["utm_campaign"])
     data["utm_content_norm"] = _normalize_label(data["utm_content"])

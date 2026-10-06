@@ -2,7 +2,7 @@
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import current_app, flash, jsonify, redirect, request, url_for
@@ -10,7 +10,7 @@ from flask_login import current_user
 
 from app.models import ApiToken, Option
 from app import db
-from app.services.get_data import fetch_orders_and_write_csv
+from app.services.get_data import BOGOTA, fetch_orders_and_write_csv, orders_file_is_current
 
 
 # How long a cached all_orders.csv is considered fresh for the in-app views
@@ -21,6 +21,19 @@ CACHE_TTL_SECONDS = int(os.getenv("ALL_ORDERS_CACHE_TTL_SECONDS", str(60 * 60 * 
 # orders show up within the hour without forcing a re-fetch on every call
 # (override with API_ORDERS_MAX_AGE_SECONDS).
 API_ORDERS_MAX_AGE_SECONDS = int(os.getenv("API_ORDERS_MAX_AGE_SECONDS", str(60 * 60)))
+
+# The store rebuilds every customer's purchase numbers at 03:30 Colombia time,
+# so a copy fetched before 04:00 is stale from 04:00 on, whatever its age.
+NIGHTLY_REBUILD_HOUR = 4
+
+
+def _last_nightly_rebuild() -> float:
+    """Epoch seconds of the most recent 04:00 in Colombia."""
+    now = datetime.now(BOGOTA)
+    boundary = now.replace(hour=NIGHTLY_REBUILD_HOUR, minute=0, second=0, microsecond=0)
+    if boundary > now:
+        boundary -= timedelta(days=1)
+    return boundary.timestamp()
 
 
 def get_option_value(meta_key: str, default=None):
@@ -58,6 +71,10 @@ def should_refresh_all_orders(max_age_seconds: int | None = None) -> bool:
         current_app.logger.info("Could not stat all_orders.csv; refresh required")
         return True
 
+    if not orders_file_is_current(csv_path):
+        current_app.logger.info("all_orders.csv predates the store's repurchase fields; refresh required")
+        return True
+
     if not os.path.exists(cache_file):
         current_app.logger.info("all_orders cache file missing; refresh required")
         return True
@@ -69,7 +86,7 @@ def should_refresh_all_orders(max_age_seconds: int | None = None) -> bool:
         current_app.logger.info("all_orders cache timestamp invalid; refresh required")
         return True
 
-    expired = (time.time() - last_ts) > max_age_seconds
+    expired = (time.time() - last_ts) > max_age_seconds or last_ts < _last_nightly_rebuild()
 
     if expired:
         current_app.logger.info("all_orders cache expired; refresh required")
@@ -88,15 +105,12 @@ def touch_all_orders_cache():
 def build_orders_csv(
     *,
     file_name: str,
-    send_date_params: bool = False,
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> str:
-    project_root = current_app.config["PROJECT_ROOT"]
-    output_csv = os.path.join(current_app.config["DATA_DIR"], file_name)
-
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
-
+    """Fetch the orders into data/<file_name>: the whole history without dates."""
+    # The token is configuration (the options table), never code: it is
+    # replaced from time to time.
     orders_url = get_option_value("orders_url")
     api_key = get_option_value("api_key")
 
@@ -106,40 +120,48 @@ def build_orders_csv(
     if not api_key:
         raise ValueError("Missing 'api_key' in options table")
 
-    kwargs = {
-        "orders_url": orders_url,
-        "api_key": api_key,
-        "file_name": file_name,
-        "cwd": project_root,
-        "timeout": 120,
-    }
-
-    if send_date_params and start_date and end_date:
-        kwargs["start_date"] = start_date
-        kwargs["end_date"] = end_date
-
-    ok, payload = fetch_orders_and_write_csv(**kwargs)
+    ok, payload = fetch_orders_and_write_csv(
+        orders_url=orders_url,
+        api_key=api_key,
+        file_name=file_name,
+        start_date=start_date,
+        end_date=end_date,
+        cwd=current_app.config["PROJECT_ROOT"],
+    )
 
     if not ok:
         raise RuntimeError(payload.get("message", f"Unknown error generating {file_name}"))
 
-    if not os.path.exists(output_csv):
-        raise FileNotFoundError(f"CSV was not created: {output_csv}")
-
-    if os.path.getsize(output_csv) == 0:
-        raise ValueError(f"CSV was created but is empty: {output_csv}")
-
-    return output_csv
+    return os.path.join(current_app.config["DATA_DIR"], file_name)
 
 
 def generate_all_orders_csv() -> str:
-    output_csv = build_orders_csv(
-        file_name="all_orders.csv",
-        send_date_params=False,
-    )
+    output_csv = build_orders_csv(file_name="all_orders.csv")
 
     touch_all_orders_cache()
     return output_csv
+
+
+def resync_range_files() -> list[str]:
+    """
+    Re-fetch every date-range order file a page saved through the date
+    selector, over its saved dates (a page otherwise refreshes its file only
+    when the range is picked again). Returns the files re-synced; a failure is
+    logged and the old file kept.
+    """
+    synced = []
+    for opt in Option.query.filter(Option.meta_key.like("start\\_date\\_%", escape="\\")).all():
+        file_name = opt.meta_key[len("start_date_"):]
+        end_date = get_option_value(f"end_date_{file_name}")
+        path = os.path.join(current_app.config["DATA_DIR"], file_name)
+        if file_name != os.path.basename(file_name) or not end_date or not os.path.exists(path):
+            continue
+        try:
+            build_orders_csv(file_name=file_name, start_date=opt.meta_value, end_date=end_date)
+            synced.append(file_name)
+        except Exception:
+            current_app.logger.exception("Re-sync of %s failed; keeping the old file", file_name)
+    return synced
 
 
 # The orders API can take minutes to answer for the full history, longer than

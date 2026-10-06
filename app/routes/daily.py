@@ -8,6 +8,7 @@ from flask_login import login_required
 from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
+from app.services.get_data import load_orders
 
 from . import main
 from .common import refresh_all_orders_if_needed
@@ -298,31 +299,10 @@ def daily_repurchases():
             utm_source_filter=None,
         )
 
-        df = pd.read_csv(input_file)
+        df = load_orders(input_file)
 
-        required_cols = {"email", "order_date", "total_value", "utm_source", "order_id"}
-        missing = required_cols - set(df.columns)
-
-        if missing:
-            raise ValueError(
-                f"Orders file is missing required columns for repurchases charts: {sorted(missing)}"
-            )
-
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
-        df = df.dropna(subset=["order_date", "email"]).copy()
-        df["total_value"] = pd.to_numeric(df["total_value"], errors="coerce").fillna(0.0)
-
-        if "city" in df.columns:
-            df["city"] = df["city"].fillna("unknown").astype(str).str.strip()
-            df.loc[df["city"] == "", "city"] = "unknown"
-        else:
-            df["city"] = "unknown"
-
-        if "gender" in df.columns:
-            df["gender"] = df["gender"].fillna("unknown").astype(str).str.strip().str.lower()
-            df.loc[df["gender"] == "", "gender"] = "unknown"
-        else:
-            df["gender"] = "unknown"
+        df["city"] = df["city"].str.strip()
+        df.loc[df["city"] == "", "city"] = "unknown"
 
         today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
         end_yesterday = today_bogota - pd.Timedelta(microseconds=1)
@@ -353,17 +333,6 @@ def daily_repurchases():
                 start_date=start_date,
                 end_date=end_date,
             )
-
-        email_counts = df["email"].value_counts(dropna=True)
-        repeat_emails = set(email_counts[email_counts > 1].index)
-
-        first_order_dt = df.groupby("email")["order_date"].min()
-        df = df.join(first_order_dt, on="email", rsuffix="_first")
-
-        df["is_repurchase"] = (
-            df["email"].isin(repeat_emails)
-            & (df["order_date"] > df["order_date_first"])
-        )
 
         if start_date and end_date:
             try:
@@ -484,9 +453,11 @@ def daily_repurchases():
         for item in included:
             channel = item["key"]
             pct = item["pct"]
+            # Channel values are free text ("n/a" among them): keep them out of paths.
+            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             trend_rows, fc_rows = get_daily_repurchases_trend(
-                output_file=f"repurchases_by_day_{channel}_trend.csv",
+                output_file=f"repurchases_by_day_{safe}_trend.csv",
                 forecast_periods=30,
                 return_forecast=True,
                 orders_csv_path=input_file,
@@ -527,8 +498,6 @@ def daily_repurchases():
                 "labels": h_labels,
                 "values": h_values,
             }
-
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             channel_charts.append({
                 "key": channel,

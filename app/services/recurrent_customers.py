@@ -1,22 +1,19 @@
 # app/services/recurrent_customers.py
 """
-Customers with more than one order ("recurrent" / repeat customers).
+Customers with more than one paid purchase ("recurrent" / repeat customers),
+one row per email.
 
-Customers are keyed by email, the same identity the repurchase logic uses
-across the app (see utm_campaign_summary and daily_repurchases), so a customer
-counted as recurrent here is exactly one whose orders are classified as
-repurchases elsewhere.
+How many purchases a customer has made is the store's count: the highest
+purchase_number among the email's orders. The store links a customer's orders
+by phone and email across their whole history, so this also counts purchases
+made under another email. The app does not match customers itself.
 
-Note on available fields: the orders source carries a first name, an email and
-a billing phone per order. There is still no last name in the upstream orders
-API, so that cannot be listed here.
+Email is still the row key because the orders API has no customer id yet. So
+a customer who bought under two emails has two rows, and total spent, the last
+order and its SKU, phone, city and gender cover only that email's orders.
+These screens move to the store's customer id once the API sends one.
 
-Phone is a display column only. It is never used to identify or de-duplicate
-customers: the upstream values are not normalised (both "+573008007384" and
-"3165391777" occur for Colombian numbers, sometimes for the same person), so
-matching on the raw string would split one customer into several. Any
-phone-based matching would need E.164 normalisation first, as a separate
-decision.
+Phone is a display column only, never a key: the store does the matching.
 
 sku can list several comma-separated SKUs when an order had several line
 items, so it is always split - never grouped on raw, which would invent a
@@ -36,10 +33,9 @@ import threading
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from app.services.get_data import MISSING_SENTINELS, load_orders
 
-# The orders API's missing-value sentinel, mirrored from get_data.py.
-MISSING_SENTINELS = {"n/a", "na", "none", "null"}
+logger = logging.getLogger(__name__)
 
 DEFAULT_PER_PAGE = 100
 # Large enough for the segment pages' 5000-row option; the table is cached,
@@ -66,52 +62,20 @@ DEFAULT_SORT = "spent"
 INVERTED_SORTS = {"days_since"}
 
 
-def _load_orders(orders_csv_path: str) -> pd.DataFrame:
-    if not os.path.exists(orders_csv_path):
-        raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
-
-    # phone and order_date_utc must be read as text. Left to type inference,
-    # a column of all-digit phone numbers becomes float64 - "+573008007384"
-    # turns into 573008007384.0, losing the "+" and any leading zero. Only
-    # columns actually present are named, so a pre-schema CSV still loads.
-    header = pd.read_csv(orders_csv_path, nrows=0).columns
-    text_cols = {c: str for c in ("phone", "order_date_utc", "sku") if c in header}
-
-    data = pd.read_csv(orders_csv_path, dtype=text_cols or None)
-
-    required_cols = {"email", "order_date", "total_value"}
-    missing = required_cols - set(data.columns)
-    if missing:
-        raise ValueError(f"Orders file is missing required columns: {sorted(missing)}")
-
-    data["order_date"] = pd.to_datetime(data["order_date"], errors="coerce")
-    data = data.dropna(subset=["order_date", "email"]).copy()
-    data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
-
-    data["email"] = data["email"].astype(str).str.strip()
-    data = data[data["email"] != ""].copy()
-    # Group case-insensitively so "A@x.com" and "a@x.com" are one customer.
+def customer_orders(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    The orders that carry an email, with email_key: the email lowercased, so
+    "A@x.com" and "a@x.com" are one row. Email is the customer key of the
+    per-customer screens until the orders API sends a customer id.
+    """
+    data = data.assign(email=data["email"].str.strip(), name=data["name"].str.strip())
+    data = data[~data["email"].str.lower().isin(MISSING_SENTINELS | {""})].copy()
     data["email_key"] = data["email"].str.lower()
-
-    if "name" in data.columns:
-        data["name"] = data["name"].fillna("").astype(str).str.strip()
-    else:
-        data["name"] = ""
-
-    # phone and order_date_utc are newer columns. A CSV written before the
-    # schema change will not have them, so default to empty rather than
-    # treating them as required - a stale cache should render blank cells,
-    # not crash the page.
-    for col in ("phone", "order_date_utc", "sku", "last_name"):
-        if col in data.columns:
-            data[col] = data[col].fillna("").astype(str).str.strip()
-            # "N/A" is the API sentinel; blank it here too in case an older
-            # CSV was written before _clean_optional existed.
-            data.loc[data[col].str.lower().isin(MISSING_SENTINELS), col] = ""
-        else:
-            data[col] = ""
-
     return data
+
+
+def _load_orders(orders_csv_path: str) -> pd.DataFrame:
+    return customer_orders(load_orders(orders_csv_path))
 
 
 def _days_since(utc_iso: str):
@@ -178,17 +142,21 @@ def _customers_table(orders_csv_path: str) -> pd.DataFrame:
 def _aggregate_customers(data: pd.DataFrame) -> pd.DataFrame:
     """One row per customer (email, case-insensitive) from the orders rows."""
     grouped = data.groupby("email_key").agg(
-        orders_count=("total_value", "size"),
+        # The store's count of the customer's paid purchases (see the module
+        # docstring); 0 while none of the email's orders is numbered yet.
+        orders_count=("purchase_number", "max"),
+        # Orders under this email, which total_spent sums.
+        email_orders=("total_value", "size"),
         total_spent=("total_value", "sum"),
         last_order=("order_date", "max"),
         first_order=("order_date", "min"),
         email=("email", "first"),
     )
+    grouped["orders_count"] = grouped["orders_count"].fillna(0).astype(int)
     grouped["name"] = _name_by_customer(data).reindex(grouped.index).fillna("").astype(str)
 
     # Phone and the UTC timestamp are derived separately and joined on, so the
-    # aggregation above - and therefore orders_count, total_spent and the
-    # summary totals - stays exactly as it was.
+    # counts and totals above never depend on which orders carry them.
     #
     # A customer's phone can differ per order, so take the most recent
     # non-empty one: sort that subset by order_date and keep the last.
@@ -236,15 +204,8 @@ def _aggregate_customers(data: pd.DataFrame) -> pd.DataFrame:
     ).rename("last_skus")
     last_value_by_customer = last_orders["total_value"].rename("last_order_value")
     # City and gender travel with the same last order, for audience exports.
-    # Guarded per column so a CSV predating either still loads.
-    last_city_by_customer = (
-        last_orders["city"] if "city" in last_orders.columns
-        else pd.Series(dtype=object, index=last_orders.index)
-    ).rename("city")
-    last_gender_by_customer = (
-        last_orders["gender"] if "gender" in last_orders.columns
-        else pd.Series(dtype=object, index=last_orders.index)
-    ).rename("gender")
+    last_city_by_customer = last_orders["city"].rename("city")
+    last_gender_by_customer = last_orders["gender"].rename("gender")
 
     grouped = (
         grouped.join(phone_by_customer)
@@ -293,14 +254,14 @@ def get_recurrent_customers(
         sort: one of SORT_COLUMNS keys.
         direction: "asc" or "desc"; defaults to the sort key's natural order.
         search: optional case-insensitive filter on name or email.
-        min_orders: minimum orders to count as recurrent (default 2). Pass 1
-            to include one-time buyers.
+        min_orders: minimum purchases (the store's count) to count as
+            recurrent (default 2). Pass 1 to include one-time buyers.
         sku_filter: if given, keep only customers whose LAST purchase included
             one of these SKUs.
         inactive_months: if given, keep only customers whose last order (UTC)
             is older than this many months - a lapsed / win-back segment.
         max_orders: if given, keep only customers with at most this many
-            orders, so min_orders/max_orders together bound the range.
+            purchases, so min_orders/max_orders together bound the range.
         emails: if given, keep only these customers (case-insensitive email
             match). Used to resolve a checkbox selection: without it a caller
             would have to page through the spend-ranked listing and anyone
@@ -410,7 +371,7 @@ def get_recurrent_customers(
     summary = {
         "total_customers": total_customers,
         "recurrent_customers": int(len(recurrent)),
-        "recurrent_orders": int(recurrent["orders_count"].sum()) if len(recurrent) else 0,
+        "recurrent_orders": int(recurrent["email_orders"].sum()) if len(recurrent) else 0,
         "recurrent_revenue": float(recurrent["total_spent"].sum()) if len(recurrent) else 0.0,
         "excluded": int(excluded),
         "exhausted": int(exhausted),
@@ -460,7 +421,7 @@ def get_recurrent_customers(
             "email": r["email"],
             "orders_count": int(r["orders_count"]),
             "total_spent": float(r["total_spent"]),
-            "avg_order_value": float(r["total_spent"]) / int(r["orders_count"]) if r["orders_count"] else 0.0,
+            "avg_order_value": float(r["total_spent"]) / int(r["email_orders"]),
             "first_order": r["first_order"].strftime("%Y-%m-%d") if pd.notna(r["first_order"]) else "",
             "last_order": r["last_order"].strftime("%Y-%m-%d") if pd.notna(r["last_order"]) else "",
         })

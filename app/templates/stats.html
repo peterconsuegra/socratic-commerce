@@ -72,7 +72,7 @@
       </div>
       <div class="col-lg-5">
         <div class="card shadow-sm h-100">
-          <div class="card-header fw-bold">Days between consecutive orders</div>
+          <div class="card-header fw-bold">Days between consecutive orders <span class="text-muted small fw-normal" title="Until the store sends a customer id, these group orders by email: a customer who bought under two emails counts as two.">· grouped by email</span></div>
           <div class="card-body">
             <div style="position:relative; height:300px;"><canvas id="gapChart"></canvas></div>
             <details class="small mt-2">
@@ -93,7 +93,8 @@
 
     <div class="card shadow-sm mb-5">
       <div class="card-header fw-bold">Repeat rate by first purchase
-        <span class="text-muted small fw-normal">· SKUs with at least {{ r.min_sku_customers }} first-time customers</span></div>
+        <span class="text-muted small fw-normal">· SKUs with at least {{ r.min_sku_customers }} first-time customers</span>
+        <span class="text-muted small fw-normal" title="Until the store sends a customer id, these group orders by email: a customer who bought under two emails counts as two.">· grouped by email</span></div>
       <div class="table-responsive">
         <table class="table table-sm table-striped mb-0 align-middle" style="font-variant-numeric: tabular-nums;">
           <thead><tr><th>First order SKU</th><th class="text-end">Customers</th><th class="text-end">Repeat customers</th><th class="text-end">Repeat rate</th><th class="text-end">Avg orders</th><th class="text-end">Median days to 2nd order</th></tr></thead>
