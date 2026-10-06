@@ -12,7 +12,9 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
           <h6 class="mb-0">Tag selected customers in WATI</h6>
           <span class="text-muted small">
-            Creates or updates contacts and sets an attribute. <strong>No WhatsApp messages are sent.</strong>
+            Creates or updates contacts, sets the remarketing label and resets
+            <code>{{ wati_purchase_attribute }}</code> to <code>{{ wati_purchase_value }}</code>.
+            <strong>No WhatsApp messages are sent.</strong>
           </span>
         </div>
 
@@ -44,6 +46,7 @@
         </div>
 
         <div class="form-text mt-2">
+          Every tagged contact also gets <code>{{ wati_purchase_attribute }} = {{ wati_purchase_value }}</code>.
           Only customers on this page can be selected, up to {{ wati_max }} per run.
           Rows without a valid phone are skipped and listed in the result.
         </div>
@@ -76,7 +79,8 @@
     if (!label) { statusEl.innerHTML = '<span class="text-danger">Enter a remarketing label.</span>'; return; }
 
     var noPhone = chosen.filter(function (r) { return !r.dataset.phone; }).length;
-    var msg = "Tag " + chosen.length + " customer(s) in WATI with " + attribute + " = \"" + label + "\"?"
+    var msg = "Tag " + chosen.length + " customer(s) in WATI with " + attribute + " = \"" + label + "\""
+            + " and {{ wati_purchase_attribute }} = \"{{ wati_purchase_value }}\"?"
             + (noPhone ? "\n\n" + noPhone + " have no phone and will be skipped." : "")
             + "\n\nThis creates or updates contacts. No WhatsApp messages are sent.";
     if (!window.confirm(msg)) return;
@@ -100,6 +104,7 @@
         var html = '<div class="alert alert-success mb-2 py-2">'
                  + '<strong>' + data.tagged + '</strong> tagged with <code>'
                  + esc(data.attribute) + ' = ' + esc(data.label) + '</code>'
+                 + ' and <code>' + esc(data.purchase_attribute) + ' = ' + esc(data.purchase_value) + '</code>'
                  + ' · <strong>' + data.skipped + '</strong> skipped'
                  + ' · <strong>' + data.failed + '</strong> failed'
                  + (data.logged !== undefined ? ' · <strong>' + data.logged + '</strong> logged as contacted' : '')

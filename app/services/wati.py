@@ -1,6 +1,7 @@
 # app/services/wati.py
 """
-WATI integration: tag customer segments with a remarketing attribute.
+WATI integration: tag customer segments with a remarketing attribute, and
+reset each tagged contact's purchase attribute to "false".
 
 This module only ever creates or updates CONTACTS. It does not send WhatsApp
 messages - sending is a separate, chargeable, irreversible action that needs an
@@ -11,7 +12,8 @@ Contract (https://docs.wati.io/reference):
     Authorization: Bearer <token>
     {"whatsapp_number": "573001112233",
      "name": "Maria",
-     "custom_params": [{"name": "remarketing", "value": "winback_sept"}]}
+     "custom_params": [{"name": "remarketing", "value": "winback_sept"},
+                       {"name": "purchase", "value": "false"}]}
 
 The same endpoint creates a contact or updates an existing one, so re-running a
 segment re-labels those customers rather than duplicating them.
@@ -29,6 +31,13 @@ logger = logging.getLogger(__name__)
 # segment is ever complete. One fixed name, free-text value.
 ATTRIBUTE_NAME = "remarketing"
 DEFAULT_ATTRIBUTE = ATTRIBUTE_NAME
+
+# Written with every tag, so each remarketing push starts the contact at "not
+# purchased" until a purchase is recorded on it again. Fixed in code like
+# ATTRIBUTE_NAME, and it must match the attribute's name in WATI exactly: a
+# name the tenant does not know can reject the whole write.
+PURCHASE_ATTRIBUTE = "purchase"
+PURCHASE_RESET_VALUE = "false"
 
 MAX_VALUE_CHARS = 60
 
@@ -409,13 +418,14 @@ def tag_contacts(
     session: requests.Session | None = None,
 ) -> dict:
     """
-    Create/update each customer in WATI with <attribute> = <label>.
+    Create/update each customer in WATI with <attribute> = <label> and
+    PURCHASE_ATTRIBUTE = PURCHASE_RESET_VALUE, in the same write.
 
-    customers: dicts with at least "phone". By default exactly ONE custom
-        attribute is written - the one being set. Attributes are typed per
-        tenant and names that do not exist there can reject the whole write,
-        so extras (last SKU, email, ...) are only sent when explicitly asked
-        for via extra_attributes=True.
+    customers: dicts with at least "phone". By default exactly those two
+        custom attributes are written. Attributes are typed per tenant and
+        names that do not exist there can reject the whole write, so extras
+        (last SKU, email, ...) are only sent when explicitly asked for via
+        extra_attributes=True.
 
     Returns a summary: counts plus per-customer skipped/failed detail, so the
     caller can report exactly who was and was not tagged.
@@ -448,7 +458,10 @@ def tag_contacts(
     flavour = None  # "v3" or "v1", decided by one probe on the first contact
 
     def build_params(c, email):
-        params = [{"name": attribute, "value": str(label)}]
+        params = [
+            {"name": attribute, "value": str(label)},
+            {"name": PURCHASE_ATTRIBUTE, "value": PURCHASE_RESET_VALUE},
+        ]
         if extra_attributes:
             skus = c.get("last_skus") or []
             if skus:
@@ -546,15 +559,18 @@ def tag_contacts(
         (tagged if outcome == "tagged" else failed).append(detail)
 
     if len(sendable) > 1:
-        with ThreadPoolExecutor(max_workers=min(CONCURRENCY, len(sendable) - 1)) as pool:
-            for outcome, detail in pool.map(send_one, sendable[1:]):
+        rest = sendable[1:]
+        with ThreadPoolExecutor(max_workers=min(CONCURRENCY, len(rest))) as pool:
+            for entry, (outcome, detail) in zip(rest, pool.map(send_one, rest)):
                 if outcome == "retry_v1":
-                    outcome, detail = send_one(sendable[0], force_flavour="v1")
+                    outcome, detail = send_one(entry, force_flavour="v1")
                 (tagged if outcome == "tagged" else failed).append(detail)
 
     return {
         "attribute": attribute,
         "label": label,
+        "purchase_attribute": PURCHASE_ATTRIBUTE,
+        "purchase_value": PURCHASE_RESET_VALUE,
         "selected": len(customers),
         "tagged": len(tagged),
         "skipped": len(skipped),

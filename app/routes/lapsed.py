@@ -24,6 +24,8 @@ from app.services.wati import (
     ATTRIBUTE_NAME,
     MAX_CONTACTS_PER_RUN,
     MAX_VALUE_CHARS,
+    PURCHASE_ATTRIBUTE,
+    PURCHASE_RESET_VALUE,
     tag_contacts,
 )
 
@@ -360,6 +362,8 @@ def lapsed_customers():
         page_heading="Lapsed Customers",
         endpoint="main.lapsed_customers",
         wati_attribute=ATTRIBUTE_NAME,
+        wati_purchase_attribute=PURCHASE_ATTRIBUTE,
+        wati_purchase_value=PURCHASE_RESET_VALUE,
         wati_max_value=MAX_VALUE_CHARS,
         wati_max=MAX_CONTACTS_PER_RUN,
         wati_ready=bool(get_secret("wati_api_token")),
@@ -484,7 +488,8 @@ def lapsed_customers_export():
 @login_required
 def lapsed_customers_wati_remarketing():
     """
-    Tag the selected customers in WATI with a remarketing attribute.
+    Tag the selected customers in WATI with a remarketing attribute, and reset
+    their purchase attribute to "false" in the same write.
 
     Creates or updates contacts only - no WhatsApp messages are sent.
     Customers without a usable E.164 phone are skipped and reported back.
@@ -518,8 +523,9 @@ def lapsed_customers_wati_remarketing():
             "message": "WATI is not configured. Add the tenant URL and API token in Settings.",
         }), 400
 
-    logger.info("%s is setting %s=%r on %d contacts",
-                getattr(current_user, "username", "unknown"), attribute, label, len(emails))
+    logger.info("%s is setting %s=%r and %s=%r on %d contacts",
+                getattr(current_user, "username", "unknown"), attribute, label,
+                PURCHASE_ATTRIBUTE, PURCHASE_RESET_VALUE, len(emails))
 
     try:
         selected, missing = _resolve_selected(emails)
@@ -550,8 +556,9 @@ def lapsed_customers_wati_remarketing():
                 {"email": e, "phone": "", "reason": "customer not found"} for e in missing
             ][:50]
 
-        logger.info("%s tagged %d contacts with %s=%r (%d logged)",
-                    getattr(current_user, "username", "unknown"), result["tagged"], attribute, label, logged)
+        logger.info("%s tagged %d contacts with %s=%r and %s=%r (%d logged)",
+                    getattr(current_user, "username", "unknown"), result["tagged"], attribute, label,
+                    PURCHASE_ATTRIBUTE, PURCHASE_RESET_VALUE, logged)
         return jsonify({"status": "success", **result}), 200
 
     except ValueError as e:
