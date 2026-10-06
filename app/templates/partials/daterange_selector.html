@@ -125,12 +125,20 @@ $(document).ready(function() {
     var startDate = ($("#start_date").val() || "").trim();
     var endDate = ($("#end_date").val() || "").trim();
 
+    // Keep the page's other parameters (e.g. the location filter of
+    // /sales_by_location); only the date ones are replaced.
+    var params = new URLSearchParams(window.location.search);
+    params.delete("date_range");
+    params.delete("start_date");
+    params.delete("end_date");
+
     if (dateRange) {
-      return basePath + "?date_range=" + encodeURIComponent(dateRange);
+      params.set("date_range", dateRange);
+    } else {
+      params.set("start_date", startDate);
+      params.set("end_date", endDate);
     }
-    return basePath
-      + "?start_date=" + encodeURIComponent(startDate)
-      + "&end_date=" + encodeURIComponent(endDate);
+    return basePath + "?" + params.toString();
   }
 
   $("#fetchData").click(function() {

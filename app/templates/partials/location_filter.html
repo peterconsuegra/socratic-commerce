@@ -1,0 +1,56 @@
+<!-- app/templates/partials/location_filter.html -->
+{#
+  The location filter of /sales_by_location. location: state and city (the
+  selection, "" for all) and the states and cities found in the page's orders
+  (the cities of the selected state only). A GET form, so the selection lives
+  in the URL, and the date selector above keeps it when it reloads the page.
+#}
+<div class="container date-range-card">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title text-center mb-3">Filter by Location</h5>
+
+      {% if location.states %}
+        <form method="get" action="{{ url_for('main.sales_by_location') }}" class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label for="location_state" class="form-label">State (department)</label>
+            <select id="location_state" name="state" class="form-select">
+              <option value="">All states</option>
+              {% for s in location.states %}
+                <option value="{{ s }}" {% if s == location.state %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label for="location_city" class="form-label">City</label>
+            <select id="location_city" name="city" class="form-select">
+              <option value="">{{ "All cities in " ~ location.state if location.state else "All cities" }}</option>
+              {% for c in location.cities %}
+                <option value="{{ c }}" {% if c == location.city %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-fill">Apply</button>
+            <a href="{{ url_for('main.sales_by_location') }}" class="btn btn-outline-secondary flex-fill">Clear</a>
+          </div>
+        </form>
+
+        <p class="text-center text-muted small mt-3 mb-0">
+          {% if location.city or location.state %}
+            Every chart below shows only the orders from
+            <strong>{{ location.city or location.state }}</strong>{% if location.city and location.state %}, {{ location.state }}{% endif %}.
+          {% else %}
+            Showing every state and city. Pick a state to list its cities.
+          {% endif %}
+        </p>
+      {% else %}
+        <p class="text-center text-muted mb-0">
+          Fetch a date range above to list the states and cities to filter by.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>

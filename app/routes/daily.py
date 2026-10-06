@@ -2,13 +2,13 @@
 import os
 
 import pandas as pd
-from flask import current_app, render_template
+from flask import current_app, render_template, request
 from flask_login import login_required
 
 from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
-from app.services.get_data import load_orders
+from app.services.get_data import load_orders, location_choices
 
 from . import main
 from .common import refresh_all_orders_if_needed
@@ -77,136 +77,109 @@ def build_3hour_bucket_pie(df_in, value_col="total_value", dt_col="order_date"):
     return labels, values
 
 
-@main.route("/daily_sales")
-@login_required
-def daily_sales():
+# The repurchase lines drawn over the daily sales charts: context key prefix
+# -> utm_source (None = every order).
+REPURCHASE_OVERLAYS = {
+    "daily": None,
+    "wati_daily": "wati",
+    "facebook_daily": "facebook",
+    "google_daily": "google",
+}
+
+
+def _saved_date_range(file_name: str) -> list:
+    """date_range, start_date and end_date the date selector saved for an orders file."""
+    try:
+        values = []
+        for key in ("date_range", "start_date", "end_date"):
+            rec = Option.query.filter_by(meta_key=f"{key}_{file_name}").first()
+            values.append(rec.meta_value if rec else None)
+        return values
+    except Exception:
+        current_app.logger.exception("Reading date range options failed (%s)", file_name)
+        return [None, None, None]
+
+
+def _render_daily_sales(file_name: str, state: str | None = None, city: str | None = None, **page):
+    """
+    The daily sales dashboard over data/<file_name>, the page's own
+    date-range file, optionally for one department (state) and/or city. The
+    repurchase lines come from all_orders.csv over the same saved dates and
+    location. page: extra template values (page_title, location).
+    """
     try:
         refresh_all_orders_if_needed()
     except Exception:
         current_app.logger.exception("Failed refreshing all_orders cache")
 
-    input_file = "data/daily_sales_orders.csv"
-
-    date_range = None
-    start_date = None
-    end_date = None
-
-    try:
-        opt = Option.query
-
-        rec = opt.filter_by(meta_key="date_range_daily_sales_orders.csv").first()
-        date_range = rec.meta_value if rec else None
-
-        rec = opt.filter_by(meta_key="start_date_daily_sales_orders.csv").first()
-        start_date = rec.meta_value if rec else None
-
-        rec = opt.filter_by(meta_key="end_date_daily_sales_orders.csv").first()
-        end_date = rec.meta_value if rec else None
-
-    except Exception:
-        current_app.logger.exception("Reading date range options failed (daily_sales)")
+    date_range, start_date, end_date = _saved_date_range(file_name)
 
     context = build_daily_sales_dashboard_context(
-        input_file=input_file,
+        input_file=f"data/{file_name}",
         forecast_periods=30,
         min_channel_share_percent=2.0,
+        state=state,
+        city=city,
     )
 
-    daily_repurchases_trend = []
-    daily_repurchases_forecast_data = []
-    daily_repurchases_error = None
+    all_orders_file = current_app.config["ALL_ORDERS_CSV"]
+    stem = file_name.removesuffix("_orders.csv")
+    for prefix, channel in REPURCHASE_OVERLAYS.items():
+        trend, forecast, error = [], [], None
+        try:
+            # Without sales nothing is charted, so there is nothing to draw over.
+            if context["daily_sales_trend"]:
+                if not os.path.exists(all_orders_file):
+                    raise FileNotFoundError(f"{all_orders_file} not found. Please generate all orders first.")
+                trend, forecast = get_daily_repurchases_trend(
+                    output_file=f"{stem}_{channel or 'all'}_repurchases_trend.csv",
+                    forecast_periods=30,
+                    return_forecast=True,
+                    orders_csv_path=all_orders_file,
+                    start_date=start_date,
+                    end_date=end_date,
+                    utm_source_filter=channel,
+                    state=state,
+                    city=city,
+                )
+        except Exception as exc:
+            current_app.logger.exception("Failed building the %s repurchases trend for %s", channel or "all", file_name)
+            error = str(exc)
+        context[f"{prefix}_repurchases_trend"] = trend
+        context[f"{prefix}_repurchases_forecast_data"] = forecast
+        context[f"{prefix}_repurchases_error"] = error
 
-    wati_daily_repurchases_trend = []
-    wati_daily_repurchases_forecast_data = []
-    wati_daily_repurchases_error = None
-
-    facebook_daily_repurchases_trend = []
-    facebook_daily_repurchases_forecast_data = []
-    facebook_daily_repurchases_error = None
-
-    google_daily_repurchases_trend = []
-    google_daily_repurchases_forecast_data = []
-    google_daily_repurchases_error = None
-
-    try:
-        all_orders_file = current_app.config["ALL_ORDERS_CSV"]
-
-        if not os.path.exists(all_orders_file):
-            daily_repurchases_error = f"{all_orders_file} not found. Please generate all orders first."
-            wati_daily_repurchases_error = daily_repurchases_error
-            facebook_daily_repurchases_error = daily_repurchases_error
-            google_daily_repurchases_error = daily_repurchases_error
-        else:
-            daily_repurchases_trend, daily_repurchases_forecast_data = get_daily_repurchases_trend(
-                output_file="daily_sales_all_repurchases_trend.csv",
-                forecast_periods=30,
-                return_forecast=True,
-                orders_csv_path=all_orders_file,
-                start_date=start_date,
-                end_date=end_date,
-                utm_source_filter=None,
-            )
-
-            wati_daily_repurchases_trend, wati_daily_repurchases_forecast_data = get_daily_repurchases_trend(
-                output_file="daily_sales_wati_repurchases_trend.csv",
-                forecast_periods=30,
-                return_forecast=True,
-                orders_csv_path=all_orders_file,
-                start_date=start_date,
-                end_date=end_date,
-                utm_source_filter="wati",
-            )
-
-            facebook_daily_repurchases_trend, facebook_daily_repurchases_forecast_data = get_daily_repurchases_trend(
-                output_file="daily_sales_facebook_repurchases_trend.csv",
-                forecast_periods=30,
-                return_forecast=True,
-                orders_csv_path=all_orders_file,
-                start_date=start_date,
-                end_date=end_date,
-                utm_source_filter="facebook",
-            )
-
-            google_daily_repurchases_trend, google_daily_repurchases_forecast_data = get_daily_repurchases_trend(
-                output_file="daily_sales_google_repurchases_trend.csv",
-                forecast_periods=30,
-                return_forecast=True,
-                orders_csv_path=all_orders_file,
-                start_date=start_date,
-                end_date=end_date,
-                utm_source_filter="google",
-            )
-
-    except Exception as exc:
-        current_app.logger.exception("Failed building daily repurchases trends for daily_sales")
-        daily_repurchases_error = str(exc)
-        wati_daily_repurchases_error = str(exc)
-        facebook_daily_repurchases_error = str(exc)
-        google_daily_repurchases_error = str(exc)
-
-    context.update({
-        "date_range": date_range,
-        "start_date": start_date,
-        "end_date": end_date,
-
-        "daily_repurchases_trend": daily_repurchases_trend,
-        "daily_repurchases_forecast_data": daily_repurchases_forecast_data,
-        "daily_repurchases_error": daily_repurchases_error,
-
-        "wati_daily_repurchases_trend": wati_daily_repurchases_trend,
-        "wati_daily_repurchases_forecast_data": wati_daily_repurchases_forecast_data,
-        "wati_daily_repurchases_error": wati_daily_repurchases_error,
-
-        "facebook_daily_repurchases_trend": facebook_daily_repurchases_trend,
-        "facebook_daily_repurchases_forecast_data": facebook_daily_repurchases_forecast_data,
-        "facebook_daily_repurchases_error": facebook_daily_repurchases_error,
-
-        "google_daily_repurchases_trend": google_daily_repurchases_trend,
-        "google_daily_repurchases_forecast_data": google_daily_repurchases_forecast_data,
-        "google_daily_repurchases_error": google_daily_repurchases_error,
-    })
-
+    context.update(date_range=date_range, start_date=start_date, end_date=end_date, file_name=file_name, **page)
     return render_template("daily_sales.html", **context)
+
+
+@main.route("/daily_sales")
+@login_required
+def daily_sales():
+    return _render_daily_sales("daily_sales_orders.csv")
+
+
+@main.route("/sales_by_location")
+@login_required
+def sales_by_location():
+    """/daily_sales for the orders of one department (state) and/or one city."""
+    file_name = "sales_by_location_orders.csv"
+    state = (request.args.get("state") or "").strip()
+    city = (request.args.get("city") or "").strip()
+
+    # Only values found in the page's orders count. A city left over from a
+    # previously selected state is dropped rather than emptying every chart.
+    states, cities = location_choices(f"data/{file_name}", state)
+    state = state if state in states else ""
+    city = city if city in cities else ""
+
+    return _render_daily_sales(
+        file_name,
+        state=state or None,
+        city=city or None,
+        page_title="Sales by Location",
+        location={"state": state, "city": city, "states": states, "cities": cities},
+    )
 
 
 @main.route("/daily_repurchases")

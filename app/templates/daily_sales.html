@@ -2,12 +2,12 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Daily Sales
+{{ page_title | default("Daily Sales") }}
 {% endblock %}
 
 {% block content %}
 
-{% set file_name = "daily_sales_orders.csv" %}
+{# file_name, the page's own date-range orders file, comes from the route. #}
 
 {% set custom_date_range_options = [
   {"value": "", "label": "--Select--"},
@@ -24,6 +24,10 @@ Daily Sales
 ] %}
 
 {% include "partials/daterange_selector.html" %}
+
+{% if location %}
+  {% include "partials/location_filter.html" %}
+{% endif %}
 
 <div class="container mt-4">
 

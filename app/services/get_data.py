@@ -312,6 +312,37 @@ def fetch_orders_and_write_csv(
         return False, {"message": f"An unexpected error occurred: {e}"}
 
 
+def filter_by_location(orders: pd.DataFrame, state: str | None = None, city: str | None = None) -> pd.DataFrame:
+    """
+    The orders of one department (state) and/or one city, matched exactly on
+    the store's labels ("Antioquia", "MEDELLIN (ANT)"). None keeps every order.
+    """
+    if state:
+        orders = orders[orders["state"] == state]
+    if city:
+        orders = orders[orders["city"] == city]
+    return orders
+
+
+def location_choices(csv_path: str, state: str | None = None) -> tuple[list[str], list[str]]:
+    """
+    The departments and the cities found in an order file, sorted, for a
+    location filter. With a state that is among them, only its cities.
+    Missing values ("N/A", blank) are left out.
+    """
+    if not os.path.exists(csv_path):
+        return [], []
+    places = pd.read_csv(csv_path, usecols=["state", "city"], dtype=str, keep_default_na=False)
+    places = places.apply(lambda col: col.str.strip())
+    places = places.mask(places.apply(lambda col: col.str.lower().isin(MISSING_SENTINELS | {""})))
+
+    states = sorted(places["state"].dropna().unique())
+    if state in states:
+        places = places[places["state"] == state]
+    cities = sorted(places["city"].dropna().unique())
+    return states, cities
+
+
 class OutdatedOrdersFile(ValueError):
     """An order CSV written before the store sent gender and repurchase fields."""
 

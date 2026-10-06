@@ -6,6 +6,8 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from typing import Any
 
+from app.services.get_data import filter_by_location
+
 
 def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
     series = series.astype(float)
@@ -55,6 +57,8 @@ def get_daily_sales_trend(
     return_forecast: bool = True,
     orders_csv_path: str = "data/all_orders.csv",
     utm_source_filter: str | None = None,
+    state: str | None = None,
+    city: str | None = None,
 ):
     logger = logging.getLogger(__name__)
     tz = "America/Bogota"
@@ -64,7 +68,7 @@ def get_daily_sales_trend(
     if not os.path.exists(orders_csv_path):
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
-    data = pd.read_csv(orders_csv_path)
+    data = filter_by_location(pd.read_csv(orders_csv_path), state, city)
 
     required_cols = {"order_date", "total_value"}
     missing = required_cols - set(data.columns)
@@ -387,13 +391,22 @@ def build_daily_sales_dashboard_context(
     input_file: str,
     forecast_periods: int = 30,
     min_channel_share_percent: float = 2.0,
+    state: str | None = None,
+    city: str | None = None,
 ) -> dict[str, Any]:
     """
     Builds the complete context needed by templates/daily_sales.html.
 
+    state and city, when given, limit every chart to the orders of that
+    department and/or city (see get_data.filter_by_location).
+
     This keeps the Flask route focused on request orchestration only.
     """
     logger = logging.getLogger(__name__)
+    # Side-output trend files are named after the page's orders file
+    # (daily_sales_orders.csv -> daily_sales_trend.csv), so pages never
+    # overwrite each other's.
+    trend_stem = os.path.basename(input_file).removesuffix("_orders.csv").removesuffix(".csv") + "_trend"
 
     if not os.path.exists(input_file):
         return get_empty_daily_sales_context(
@@ -404,17 +417,19 @@ def build_daily_sales_dashboard_context(
 
     try:
         daily_sales_trend, forecast_data = get_daily_sales_trend_simple(
-            output_file="daily_sales_trend.csv",
+            output_file=f"{trend_stem}.csv",
             forecast_periods=forecast_periods,
             return_forecast=True,
             orders_csv_path=input_file,
             utm_source_filter=None,
+            state=state,
+            city=city,
         )
 
         context["daily_sales_trend"] = daily_sales_trend
         context["forecast_data"] = forecast_data
 
-        df = pd.read_csv(input_file)
+        df = filter_by_location(pd.read_csv(input_file), state, city)
         df = _normalize_sales_dataframe(df)
 
         # UTM source pie
@@ -479,11 +494,13 @@ def build_daily_sales_dashboard_context(
             safe = _safe_slug(channel)
 
             trend_rows, forecast_rows = get_daily_sales_trend_simple(
-                output_file=f"daily_sales_trend_{safe}.csv",
+                output_file=f"{trend_stem}_{safe}.csv",
                 forecast_periods=forecast_periods,
                 return_forecast=True,
                 orders_csv_path=input_file,
                 utm_source_filter=channel,
+                state=state,
+                city=city,
             )
 
             if not trend_rows:

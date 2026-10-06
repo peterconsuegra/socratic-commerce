@@ -6,7 +6,7 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-from app.services.get_data import load_orders
+from app.services.get_data import filter_by_location, load_orders
 
 
 def _now_bogota_naive() -> pd.Timestamp:
@@ -83,6 +83,8 @@ def get_daily_repurchases_trend(
     start_date: str | None = None,
     end_date: str | None = None,
     utm_source_filter: str | None = None,
+    state: str | None = None,
+    city: str | None = None,
 ):
     """
     Builds daily repurchases summary and (optionally) produces a daily forecast.
@@ -96,9 +98,11 @@ def get_daily_repurchases_trend(
     Cutoff:
       Always excludes today's partial day by cutting to end of yesterday (Bogota time).
 
-    Optional filter:
+    Optional filters:
       If utm_source_filter is provided, only repurchase orders with that utm_source are included
       in the repurchase aggregation; the daily totals still cover every order.
+      state and city keep only the orders of that department and/or city, for totals and
+      repurchases alike (see get_data.filter_by_location).
 
     Returns:
       - if return_forecast is False: summary_rows
@@ -109,7 +113,7 @@ def get_daily_repurchases_trend(
     logger = logging.getLogger(__name__)
     logger.info("Building daily repurchases trend from %s", orders_csv_path)
 
-    data = load_orders(orders_csv_path)
+    data = filter_by_location(load_orders(orders_csv_path), state, city)
 
     # Cut to end of yesterday in Bogota (avoid partial day)
     today_bogota = _now_bogota_naive().normalize()
