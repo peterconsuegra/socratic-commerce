@@ -21,6 +21,50 @@
         </div>
     </div>
 
+    <!-- The store's orders API (WooCommerce plugin "Second Order") -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <h4>Orders API</h4>
+            <p class="text-muted mb-3">
+                Where every order file is fetched from. The API key is stored <strong>encrypted</strong>;
+                only its last 4 characters are shown unless you reveal it. Paste the new key here
+                whenever the store replaces it.
+            </p>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.options_orders_api_save') }}" class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label small text-muted mb-1">Orders API URL</label>
+                            <input type="url" name="orders_url" class="form-control" required
+                                   value="{{ orders_api.orders_url }}"
+                                   placeholder="https://saveaplaya.org/wp-json/woo-gender-analytics/v1/analytics">
+                        </div>
+
+                        <div class="col-md-9">
+                            <label class="form-label small text-muted mb-1">API key</label>
+                            <div class="input-group">
+                                <input type="password" name="api_key" id="ordersApiKey" class="form-control"
+                                       autocomplete="new-password"
+                                       placeholder="{% if orders_api.configured %}{{ orders_api.key_masked }} — leave blank to keep{% else %}paste the store's API key{% endif %}">
+                                <button class="btn btn-outline-secondary" type="button" id="ordersApiRevealBtn"
+                                        {% if not orders_api.configured %}disabled{% endif %}>Show stored key</button>
+                            </div>
+                            <div class="form-text" id="ordersApiKeyHint">
+                                {% if orders_api.configured %}A key is stored ({{ orders_api.key_masked }}). Leave blank to keep it.
+                                {% else %}No key stored yet: orders cannot be fetched.{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- API Tokens (for ROAS Link / MCP integrations) -->
     <div class="row mt-5">
         <div class="col-md-12">
@@ -342,9 +386,14 @@
                     <tr>
                         <td>{{ option['id'] }}</td>
                         <td>{{ option['meta_key'] }}</td>
+                        {% if option['meta_key'] in secret_keys %}
+                        <td class="text-muted">•••••••• encrypted, set in its section above</td>
+                        <td>
+                        {% else %}
                         <td>{{ option['meta_value'] }}</td>
                         <td>
                             <a href="/options/{{ option['id'] }}/edit" class="btn btn-warning btn-sm">Edit</a>
+                        {% endif %}
                             <form action="/options/{{ option['id'] }}/delete" method="POST" class="d-inline delete-form">
                                 <button type="submit" class="btn btn-danger btn-sm delete-btn">Delete</button>
                             </form>
@@ -474,6 +523,37 @@
     } finally {
       btn.disabled = false; btn.textContent = original;
     }
+  });
+})();
+</script>
+
+<script>
+// Reveal the stored orders API key on demand (login-gated endpoint).
+(function () {
+  var btn = document.getElementById("ordersApiRevealBtn");
+  if (!btn) return;
+  btn.addEventListener("click", async function () {
+    var input = document.getElementById("ordersApiKey");
+    var hint = document.getElementById("ordersApiKeyHint");
+    if (input.dataset.revealed === "1") {          // hide again
+      input.type = "password"; input.value = "";
+      input.dataset.revealed = "0"; btn.textContent = "Show stored key";
+      return;
+    }
+    btn.disabled = true;
+    try {
+      var resp = await fetch("{{ url_for('main.options_orders_api_reveal') }}",
+                             { method: "POST", credentials: "same-origin" });
+      var data = await resp.json();
+      if (resp.ok && data.status === "success") {
+        input.type = "text"; input.value = data.api_key;
+        input.dataset.revealed = "1"; btn.textContent = "Hide";
+      } else {
+        hint.textContent = data.message || "Could not reveal the key.";
+      }
+    } catch (e) {
+      hint.textContent = "Could not reveal the key: " + e;
+    } finally { btn.disabled = false; }
   });
 })();
 </script>

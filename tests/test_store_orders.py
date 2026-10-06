@@ -22,6 +22,7 @@ from app import create_app, db  # noqa: E402
 from app.models import Option  # noqa: E402
 from app.routes import common  # noqa: E402
 from app.services import get_data  # noqa: E402
+from app.services.secrets import set_secret  # noqa: E402
 from app.services.get_data import (  # noqa: E402
     OutdatedOrdersFile,
     fetch_orders,
@@ -225,8 +226,9 @@ class RefreshTests(TempDirTestCase):
         old = os.path.join(self.tmp, "daily_sales_orders.csv")
         with open(old, "w") as f:
             f.write("order_id,order_date,email,total_value,gender\n1,2026-09-02 10:00:00,a@x.com,1,female\n")
+        set_secret("api_key", "test")
         db.session.add_all([Option(meta_key=k, meta_value=v) for k, v in {
-            "orders_url": "https://store.test/orders", "api_key": "test",
+            "orders_url": "https://store.test/orders",
             "start_date_daily_sales_orders.csv": "01/09/2026", "end_date_daily_sales_orders.csv": "30/09/2026",
             # Saved, but its file was never fetched: nothing to re-sync.
             "start_date_google_sales_orders.csv": "01/08/2026", "end_date_google_sales_orders.csv": "31/08/2026",

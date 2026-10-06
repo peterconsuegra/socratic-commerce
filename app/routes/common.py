@@ -11,6 +11,7 @@ from flask_login import current_user
 from app.models import ApiToken, Option
 from app import db
 from app.services.get_data import BOGOTA, fetch_orders_and_write_csv, orders_file_is_current
+from app.services.secrets import get_secret
 
 
 # How long a cached all_orders.csv is considered fresh for the in-app views
@@ -39,6 +40,18 @@ def _last_nightly_rebuild() -> float:
 def get_option_value(meta_key: str, default=None):
     row = Option.query.filter_by(meta_key=meta_key).first()
     return row.meta_value if row and row.meta_value is not None else default
+
+
+# The store's orders API: the URL is a plain option, the key a secret stored
+# encrypted (app/services/secrets.py), set on the Settings page. The key is
+# never in code: the store rotates it.
+ORDERS_URL_KEY = "orders_url"
+ORDERS_API_KEY_KEY = "api_key"
+
+
+def orders_api_config() -> tuple[str | None, str | None]:
+    """(orders API URL, decrypted API key); None for either when not set."""
+    return get_option_value(ORDERS_URL_KEY), get_secret(ORDERS_API_KEY_KEY)
 
 
 def external_url(endpoint: str, **values) -> str:
@@ -109,16 +122,13 @@ def build_orders_csv(
     end_date: str | None = None,
 ) -> str:
     """Fetch the orders into data/<file_name>: the whole history without dates."""
-    # The token is configuration (the options table), never code: it is
-    # replaced from time to time.
-    orders_url = get_option_value("orders_url")
-    api_key = get_option_value("api_key")
+    orders_url, api_key = orders_api_config()
 
     if not orders_url:
-        raise ValueError("Missing 'orders_url' in options table")
+        raise ValueError("The orders API URL is not set (Settings → Orders API).")
 
     if not api_key:
-        raise ValueError("Missing 'api_key' in options table")
+        raise ValueError("The orders API key is not set, or cannot be decrypted (Settings → Orders API).")
 
     ok, payload = fetch_orders_and_write_csv(
         orders_url=orders_url,

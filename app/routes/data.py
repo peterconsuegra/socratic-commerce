@@ -11,7 +11,7 @@ from app.models import Option
 from app.services.get_data import fetch_orders_and_write_csv
 
 from . import main
-from .common import generate_all_orders_csv
+from .common import generate_all_orders_csv, orders_api_config
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +40,12 @@ def get_all_orders():
 @main.route("/get_data", methods=["POST"])
 @login_required
 def get_data():
-    option_api_key = Option.query.filter_by(meta_key="api_key").first()
-    option_orders_url = Option.query.filter_by(meta_key="orders_url").first()
+    orders_url, api_key = orders_api_config()
 
-    if not option_api_key or not option_orders_url:
-        error_message = "API key or orders URL not found in options."
+    if not orders_url or not api_key:
+        error_message = "The orders API URL or key is not set (Settings → Orders API)."
         logger.error(error_message)
         return jsonify({"status": "error", "message": error_message}), 400
-
-    api_key = option_api_key.meta_value
-    orders_url = option_orders_url.meta_value
 
     date_range = (request.form.get("date_range", "") or "").strip().lower()
     start_date = (request.form.get("start_date", "") or "").strip()

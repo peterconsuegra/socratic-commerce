@@ -15,6 +15,7 @@ from app.services.sendgrid import is_sendable_email, test_connection as sendgrid
 from app.services.wati import _is_dashboard_url, test_connection as wati_test_connection
 
 from . import main
+from .common import ORDERS_API_KEY_KEY, ORDERS_URL_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,13 @@ def list_options():
     return render_template(
         "options_list.html",
         options=options,
+        secret_keys=SECRET_OPTION_KEYS,
         tokens=tokens,
+        orders_api={
+            "configured": has_secret(ORDERS_API_KEY_KEY),
+            "key_masked": mask_secret(get_secret(ORDERS_API_KEY_KEY)),
+            "orders_url": get_option_value_raw(ORDERS_URL_KEY, ""),
+        },
         wati={
             "configured": has_secret(WATI_TOKEN_KEY),
             "token_masked": mask_secret(wati_token),
@@ -71,6 +78,11 @@ SENDGRID_FROM_NAME_KEY = "sendgrid_from_name"
 SENDGRID_REPLY_TO_KEY = "sendgrid_reply_to"
 SENDGRID_ASM_GROUP_KEY = "sendgrid_unsubscribe_group_id"
 
+# Options holding encrypted secrets. Each is set in its own section of the
+# page; the generic options table shows them masked and will not edit them,
+# since a value typed there would be stored unencrypted and stop working.
+SECRET_OPTION_KEYS = {ORDERS_API_KEY_KEY, WATI_TOKEN_KEY, SENDGRID_API_KEY_KEY}
+
 
 def get_option_value_raw(meta_key: str, default=""):
     row = Option.query.filter_by(meta_key=meta_key).first()
@@ -88,6 +100,40 @@ def _set_plain_option(meta_key: str, value: str):
         row.meta_value = value
     else:
         db.session.add(Option(meta_key=meta_key, meta_value=value))
+
+
+@main.route("/options/orders-api", methods=["POST"])
+@login_required
+def options_orders_api_save():
+    """
+    Save the store's orders API settings. The key is stored encrypted; an
+    empty key field keeps the stored one, so the URL can be edited without
+    re-pasting it. There is no remove button: without a key no order syncs.
+    """
+    orders_url = (request.form.get("orders_url", "") or "").strip()
+    if not orders_url.startswith(("https://", "http://")):
+        flash("The orders API URL must start with https://.", "danger")
+        return redirect(url_for("main.list_options"))
+    _set_plain_option(ORDERS_URL_KEY, orders_url)
+    db.session.commit()
+
+    api_key = (request.form.get("api_key", "") or "").strip()
+    if api_key:
+        set_secret(ORDERS_API_KEY_KEY, api_key)
+        flash("Orders API settings saved. The key is stored encrypted.", "success")
+    else:
+        flash("Orders API settings saved.", "success")
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/orders-api/reveal", methods=["POST"])
+@login_required
+def options_orders_api_reveal():
+    """Return the decrypted orders API key so the UI can show it on demand."""
+    api_key = get_secret(ORDERS_API_KEY_KEY)
+    if not api_key:
+        return jsonify({"status": "error", "message": "No API key stored."}), 404
+    return jsonify({"status": "success", "api_key": api_key}), 200
 
 
 @main.route("/options/wati", methods=["POST"])
@@ -314,6 +360,10 @@ def create_option():
             flash("Both meta key and meta value are required.", "danger")
             return redirect(url_for("main.create_option"))
 
+        if meta_key in SECRET_OPTION_KEYS:
+            flash(f"'{escape(meta_key)}' is stored encrypted: set it in its section of this page.", "danger")
+            return redirect(url_for("main.list_options"))
+
         existing_option = Option.query.filter_by(meta_key=meta_key).first()
 
         if existing_option:
@@ -340,6 +390,10 @@ def create_option():
 @login_required
 def edit_option(option_id):
     option = Option.query.get_or_404(option_id)
+
+    if option.meta_key in SECRET_OPTION_KEYS:
+        flash(f"'{escape(option.meta_key)}' is stored encrypted: change it in its section of this page.", "danger")
+        return redirect(url_for("main.list_options"))
 
     if request.method == "POST":
         meta_value = request.form.get("meta_value")

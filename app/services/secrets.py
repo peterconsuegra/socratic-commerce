@@ -1,6 +1,7 @@
 # app/services/secrets.py
 """
-Encrypted storage for third-party credentials (e.g. the WATI API token).
+Encrypted storage for third-party credentials: the store's orders API key,
+the WATI API token and the SendGrid API key.
 
 Secrets are kept in the options table as Fernet ciphertext, so a database
 dump - or a copy of the SQLite file - does not hand over a usable token. The
@@ -44,6 +45,19 @@ def _fernet() -> Fernet:
     return Fernet(base64.urlsafe_b64encode(derived))
 
 
+def encrypt(raw_value: str) -> str:
+    """The ciphertext stored for a secret value."""
+    return _fernet().encrypt(raw_value.encode()).decode()
+
+
+def decrypt(stored: str) -> str | None:
+    """The plain value of stored ciphertext, or None when it cannot be decrypted."""
+    try:
+        return _fernet().decrypt(stored.encode()).decode()
+    except (InvalidToken, ValueError):
+        return None
+
+
 def set_secret(meta_key: str, raw_value: str) -> None:
     """Encrypt and store a secret. An empty value clears it."""
     raw_value = (raw_value or "").strip()
@@ -55,7 +69,7 @@ def set_secret(meta_key: str, raw_value: str) -> None:
             db.session.commit()
         return
 
-    token = _fernet().encrypt(raw_value.encode()).decode()
+    token = encrypt(raw_value)
     if row:
         row.meta_value = token
     else:
@@ -68,12 +82,11 @@ def get_secret(meta_key: str) -> str | None:
     row = Option.query.filter_by(meta_key=meta_key).first()
     if not row or not row.meta_value:
         return None
-    try:
-        return _fernet().decrypt(row.meta_value.encode()).decode()
-    except (InvalidToken, ValueError):
+    value = decrypt(row.meta_value)
+    if value is None:
         # Wrong/rotated key, or a value that was stored unencrypted.
         logger.warning("Could not decrypt secret %r; it must be re-entered.", meta_key)
-        return None
+    return value
 
 
 def has_secret(meta_key: str) -> bool:
