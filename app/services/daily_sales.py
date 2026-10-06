@@ -52,7 +52,6 @@ def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
 
 
 def get_daily_sales_trend(
-    output_file: str = "daily_sales_trend.csv",
     forecast_periods: int = 14,
     return_forecast: bool = True,
     orders_csv_path: str = "data/all_orders.csv",
@@ -107,12 +106,7 @@ def get_daily_sales_trend(
         data = data[data["utm_source"] == utm_source_filter.lower()].copy()
         logger.info("Applied utm_source filter: %s", utm_source_filter)
 
-    output_dir = os.path.join(os.getcwd(), "data")
-    os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, output_file)
-
     if data.empty:
-        pd.DataFrame(columns=["Date", "Sales"]).to_csv(csv_path, index=False)
         return ([], []) if return_forecast else []
 
     data["day"] = data["order_date_local"].dt.floor("D")
@@ -141,12 +135,9 @@ def get_daily_sales_trend(
 
     summary_rows = summary[["Date", "Total Orders", "Total Sales"]].to_dict(orient="records")
 
-    csv_summary = summary[["Date", "Total_Sales_Num"]].rename(columns={"Total_Sales_Num": "Sales"})
-    csv_summary.to_csv(csv_path, index=False)
-
     forecast_rows = []
     if return_forecast:
-        ts = csv_summary.copy()
+        ts = summary[["Date", "Total_Sales_Num"]].rename(columns={"Total_Sales_Num": "Sales"})
         ts["Date_dt"] = pd.to_datetime(ts["Date"], errors="coerce")
         ts = ts.dropna(subset=["Date_dt"]).sort_values("Date_dt")
 
@@ -403,10 +394,6 @@ def build_daily_sales_dashboard_context(
     This keeps the Flask route focused on request orchestration only.
     """
     logger = logging.getLogger(__name__)
-    # Side-output trend files are named after the page's orders file
-    # (daily_sales_orders.csv -> daily_sales_trend.csv), so pages never
-    # overwrite each other's.
-    trend_stem = os.path.basename(input_file).removesuffix("_orders.csv").removesuffix(".csv") + "_trend"
 
     if not os.path.exists(input_file):
         return get_empty_daily_sales_context(
@@ -417,7 +404,6 @@ def build_daily_sales_dashboard_context(
 
     try:
         daily_sales_trend, forecast_data = get_daily_sales_trend_simple(
-            output_file=f"{trend_stem}.csv",
             forecast_periods=forecast_periods,
             return_forecast=True,
             orders_csv_path=input_file,
@@ -494,7 +480,6 @@ def build_daily_sales_dashboard_context(
             safe = _safe_slug(channel)
 
             trend_rows, forecast_rows = get_daily_sales_trend_simple(
-                output_file=f"{trend_stem}_{safe}.csv",
                 forecast_periods=forecast_periods,
                 return_forecast=True,
                 orders_csv_path=input_file,

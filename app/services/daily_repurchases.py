@@ -1,5 +1,4 @@
 # app/services/daily_repurchases.py
-import os
 import logging
 import pandas as pd
 
@@ -76,7 +75,6 @@ def _normalize_utm_source(series: pd.Series) -> pd.Series:
 
 
 def get_daily_repurchases_trend(
-    output_file: str = "daily_repurchases_trend.csv",
     forecast_periods: int = 30,
     return_forecast: bool = True,
     orders_csv_path: str = "data/all_orders.csv",
@@ -107,8 +105,6 @@ def get_daily_repurchases_trend(
     Returns:
       - if return_forecast is False: summary_rows
       - if return_forecast is True: (summary_rows, forecast_rows)
-
-    Also writes a CSV to /data/<output_file> with columns: Day, Sales (repurchase totals)
     """
     logger = logging.getLogger(__name__)
     logger.info("Building daily repurchases trend from %s", orders_csv_path)
@@ -121,12 +117,7 @@ def get_daily_repurchases_trend(
     data = data[data["order_date"] <= end_yesterday].copy()
     logger.info("Using orders up to %s (end of yesterday, Bogota)", end_yesterday)
 
-    output_dir = os.path.join(os.getcwd(), "data")
-    os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, output_file)
-
     if data.empty:
-        pd.DataFrame(columns=["Day", "Sales"]).to_csv(csv_path, index=False)
         return ([], []) if return_forecast else []
 
     # Selector date window
@@ -148,7 +139,6 @@ def get_daily_repurchases_trend(
             )
 
     if data.empty:
-        pd.DataFrame(columns=["Day", "Sales"]).to_csv(csv_path, index=False)
         return ([], []) if return_forecast else []
 
     # Day bucket
@@ -202,15 +192,10 @@ def get_daily_repurchases_trend(
 
     summary_rows = summary.to_dict(orient="records")
 
-    # Save CSV (Day, Sales)
-    csv_summary = summary[["Day", "Repurchase Total Value"]].rename(columns={"Repurchase Total Value": "Sales"})
-    csv_summary.to_csv(csv_path, index=False)
-    logger.info("Daily repurchases trend CSV saved at %s", csv_path)
-
     # Forecast based on the repurchase series we just produced (windowed)
     forecast_rows = []
     if return_forecast:
-        ts = csv_summary.copy()
+        ts = summary[["Day", "Repurchase Total Value"]].rename(columns={"Repurchase Total Value": "Sales"})
         ts["Day_dt"] = pd.to_datetime(ts["Day"], errors="coerce")
         ts["Sales_num"] = pd.to_numeric(ts["Sales"], errors="coerce").fillna(0.0)
         ts = ts.dropna(subset=["Day_dt"]).sort_values("Day_dt")

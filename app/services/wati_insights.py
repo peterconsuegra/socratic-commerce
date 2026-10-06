@@ -102,7 +102,6 @@ def get_wati_sales_trend(
     logger.info("Building Wati insights from %s", orders_csv_path)
 
     summary_rows, forecast_rows = get_daily_sales_trend(
-        output_file="wati_sales_trend.csv",
         forecast_periods=forecast_periods,
         return_forecast=True,
         orders_csv_path=orders_csv_path,

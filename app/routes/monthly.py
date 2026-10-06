@@ -44,7 +44,6 @@ def monthly_sales():
             raise FileNotFoundError(f"{all_orders} not found. Auto-generation failed.")
 
         monthly_sales_trend, forecast_data, meta = get_monthly_sales_trend(
-            output_file="monthly_sales_trend.csv",
             forecast_periods=6,
             return_forecast=True,
             return_meta=True,
@@ -154,7 +153,6 @@ def monthly_sales():
             pct = item["pct"]
 
             ch_trend, ch_forecast, ch_meta = get_monthly_sales_trend(
-                output_file=f"monthly_sales_trend_{channel}.csv",
                 forecast_periods=6,
                 return_forecast=True,
                 return_meta=True,
@@ -255,7 +253,6 @@ def monthly_repurchases_by_month():
             raise FileNotFoundError(f"{all_orders} not found. Please generate all orders first.")
 
         monthly_repurchases_trend, forecast_data, meta = get_monthly_repurchases_trend(
-            output_file="monthly_repurchases_trend.csv",
             forecast_periods=12,
             return_forecast=True,
             return_meta=True,
@@ -342,11 +339,8 @@ def monthly_repurchases_by_month():
         for item in included:
             channel = item["key"]
             pct = item["pct"]
-            # Channel values are free text ("n/a" among them): keep them out of paths.
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             ch_trend, ch_forecast, ch_meta = get_monthly_repurchases_trend(
-                output_file=f"monthly_repurchases_trend_{safe}.csv",
                 forecast_periods=12,
                 return_forecast=True,
                 return_meta=True,
@@ -359,6 +353,8 @@ def monthly_repurchases_by_month():
 
             if not ch_trend:
                 continue
+
+            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             channel_charts.append({
                 "key": channel,

@@ -1,6 +1,5 @@
 # app/services/monthly_repurchases.py
 
-import os
 import logging
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -240,7 +239,6 @@ def _repurchase_orders(
 
 
 def get_monthly_repurchases_trend(
-    output_file: str = "monthly_repurchases_trend.csv",
     forecast_periods: int = 12,
     return_forecast: bool = True,
     return_meta: bool = False,
@@ -262,7 +260,6 @@ def get_monthly_repurchases_trend(
 
     Returns:
       - (summary_rows, forecast_rows) or (summary_rows, forecast_rows, meta)
-      - writes CSV: Month, Sales (repurchase totals)
     """
     logger.info("Building monthly repurchases trend from %s", orders_csv_path)
 
@@ -291,15 +288,10 @@ def get_monthly_repurchases_trend(
     data_hist_base = data[data["order_date"] <= end_prev_month].copy()
     data_model_base = data[data["order_date"] <= end_yesterday_bogota].copy()
 
-    output_dir = os.path.join(os.getcwd(), "data")
-    os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, output_file)
-
     # ---------------------------
     # HISTORY SUMMARY: complete months only
     # ---------------------------
     if data_hist_base.empty:
-        pd.DataFrame(columns=["Month", "Sales"]).to_csv(csv_path, index=False)
         if return_forecast:
             if return_meta:
                 return [], [], meta
@@ -321,13 +313,6 @@ def get_monthly_repurchases_trend(
     rep_value_per_month["Repurchase Total Value"] = rep_value_per_month["Repurchase_Total_Value"].apply(
         lambda x: str(int(round(float(x or 0.0)))))
     summary_rows = rep_value_per_month[["Month", "Repurchase Total Value"]].to_dict(orient="records")
-
-    # CSV export for the service
-    csv_summary = rep_value_per_month[["Month", "Repurchase_Total_Value"]].rename(
-        columns={"Repurchase_Total_Value": "Sales"}
-    )
-    csv_summary.to_csv(csv_path, index=False)
-    logger.info("Monthly repurchases trend CSV saved at %s", csv_path)
 
     # ---------------------------
     # FORECAST SERIES: includes current month (through yesterday) optionally projected to full month

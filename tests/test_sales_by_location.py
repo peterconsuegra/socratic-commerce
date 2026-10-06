@@ -2,7 +2,7 @@
 /sales_by_location: the /daily_sales dashboard limited to one department
 (state) and/or one city.
 
-Runs in a temporary working directory (the dashboard writes trend files into
+Runs in a temporary working directory (the page reads its orders from
 ./data) against an in-memory SQLite database; nothing reaches the store.
 
     venv/bin/python -m unittest discover -s tests -v

@@ -123,7 +123,6 @@ def _render_daily_sales(file_name: str, state: str | None = None, city: str | No
     )
 
     all_orders_file = current_app.config["ALL_ORDERS_CSV"]
-    stem = file_name.removesuffix("_orders.csv")
     for prefix, channel in REPURCHASE_OVERLAYS.items():
         trend, forecast, error = [], [], None
         try:
@@ -132,7 +131,6 @@ def _render_daily_sales(file_name: str, state: str | None = None, city: str | No
                 if not os.path.exists(all_orders_file):
                     raise FileNotFoundError(f"{all_orders_file} not found. Please generate all orders first.")
                 trend, forecast = get_daily_repurchases_trend(
-                    output_file=f"{stem}_{channel or 'all'}_repurchases_trend.csv",
                     forecast_periods=30,
                     return_forecast=True,
                     orders_csv_path=all_orders_file,
@@ -263,7 +261,6 @@ def daily_repurchases():
 
     try:
         daily_repurchases_trend, forecast_data = get_daily_repurchases_trend(
-            output_file="repurchases_by_day_trend.csv",
             forecast_periods=30,
             return_forecast=True,
             orders_csv_path=input_file,
@@ -426,11 +423,8 @@ def daily_repurchases():
         for item in included:
             channel = item["key"]
             pct = item["pct"]
-            # Channel values are free text ("n/a" among them): keep them out of paths.
-            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             trend_rows, fc_rows = get_daily_repurchases_trend(
-                output_file=f"repurchases_by_day_{safe}_trend.csv",
                 forecast_periods=30,
                 return_forecast=True,
                 orders_csv_path=input_file,
@@ -471,6 +465,8 @@ def daily_repurchases():
                 "labels": h_labels,
                 "values": h_values,
             }
+
+            safe = "".join(c if c.isalnum() else "_" for c in channel)
 
             channel_charts.append({
                 "key": channel,

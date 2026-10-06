@@ -209,7 +209,6 @@ def _weekday_weighted_projection(
 
 
 def get_monthly_sales_trend(
-    output_file: str = "monthly_sales_trend.csv",
     forecast_periods: int = 6,
     return_forecast: bool = True,
     return_meta: bool = False,
@@ -273,16 +272,11 @@ def get_monthly_sales_trend(
 
     meta["current_month_label"] = start_current_month.strftime("%Y-%m")
 
-    output_dir = os.path.dirname(os.path.abspath(orders_csv_path))
-    os.makedirs(output_dir, exist_ok=True)
-    csv_path = os.path.join(output_dir, output_file)
-
     # History: complete months only
     hist = data[data["order_date"] <= end_prev_month].copy()
     logger.info("History uses orders up to %s (end of previous month, Bogota clock)", end_prev_month)
 
     if hist.empty:
-        pd.DataFrame(columns=["Month", "Sales"]).to_csv(csv_path, index=False)
         if return_forecast:
             if return_meta:
                 return [], [], meta
@@ -304,9 +298,6 @@ def get_monthly_sales_trend(
     total_sales_per_month["Total Sales"] = total_sales_per_month["Total_Sales_Num"].apply(lambda x: str(int(round(x))))
 
     summary_rows = total_sales_per_month[["Month", "Total Sales"]].to_dict(orient="records")
-
-    csv_summary = total_sales_per_month[["Month", "Total_Sales_Num"]].rename(columns={"Total_Sales_Num": "Sales"})
-    csv_summary.to_csv(csv_path, index=False)
 
     # Forecast
     forecast_rows = []
