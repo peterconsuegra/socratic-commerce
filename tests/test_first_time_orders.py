@@ -21,7 +21,9 @@ os.environ["DATABASE_URL"] = "sqlite://"
 
 from app import create_app, db  # noqa: E402
 from app.models import User  # noqa: E402
-from app.services.first_orders import NO_UTM_SERIES, OTHER_SERIES, TREND_SOURCES, first_orders_report  # noqa: E402
+from app.services.first_orders import (  # noqa: E402
+    NO_UTM_SERIES, OTHER_SERIES, TREND_SOURCES, TREND_START, first_orders_report,
+)
 from app.services.get_data import BOGOTA, write_orders_csv  # noqa: E402
 
 CURRENT = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
@@ -87,6 +89,24 @@ class FirstOrdersReportTests(unittest.TestCase):
         self.assertEqual(counts["facebook"], [0, 3, 0])
         self.assertEqual(counts[OTHER_SERIES], [1, 0, 0])   # tiktok
         self.assertEqual(counts[NO_UTM_SERIES], [0, 1, 0])  # undefined
+
+
+class TrendStartTests(unittest.TestCase):
+    """The chart starts after UTM tracking began; older months stay selectable."""
+
+    def test_months_before_utm_tracking_are_left_out_of_the_chart_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "all_orders.csv")
+            before = TREND_START - 1
+            write_orders_csv([order("1", before, "n/a", "N/A", "N/A"), *ORDERS], path)
+
+            trend = first_orders_report(path)["trend"]
+            self.assertEqual(trend["months"][0], str(TREND_START))
+            self.assertEqual(sum(sum(s["counts"]) for s in trend["series"]), 7)  # every first order but the old one
+
+            old = first_orders_report(path, str(before))
+            self.assertEqual(old["selected"]["month"], str(before))
+            self.assertEqual([s["name"] for s in old["breakdown"]], ["n/a"])
 
 
 class FirstTimeOrdersPageTests(unittest.TestCase):

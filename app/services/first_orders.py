@@ -4,8 +4,9 @@ Where first-time orders come from: each customer's first paid purchase (the
 store's purchase_number 1), by month, by utm_source, utm_campaign and
 utm_content.
 
-Two views of the same orders: a monthly trend by source since the first sale,
-and for one month the breakdown source > campaign > content. UTM values are
+Two views of the same orders: a monthly trend by source since UTM tracking
+began, and for any month since the first sale the breakdown source > campaign
+> content. UTM values are
 shown as the store recorded them: "undefined" means the order carried no UTM,
 and "n/a" marks orders from before the store recorded UTMs.
 """
@@ -27,6 +28,10 @@ OTHER_SERIES = "other sources"
 NO_UTM_SERIES = "no UTM (undefined, n/a)"
 NO_UTM = {"undefined", "n/a", "(not set)"}
 NOT_SET = "(not set)"
+# The trend starts after August 2023: the store began recording UTMs in July
+# and August 2023, and orders before carry "n/a". The month selector and the
+# breakdown still reach back to the first sale.
+TREND_START = pd.Period("2023-09", freq="M")
 UTM_COLUMNS = ["utm_source", "utm_campaign", "utm_content"]
 
 _LOCK = threading.Lock()
@@ -128,6 +133,6 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
             "revenue": revenue,
             "avg_value": revenue / total if total else 0.0,
         },
-        "trend": _trend(first, months),
+        "trend": _trend(first, months[months >= TREND_START]),
         "breakdown": _breakdown(orders),
     }
