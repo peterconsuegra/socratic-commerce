@@ -1,0 +1,221 @@
+{% extends "layout.html" %}
+
+{% block title %}First-Time Orders{% endblock %}
+
+{% from "partials/stat_macros.html" import pct, num, money, tile %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+  <h2 class="text-center mb-1">First-Time Orders</h2>
+  <p class="text-center text-muted mb-4">
+    Where each customer's first purchase came from, month by month: utm_source › utm_campaign › utm_content.
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif not report or not report.selected %}
+    <div class="alert alert-warning">No first-time orders on record yet.</div>
+  {% else %}
+    {% set k = report.kpis %}
+    {% set month_label = report.selected.month ~ (" (to date)" if report.selected.partial else "") %}
+
+    <form method="get" action="{{ url_for('main.first_time_orders') }}" class="d-flex align-items-center gap-2 mb-3">
+      <label class="small text-muted mb-0" for="month">Month</label>
+      <select name="month" id="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        {% for m in report.months %}
+          <option value="{{ m.month }}" {% if m.month == report.selected.month %}selected{% endif %}>
+            {{ m.month }}{% if m.partial %} (to date){% endif %} · {{ num(m.orders) }} first-time orders
+          </option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn btn-sm btn-primary">Show</button></noscript>
+    </form>
+
+    <div class="row g-2 mb-4">
+      {{ tile("First-time orders", num(k.orders), month_label, cols="col-6 col-lg-3") }}
+      {{ tile("Share of the month's orders", pct(k.share_of_orders), "of " ~ num(k.all_orders) ~ " orders", cols="col-6 col-lg-3") }}
+      {{ tile("First-order revenue", money(k.revenue), None, cols="col-6 col-lg-3") }}
+      {{ tile("Average first order", k.avg_value | cop, None, cols="col-6 col-lg-3") }}
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-header fw-bold">First-time orders by month, by utm_source
+        <span class="text-muted small fw-normal">· since the first sale · click a month to open it below</span></div>
+      <div class="card-body">
+        <div style="position:relative; height:320px;"><canvas id="trendChart"></canvas></div>
+        <details class="small mt-2">
+          <summary class="text-muted">Table view</summary>
+          <div class="table-responsive mt-2" style="max-height: 320px;">
+            <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+              <thead><tr><th>Month</th>
+                {% for s in report.trend.series %}<th class="text-end">{{ s.name }}</th>{% endfor %}
+                <th class="text-end">Total</th></tr></thead>
+              <tbody>
+              {% for month in report.trend.months | reverse %}
+                {% set i = report.trend.months | length - loop.index %}
+                <tr><td><a href="{{ url_for('main.first_time_orders', month=month) }}">{{ month }}</a></td>
+                  {% for s in report.trend.series %}<td class="text-end">{{ num(s.counts[i]) }}</td>{% endfor %}
+                  <td class="text-end fw-semibold">{{ num(report.trend.series | sum(attribute="counts." ~ i)) }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-bold">Where the first-time orders of {{ month_label }} came from
+          <span class="text-muted small fw-normal">· utm_source › utm_campaign › utm_content</span></span>
+        <span class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll">Expand all</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll">Collapse all</button>
+        </span>
+      </div>
+      {% if report.breakdown %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle" id="breakdown" style="font-variant-numeric: tabular-nums;">
+          <thead><tr><th>Source › campaign › content</th><th class="text-end">First-time orders</th>
+            <th class="text-end">Share</th><th class="text-end">Revenue</th><th class="text-end">Average order</th></tr></thead>
+          <tbody>
+          {% for s in report.breakdown %}
+            {% set sid = "s" ~ loop.index %}
+            <tr class="table-light">
+              <td><button type="button" class="btn btn-link btn-sm p-0 me-1 text-decoration-none toggle"
+                          data-target="{{ sid }}" aria-expanded="true" aria-label="Show or hide the campaigns of {{ s.name }}">▾</button>
+                  <strong>{{ s.name }}</strong></td>
+              <td class="text-end fw-semibold">{{ num(s.orders) }}</td><td class="text-end">{{ pct(s.share) }}</td>
+              <td class="text-end">{{ s.revenue | cop }}</td><td class="text-end">{{ s.avg_value | cop }}</td>
+            </tr>
+            {% for c in s.campaigns %}
+              {% set cid = sid ~ "c" ~ loop.index %}
+              <tr data-parent="{{ sid }}">
+                <td style="padding-left: 1.9rem;"><button type="button" class="btn btn-link btn-sm p-0 me-1 text-decoration-none toggle"
+                            data-target="{{ cid }}" aria-expanded="false" aria-label="Show or hide the contents of {{ c.name }}">▸</button>
+                    {{ c.name }}</td>
+                <td class="text-end">{{ num(c.orders) }}</td><td class="text-end">{{ pct(c.share) }}</td>
+                <td class="text-end">{{ c.revenue | cop }}</td><td class="text-end">{{ c.avg_value | cop }}</td>
+              </tr>
+              {% for t in c.contents %}
+                <tr data-parent="{{ cid }}" class="text-muted" hidden>
+                  <td style="padding-left: 3.9rem;">{{ t.name }}</td>
+                  <td class="text-end">{{ num(t.orders) }}</td><td class="text-end">{{ pct(t.share) }}</td>
+                  <td class="text-end">{{ t.revenue | cop }}</td><td class="text-end">{{ t.avg_value | cop }}</td>
+                </tr>
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="card-body text-muted">No first-time orders in {{ month_label }}.</div>
+      {% endif %}
+    </div>
+
+    <p class="text-muted small mb-5">
+      A first-time order is a customer's first paid purchase, as the store numbers them. UTM values are shown
+      as the store recorded them: <code>undefined</code> means the order carried no UTM, and <code>n/a</code>
+      marks orders from before the store recorded UTMs (up to August 2023). WhatsApp sales entered through WATI
+      carry <code>wati</code> as their source and campaign.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+{% if report and report.selected and not error %}
+<script>
+(function () {
+  var COLORS = {{ colors | tojson }};
+  var INK = "#15181D", MUTED = "#6B7883", GRID = "#E5E9EC", SURFACE = "#FFFFFF";
+  var trend = {{ report.trend | tojson }};
+  var selected = {{ report.selected.month | tojson }};
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = MUTED;
+
+  /* The selected month gets a light band behind its bar. */
+  var selectedBand = {
+    id: "selectedBand",
+    beforeDatasetsDraw: function (chart) {
+      var i = trend.months.indexOf(selected), x = chart.scales.x, area = chart.chartArea;
+      if (i < 0) return;
+      var step = trend.months.length > 1 ? (x.getPixelForValue(trend.months.length - 1) - x.getPixelForValue(0)) / (trend.months.length - 1) : x.width;
+      chart.ctx.save();
+      chart.ctx.fillStyle = "rgba(21, 24, 29, 0.07)";
+      chart.ctx.fillRect(x.getPixelForValue(i) - step / 2, area.top, step, area.bottom - area.top);
+      chart.ctx.restore();
+    }
+  };
+
+  function openMonth(index) {
+    window.location.search = "?month=" + encodeURIComponent(trend.months[index]);
+  }
+
+  /* Stacked by source, one fixed colour per series; a 2px surface gap between segments. */
+  new Chart(document.getElementById("trendChart"), {
+    type: "bar",
+    data: {
+      labels: trend.months,
+      datasets: trend.series.map(function (s) {
+        return { label: s.name, data: s.counts, backgroundColor: COLORS[s.name], borderColor: SURFACE,
+                 borderWidth: { top: 2 }, borderSkipped: false, maxBarThickness: 24,
+                 categoryPercentage: 0.8, barPercentage: 0.95 };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      onClick: function (evt, elements, chart) {
+        var hit = chart.getElementsAtEventForMode(evt, "index", { intersect: false }, false);
+        if (hit.length) openMonth(hit[0].index);
+      },
+      onHover: function (evt, elements) { evt.native.target.style.cursor = elements.length ? "pointer" : "default"; },
+      plugins: {
+        legend: { position: "top", align: "start",
+                  labels: { color: INK, usePointStyle: true, pointStyle: "circle", boxWidth: 8, padding: 16 } },
+        tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
+                   itemSort: function (a, b) { return b.datasetIndex - a.datasetIndex; },
+                   filter: function (item) { return item.parsed.y > 0; },
+                   callbacks: {
+                     label: function (c) { return " " + c.parsed.y.toLocaleString() + " · " + c.dataset.label; },
+                     footer: function (items) {
+                       var total = items.length ? trend.series.reduce(function (sum, s) { return sum + s.counts[items[0].dataIndex]; }, 0) : 0;
+                       return ["Total: " + total.toLocaleString(), "Click to open this month"];
+                     } } }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { color: MUTED, maxRotation: 0, autoSkip: true } },
+        y: { stacked: true, beginAtZero: true, grid: { color: GRID }, border: { display: false },
+             ticks: { color: MUTED, precision: 0, callback: function (v) { return v.toLocaleString(); } } }
+      }
+    },
+    plugins: [selectedBand]
+  });
+
+  /* Drill-down: a source opens its campaigns, a campaign its contents. Closing
+     a row closes everything under it. */
+  function setOpen(button, open) {
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+    button.textContent = open ? "▾" : "▸";
+    document.querySelectorAll('#breakdown tr[data-parent="' + button.dataset.target + '"]').forEach(function (row) {
+      row.hidden = !open;
+      var inner = row.querySelector("button.toggle");
+      if (inner && !open) setOpen(inner, false);
+    });
+  }
+  document.querySelectorAll("#breakdown button.toggle").forEach(function (button) {
+    button.addEventListener("click", function () { setOpen(button, button.getAttribute("aria-expanded") !== "true"); });
+  });
+  var expandAll = document.getElementById("expandAll"), collapseAll = document.getElementById("collapseAll");
+  if (expandAll) expandAll.addEventListener("click", function () {
+    document.querySelectorAll("#breakdown button.toggle").forEach(function (b) { setOpen(b, true); });
+  });
+  if (collapseAll) collapseAll.addEventListener("click", function () {
+    document.querySelectorAll('#breakdown tr:not([data-parent]) button.toggle').forEach(function (b) { setOpen(b, false); });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

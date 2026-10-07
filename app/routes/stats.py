@@ -1,5 +1,8 @@
 # app/routes/stats.py
-"""The /stats view: how customers repurchase, and what the win-back contacts bring back."""
+"""
+The /stats view: how customers repurchase, and what the win-back contacts bring
+back. And /first-time-orders: where each customer's first purchase came from.
+"""
 import logging
 
 import pandas as pd
@@ -8,6 +11,7 @@ from flask_login import login_required
 
 from app import db
 from app.models import CustomerContact
+from app.services.first_orders import NO_UTM_SERIES, OTHER_SERIES, first_orders_report
 from app.services.stats import orders_stats, winback_stats
 
 from . import main
@@ -23,6 +27,15 @@ DEFAULT_PERIOD = 90
 # Validated categorical slots for the charts (see the dataviz method):
 # teal, blue, orange - fixed order, never cycled.
 CHART_SERIES = ["#0F8B7C", "#2F62C9", "#C8621B"]
+
+# First-time orders by source: one fixed colour per series, so a source keeps
+# its colour as shares move. Categorical slots in stacking order (validated:
+# adjacent CVD and normal-vision separation pass; magenta and yellow sit under
+# 3:1 contrast, so the chart ships a table view), and a neutral for no UTM.
+SOURCE_COLORS = {
+    "wati": "#0F8B7C", "facebook": "#2F62C9", "google": "#C8621B", "ig": "#E87BA4",
+    OTHER_SERIES: "#EDA100", NO_UTM_SERIES: "#A3ACB5",
+}
 
 
 def _contacts_frame() -> pd.DataFrame:
@@ -63,3 +76,19 @@ def stats():
         period_choices=PERIOD_CHOICES,
         series=CHART_SERIES,
     )
+
+
+@main.route("/first-time-orders")
+@login_required
+def first_time_orders():
+    """Where the first-time orders of a month came from: utm_source > utm_campaign > utm_content."""
+    error = None
+    report = None
+    try:
+        refresh_all_orders_if_needed()
+        report = first_orders_report(current_app.config["ALL_ORDERS_CSV"], request.args.get("month", ""))
+    except Exception as e:
+        logger.exception("Failed to build the first-time orders report")
+        error = str(e)
+
+    return render_template("first_time_orders.html", error=error, report=report, colors=SOURCE_COLORS)
