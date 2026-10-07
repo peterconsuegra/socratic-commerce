@@ -106,18 +106,19 @@
     {% endif %}
 
     <div class="row g-3 mb-4">
-      <div class="col-lg-7">
-        <div class="card shadow-sm h-100">
-          <div class="card-header fw-bold">First vs repeat orders by month</div>
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">First vs repeat orders by month
+            <span class="text-muted small fw-normal">· since the first sale</span></div>
           <div class="card-body">
-            <div style="position:relative; height:300px;"><canvas id="monthlyChart"></canvas></div>
+            <div style="position:relative; height:320px;"><canvas id="monthlyChart"></canvas></div>
             <details class="small mt-2">
               <summary class="text-muted">Table view</summary>
-              <div class="table-responsive mt-2">
+              <div class="table-responsive mt-2" style="max-height: 320px;">
                 <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
                   <thead><tr><th>Month</th><th class="text-end">First orders</th><th class="text-end">Repeat orders</th><th class="text-end">Repeat share</th><th class="text-end">Repeat revenue</th></tr></thead>
                   <tbody>
-                  {% for m in r.monthly %}
+                  {% for m in r.monthly | reverse %}
                     <tr><td>{{ m.month }}{% if m.partial %} <span class="text-muted">(to date)</span>{% endif %}</td>
                         <td class="text-end">{{ num(m.first_orders) }}</td><td class="text-end">{{ num(m.repeat_orders) }}</td>
                         <td class="text-end">{{ pct(m.repeat_share) }}</td><td class="text-end">{{ m.repeat_revenue | cop }}</td></tr>
@@ -129,6 +130,9 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="row g-3 mb-5">
       <div class="col-lg-5">
         <div class="card shadow-sm h-100">
           <div class="card-header fw-bold">Days between consecutive orders <span class="text-muted small fw-normal" title="Until the store sends a customer id, these group orders by email: a customer who bought under two emails counts as two.">· grouped by email</span></div>
@@ -148,25 +152,27 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="card shadow-sm mb-5">
-      <div class="card-header fw-bold">Repeat rate by first purchase
-        <span class="text-muted small fw-normal">· SKUs with at least {{ r.min_sku_customers }} first-time customers</span>
-        <span class="text-muted small fw-normal" title="Until the store sends a customer id, these group orders by email: a customer who bought under two emails counts as two.">· grouped by email</span></div>
-      <div class="table-responsive">
-        <table class="table table-sm table-striped mb-0 align-middle" style="font-variant-numeric: tabular-nums;">
-          <thead><tr><th>First order SKU</th><th class="text-end">Customers</th><th class="text-end">Repeat customers</th><th class="text-end">Repeat rate</th><th class="text-end">Avg orders</th><th class="text-end">Median days to 2nd order</th></tr></thead>
-          <tbody>
-          {% for s in r.first_sku %}
-            <tr><td>{{ s.sku }}</td><td class="text-end">{{ num(s.customers) }}</td><td class="text-end">{{ num(s.repeat_customers) }}</td>
-                <td class="text-end fw-semibold">{{ pct(s.repeat_rate) }}</td><td class="text-end">{{ "%.2f"|format(s.avg_orders) }}</td>
-                <td class="text-end">{{ s.median_days_to_second if s.median_days_to_second is not none else "—" }}</td></tr>
-          {% else %}
-            <tr><td colspan="6" class="text-center text-muted">No SKU reaches {{ r.min_sku_customers }} first-time customers yet.</td></tr>
-          {% endfor %}
-          </tbody>
-        </table>
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-bold">Repeat rate by first purchase
+            <span class="text-muted small fw-normal">· SKUs with at least {{ r.min_sku_customers }} first-time customers</span>
+            <span class="text-muted small fw-normal" title="Until the store sends a customer id, these group orders by email: a customer who bought under two emails counts as two.">· grouped by email</span></div>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0 align-middle" style="font-variant-numeric: tabular-nums;">
+              <thead><tr><th>First order SKU</th><th class="text-end">Customers</th><th class="text-end">Repeat customers</th><th class="text-end">Repeat rate</th><th class="text-end">Avg orders</th><th class="text-end">Median days to 2nd order</th></tr></thead>
+              <tbody>
+              {% for s in r.first_sku %}
+                <tr><td>{{ s.sku }}</td><td class="text-end">{{ num(s.customers) }}</td><td class="text-end">{{ num(s.repeat_customers) }}</td>
+                    <td class="text-end fw-semibold">{{ pct(s.repeat_rate) }}</td><td class="text-end">{{ "%.2f"|format(s.avg_orders) }}</td>
+                    <td class="text-end">{{ s.median_days_to_second if s.median_days_to_second is not none else "—" }}</td></tr>
+              {% else %}
+                <tr><td colspan="6" class="text-center text-muted">No SKU reaches {{ r.min_sku_customers }} first-time customers yet.</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 

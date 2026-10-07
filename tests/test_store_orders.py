@@ -168,6 +168,10 @@ class RepurchaseFigureTests(TempDirTestCase):
         data = load_orders(self.path)
         stats = _compute_orders_stats(data, customer_orders(data))
         self.assertEqual((stats["customers"], stats["repeat_customers"], stats["repeat_orders"]), (3, 1, 1))
+        # First vs repeat orders run from the first sale's month to the current one.
+        self.assertEqual(stats["monthly"][0]["month"], "2026-08")
+        self.assertTrue(stats["monthly"][-1]["partial"])
+        self.assertEqual(sum(m["first_orders"] + m["repeat_orders"] for m in stats["monthly"]), 4)
 
     def test_customer_lists_show_the_store_purchase_count(self):
         result = get_recurrent_customers(orders_csv_path=self.path, min_orders=1)

@@ -37,7 +37,6 @@ GAP_BUCKETS = [
     (0, 30, "0–30"), (31, 60, "31–60"), (61, 90, "61–90"),
     (91, 180, "91–180"), (181, 365, "181–365"), (366, None, "365+"),
 ]
-MONTHS_BACK = 12
 # A first-purchase SKU needs this many customers before its repeat rate means anything.
 MIN_SKU_CUSTOMERS = 100
 MAX_LABELS = 62  # two months of daily labels on the win-back chart
@@ -164,16 +163,18 @@ def _compute_orders_stats(data: pd.DataFrame, by_email: pd.DataFrame) -> dict:
     revenue = float(data["total_value"].sum())
     repeat_revenue = float(data.loc[repeat, "total_value"].sum())
 
-    # First vs repeat orders per month, the last MONTHS_BACK months incl. the current one.
+    # First vs repeat orders per month, from the month of the first sale to the
+    # current one (to date).
     by_month = pd.DataFrame({
         "month": data["order_date"].dt.to_period("M"),
         "first_orders": first.astype(int),
         "repeat_orders": repeat.astype(int),
         "repeat_revenue": data["total_value"].where(repeat, 0.0),
     }).groupby("month").sum()
-    months = pd.period_range(end=pd.Timestamp.now().to_period("M"), periods=MONTHS_BACK, freq="M")
-    by_month = by_month.reindex(months, fill_value=0)
-    current = str(months[-1])
+    current = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
+    if not by_month.empty:
+        by_month = by_month.reindex(pd.period_range(by_month.index.min(), current, freq="M"), fill_value=0)
+    current = str(current)
     monthly = [
         {"month": str(m), "first_orders": int(r.first_orders), "repeat_orders": int(r.repeat_orders),
          "repeat_revenue": float(r.repeat_revenue),
