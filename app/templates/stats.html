@@ -46,6 +46,65 @@
       {{ tile("Median days between orders", r.median_gap_days if r.median_gap_days is not none else "—", num(r.gap_count) ~ " gaps measured") }}
     </div>
 
+    {% set nr = r.new_repeat %}
+    {% if nr.monthly %}
+    <div class="row g-3 mb-4">
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-bold">New repeat customers by month
+            <span class="text-muted small fw-normal">· customers whose 2nd purchase fell in the month, and the next {{ r.projection_months }} months projected</span></div>
+          <div class="card-body">
+            <div style="position:relative; height:300px;"><canvas id="newRepeatMonthlyChart"></canvas></div>
+            <details class="small mt-2">
+              <summary class="text-muted">Table view</summary>
+              <div class="table-responsive mt-2" style="max-height: 320px;">
+                <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                  <thead><tr><th>Month</th><th class="text-end">New repeat customers</th></tr></thead>
+                  <tbody>
+                  {% for m in nr.monthly_projection | reverse %}
+                    <tr class="text-muted"><td>{{ m.month }} <span class="small">(projected)</span></td><td class="text-end">{{ num(m.customers) }}</td></tr>
+                  {% endfor %}
+                  {% for m in nr.monthly | reverse %}
+                    <tr><td>{{ m.month }}</td><td class="text-end">{{ num(m.customers) }}</td></tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-bold">New repeat customers by year
+            <span class="text-muted small fw-normal">· and the next {{ r.projection_years }} years projected</span></div>
+          <div class="card-body">
+            <div style="position:relative; height:300px;"><canvas id="newRepeatYearlyChart"></canvas></div>
+            <details class="small mt-2">
+              <summary class="text-muted">Table view</summary>
+              <table class="table table-sm mb-0 mt-2" style="font-variant-numeric: tabular-nums;">
+                <thead><tr><th>Year</th><th class="text-end">New repeat customers</th></tr></thead>
+                <tbody>
+                {% for y in nr.yearly %}
+                  <tr><td>{{ y.year }}{% if y.since %} <span class="text-muted small">(sales from {{ y.since }})</span>{% endif %}</td><td class="text-end">{{ num(y.customers) }}</td></tr>
+                {% endfor %}
+                {% for y in nr.yearly_projection %}
+                  <tr class="text-muted"><td>{{ y.year }} <span class="small">(projected{% if y.to_date is not none %}; {{ num(y.to_date) }} so far{% endif %})</span></td><td class="text-end">{{ num(y.customers) }}</td></tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </details>
+          </div>
+        </div>
+      </div>
+      <p class="text-muted small mb-0">
+        Projections use the Holt-Winters model of the Monthly Repurchases forecast, fitted on complete months:
+        a projected year is its months so far plus the projected rest. They extend the trend to date, so
+        read the later years as a direction, not a target.
+      </p>
+    </div>
+    {% endif %}
+
     <div class="row g-3 mb-4">
       <div class="col-lg-7">
         <div class="card shadow-sm h-100">
@@ -271,6 +330,54 @@
                  scales: axes }
     });
   }
+
+  /* New repeat customers by month and by year: one series as a filled line,
+     its projection the same hue dashed over a lighter fill, joined at the last
+     actual point. note(i) adds lines to the tooltip of point i. */
+  function rgba(hex, alpha) {
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")";
+  }
+  function projectedLine(canvasId, actual, projected, labelOf, note) {
+    var el = document.getElementById(canvasId);
+    if (!el || !actual.length) return;
+    var last = actual.length - 1;
+    function blanks(n) { return new Array(n).fill(null); }
+    function counts(points) { return points.map(function (p) { return p.customers; }); }
+    // Monotone curves never overshoot the data (no dip below zero, no invented peaks).
+    var line = { borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, cubicInterpolationMode: "monotone", fill: "origin" };
+    new Chart(el, {
+      type: "line",
+      data: { labels: actual.map(labelOf).concat(projected.map(labelOf)),
+              datasets: [
+                Object.assign({ label: "New repeat customers", data: counts(actual).concat(blanks(projected.length)),
+                                borderColor: SERIES[0], backgroundColor: rgba(SERIES[0], 0.18) }, line),
+                Object.assign({ label: "Projected", data: blanks(last).concat([actual[last].customers], counts(projected)),
+                                borderColor: SERIES[0], backgroundColor: rgba(SERIES[0], 0.07), borderDash: [6, 4] }, line)
+              ] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+                 plugins: { legend: legend(true),
+                            tooltip: Object.assign({}, tooltip, {
+                              // The joining point is an actual value, not a projected one.
+                              filter: function (item) { return item.raw !== null && !(item.datasetIndex === 1 && item.dataIndex === last); },
+                              callbacks: Object.assign({}, tooltip.callbacks, {
+                                afterBody: function (items) { return note ? note(items[0].dataIndex) : []; } }) }) },
+                 scales: axes }
+    });
+  }
+
+  var newRepeat = {{ repurchase.new_repeat | tojson }};
+  projectedLine("newRepeatMonthlyChart", newRepeat.monthly, newRepeat.monthly_projection,
+                function (p) { return p.month; });
+  var years = newRepeat.yearly.concat(newRepeat.yearly_projection);
+  projectedLine("newRepeatYearlyChart", newRepeat.yearly, newRepeat.yearly_projection,
+                function (p) { return String(p.year); },
+                function (i) {
+                  var y = years[i];
+                  if (y.since) return [" Sales began on " + y.since + " " + y.year];
+                  if (y.to_date !== null && y.to_date !== undefined) return [" " + y.to_date.toLocaleString() + " so far"];
+                  return [];
+                });
 })();
 </script>
 {% endif %}

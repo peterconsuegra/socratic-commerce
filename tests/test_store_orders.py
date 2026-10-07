@@ -32,7 +32,7 @@ from app.services.get_data import (  # noqa: E402
 )
 from app.services.rankings import get_top_10_months_by_sales  # noqa: E402
 from app.services.recurrent_customers import customer_orders, get_recurrent_customers  # noqa: E402
-from app.services.stats import _compute_orders_stats  # noqa: E402
+from app.services.stats import PROJECTION_MONTHS, PROJECTION_YEARS, _compute_orders_stats, _new_repeat_customers  # noqa: E402
 
 
 def api_order(order_id, order_date, email, purchase_number, gender="female", total="100000.00", **extra):
@@ -181,6 +181,42 @@ class RepurchaseFigureTests(TempDirTestCase):
         repeat = get_recurrent_customers(orders_csv_path=self.path, min_orders=2)
         self.assertEqual([r["email"] for r in repeat["rows"]], ["ana.new@x.com"])
         self.assertEqual(repeat["summary"]["recurrent_orders"], 1)
+
+
+class NewRepeatCustomersTests(TempDirTestCase):
+    """New repeat customers (purchase_number 2) by month and year, with projections."""
+
+    def test_complete_months_are_charted_and_the_rest_is_projected(self):
+        import pandas as pd
+        current = pd.Timestamp.now(tz=get_data.BOGOTA).tz_localize(None).to_period("M")
+
+        def day(months_back, d=10):
+            return f"{(current - months_back).start_time:%Y-%m}-{d:02d} 10:00:00"
+
+        data = load_orders(self.write([
+            api_order("1", day(3), "a@x.com", 2), api_order("2", day(3, 20), "b@x.com", 2),
+            api_order("3", day(3), "c@x.com", 1),
+            api_order("4", day(2), "d@x.com", 2),
+            api_order("5", day(1), "e@x.com", 3),       # a third purchase is not a new repeat customer
+            api_order("6", day(0, 1), "f@x.com", 2),    # this month: projected, not charted
+        ]))
+        result = _new_repeat_customers(data)
+
+        self.assertEqual([(m["month"], m["customers"]) for m in result["monthly"]],
+                         [(str(current - 3), 2), (str(current - 2), 1), (str(current - 1), 0)])
+        projection = result["monthly_projection"]
+        self.assertEqual([m["month"] for m in projection],
+                         [str(current + i) for i in range(PROJECTION_MONTHS)])
+        self.assertTrue(all(m["customers"] >= 0 for m in projection))
+
+        years = result["yearly_projection"]
+        self.assertEqual([y["year"] for y in years], list(range(current.year, current.year + PROJECTION_YEARS)))
+        # New repeat customers by months back, as written above; "so far" counts
+        # this year's, the current month included.
+        by_months_back = {3: 2, 2: 1, 1: 0, 0: 1}
+        so_far = sum(n for k, n in by_months_back.items() if (current - k).year == current.year)
+        self.assertEqual(years[0]["to_date"], so_far)
+        self.assertTrue(all(y["year"] < current.year for y in result["yearly"]))
 
 
 class RefreshTests(TempDirTestCase):

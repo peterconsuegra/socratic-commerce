@@ -26,7 +26,8 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from app.services.get_data import load_orders
+from app.services.get_data import BOGOTA, load_orders
+from app.services.monthly_repurchases import _forecast_monthly_series
 from app.services.recurrent_customers import _file_key, customer_orders
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,9 @@ MONTHS_BACK = 12
 # A first-purchase SKU needs this many customers before its repeat rate means anything.
 MIN_SKU_CUSTOMERS = 100
 MAX_LABELS = 62  # two months of daily labels on the win-back chart
+# How far the new-repeat-customers charts project: months, then calendar years.
+PROJECTION_MONTHS = 6
+PROJECTION_YEARS = 5
 
 _LOCK = threading.Lock()
 _CACHE: dict = {"key": None, "stats": None, "orders": None}
@@ -77,6 +81,66 @@ def _light_orders(data: pd.DataFrame) -> pd.DataFrame:
         "order_ts": ts.values,
         "total_value": data["total_value"].values,
     })
+
+
+def _new_repeat_customers(data: pd.DataFrame) -> dict:
+    """
+    New repeat customers - customers whose second purchase (the store's
+    purchase_number 2) fell in the period - by month and by calendar year
+    since the first sale, with projections.
+
+    The projection is the Holt-Winters model of the Monthly Repurchases
+    forecast, fitted on complete months only, so the current month is
+    projected rather than charted half-done. The next PROJECTION_MONTHS
+    months are shown as they come; a projected year is its complete months so
+    far plus the projected rest, through PROJECTION_YEARS years from the
+    current one, so the yearly figures agree with the monthly ones.
+    """
+    empty = {"monthly": [], "monthly_projection": [], "yearly": [], "yearly_projection": []}
+    if data.empty:
+        return empty
+
+    month = data["order_date"].dt.to_period("M")
+    current = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
+    second = data["purchase_number"].eq(2)
+    history = (
+        second.groupby(month).sum()
+        .reindex(pd.period_range(month.min(), current - 1, freq="M"), fill_value=0)
+        .astype(float)
+    )
+    if history.empty:
+        return empty
+
+    last_year = current.year + PROJECTION_YEARS - 1
+    periods = (last_year - current.year) * 12 + (12 - current.month) + 1
+    series = history.copy()
+    series.index = series.index.to_timestamp()
+    projection = pd.Series(
+        [max(0.0, float(v)) for v in _forecast_monthly_series(series, periods=periods)],
+        index=pd.period_range(current, periods=periods, freq="M"),
+    )
+
+    by_year = history.groupby(history.index.year).sum()
+    projected_by_year = projection.groupby(projection.index.year).sum()
+    first_sale = data["order_date"].min()
+    year_to_date = int(second[data["order_date"].dt.year == current.year].sum())
+
+    return {
+        "monthly": [{"month": str(m), "customers": int(v)} for m, v in history.items()],
+        "monthly_projection": [
+            {"month": str(m), "customers": int(round(v))} for m, v in projection.iloc[:PROJECTION_MONTHS].items()
+        ],
+        "yearly": [
+            {"year": int(y), "customers": int(v),
+             "since": first_sale.strftime("%d %b") if y == first_sale.year and first_sale.dayofyear > 1 else None}
+            for y, v in by_year.items() if y < current.year
+        ],
+        "yearly_projection": [
+            {"year": int(y), "customers": int(round(by_year.get(y, 0.0) + v)),
+             "to_date": year_to_date if y == current.year else None}
+            for y, v in projected_by_year.items()
+        ],
+    }
 
 
 def _bucket(days: float) -> str:
@@ -176,6 +240,9 @@ def _compute_orders_stats(data: pd.DataFrame, by_email: pd.DataFrame) -> dict:
         "monthly": monthly,
         "first_sku": first_sku,
         "min_sku_customers": MIN_SKU_CUSTOMERS,
+        "new_repeat": _new_repeat_customers(data),
+        "projection_months": PROJECTION_MONTHS,
+        "projection_years": PROJECTION_YEARS,
     }
 
 
