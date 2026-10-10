@@ -4,6 +4,14 @@
 
 {% from "partials/stat_macros.html" import pct, num, money, tile %}
 
+{# A change between period B and period A: "▲ 11.6%", "▼ 15.3%", "new", "no change". #}
+{% macro change(x) -%}
+  {%- if not x.b -%}{{ "new" if x.a else "—" }}
+  {%- elif x.pct > 0 -%}▲ {{ "%.1f"|format(x.pct * 100) }}%
+  {%- elif x.pct < 0 -%}▼ {{ "%.1f"|format(-x.pct * 100) }}%
+  {%- else -%}no change{%- endif -%}
+{%- endmacro %}
+
 {% block content %}
 <div class="container mt-2" style="max-width: 1200px;">
   <h2 class="text-center mb-1">First-Time Orders</h2>
@@ -19,7 +27,110 @@
     {% set k = report.kpis %}
     {% set month_label = report.selected.month ~ (" (to date)" if report.selected.partial else "") %}
 
+    {% set c = compare %}
+    {% if c %}
+    <div class="card shadow-sm mb-4" id="compare">
+      <div class="card-header fw-bold">Compare periods
+        <span class="text-muted small fw-normal">· first-time orders, period A against period B · complete days up to {{ c.through }}</span></div>
+      <div class="card-body">
+        <form method="get" action="{{ url_for('main.first_time_orders') }}#compare" class="row g-2 align-items-end mb-3">
+          <input type="hidden" name="month" value="{{ report.selected.month }}">
+          <div class="col-auto">
+            <label class="form-label small text-muted mb-1" for="vs">Compare</label>
+            <select name="vs" id="vs" class="form-select form-select-sm" onchange="this.form.submit()">
+              <option value="week" {% if c.mode == "week" %}selected{% endif %}>Week vs the week before</option>
+              <option value="month" {% if c.mode == "month" %}selected{% endif %}>Month vs the month before</option>
+              <option value="custom" {% if c.mode == "custom" %}selected{% endif %}>Custom periods</option>
+            </select>
+          </div>
+          {% if c.mode == "week" %}
+            <div class="col-auto">
+              <label class="form-label small text-muted mb-1" for="vs_week">Week (A)</label>
+              <select name="vs_week" id="vs_week" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for w in c.weeks %}<option value="{{ w.value }}" {% if w.value == c.week %}selected{% endif %}>{{ w.label }}</option>{% endfor %}
+              </select>
+            </div>
+          {% elif c.mode == "month" %}
+            <div class="col-auto">
+              <label class="form-label small text-muted mb-1" for="vs_month">Month (A)</label>
+              <select name="vs_month" id="vs_month" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for m in c.months %}<option value="{{ m.value }}" {% if m.value == c.month %}selected{% endif %}>{{ m.label }}</option>{% endfor %}
+              </select>
+            </div>
+          {% else %}
+            <div class="col-auto">
+              <span class="form-label small text-muted mb-1 d-block">Period A</span>
+              <div class="input-group input-group-sm">
+                <input type="date" name="a_start" class="form-control" value="{{ c.custom.a_start }}" aria-label="Period A from" required>
+                <span class="input-group-text">to</span>
+                <input type="date" name="a_end" class="form-control" value="{{ c.custom.a_end }}" aria-label="Period A to" required>
+              </div>
+            </div>
+            <div class="col-auto">
+              <span class="form-label small text-muted mb-1 d-block">Period B</span>
+              <div class="input-group input-group-sm">
+                <input type="date" name="b_start" class="form-control" value="{{ c.custom.b_start }}" aria-label="Period B from" required>
+                <span class="input-group-text">to</span>
+                <input type="date" name="b_end" class="form-control" value="{{ c.custom.b_end }}" aria-label="Period B to" required>
+              </div>
+            </div>
+          {% endif %}
+          <div class="col-auto">
+            <label class="form-label small text-muted mb-1" for="vs_by">By</label>
+            <select name="vs_by" id="vs_by" class="form-select form-select-sm" onchange="this.form.submit()">
+              <option value="source" {% if c.by == "source" %}selected{% endif %}>utm_source</option>
+              <option value="campaign" {% if c.by == "campaign" %}selected{% endif %}>utm_campaign</option>
+              <option value="content" {% if c.by == "content" %}selected{% endif %}>utm_content</option>
+            </select>
+          </div>
+          {% if c.mode == "custom" %}
+            <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Compare</button></div>
+          {% else %}
+            <noscript><div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Compare</button></div></noscript>
+          {% endif %}
+        </form>
+
+        {% if c.error %}
+          <div class="alert alert-warning py-2 mb-0">{{ c.error }}</div>
+        {% else %}
+          <p class="small mb-2">
+            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.a }};"></span><strong>A</strong> {{ c.a.label }}
+            <span class="text-muted mx-2">vs</span>
+            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.b }};"></span><strong>B</strong> {{ c.b.label }}
+          </p>
+          <div class="row g-2 mb-3">
+            {{ tile("First-time orders", num(c.kpis.orders.a), "vs " ~ num(c.kpis.orders.b) ~ " · " ~ change(c.kpis.orders), cols="col-12 col-md-4") }}
+            {{ tile("First-order revenue", money(c.kpis.revenue.a), "vs " ~ money(c.kpis.revenue.b) ~ " · " ~ change(c.kpis.revenue), cols="col-12 col-md-4") }}
+            {{ tile("Average first order", c.kpis.avg_value.a | cop, "vs " ~ (c.kpis.avg_value.b | cop) ~ " · " ~ change(c.kpis.avg_value), cols="col-12 col-md-4") }}
+          </div>
+          {% if c.rows %}
+            <div style="position:relative; height: {{ 70 + 36 * (c.rows | length) }}px;"><canvas id="compareChart"></canvas></div>
+            <details class="small mt-2">
+              <summary class="text-muted">Table view</summary>
+              <div class="table-responsive mt-2">
+                <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                  <thead><tr><th>{{ {"source": "utm_source", "campaign": "utm_campaign", "content": "utm_content"}[c.by] }}</th>
+                    <th class="text-end">A · {{ c.a.label }}</th><th class="text-end">B · {{ c.b.label }}</th>
+                    <th class="text-end">Difference</th><th class="text-end">Change</th></tr></thead>
+                  <tbody>
+                  {% for r in c.rows %}
+                    <tr{% if r.other %} class="text-muted"{% endif %}><td>{{ r.name }}</td><td class="text-end">{{ num(r.a) }}</td><td class="text-end">{{ num(r.b) }}</td>
+                      <td class="text-end">{{ "{:+,}".format(r.a - r.b) }}</td><td class="text-end">{{ change(r) }}</td></tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          {% else %}
+            <p class="text-muted mb-0">No first-time orders in either period.</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <form method="get" action="{{ url_for('main.first_time_orders') }}" class="d-flex align-items-center gap-2 mb-3">
+      {% for name, value in compare_params.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
       <label class="small text-muted mb-0" for="month">Month</label>
       <select name="month" id="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
         {% for m in report.months %}
@@ -193,6 +304,50 @@
     },
     plugins: [selectedBand]
   });
+
+  /* Period A against period B: one bar each per value, A in the hue, B in gray. */
+  var cmp = {{ compare | tojson }};
+  var cmpEl = document.getElementById("compareChart");
+  if (cmpEl && cmp && cmp.rows && cmp.rows.length) {
+    var CMP = {{ compare_colors | tojson }};
+    function changeText(r) {
+      if (!r.b) return r.a ? "new" : "—";
+      if (r.pct > 0) return "▲ " + (r.pct * 100).toFixed(1) + "%";
+      if (r.pct < 0) return "▼ " + (-r.pct * 100).toFixed(1) + "%";
+      return "no change";
+    }
+    function shorten(name) { return name.length > 32 ? name.slice(0, 31) + "…" : name; }
+    var bar = { borderRadius: 4, borderSkipped: "start", maxBarThickness: 14, categoryPercentage: 0.8, barPercentage: 0.9 };
+    // Drawn once the web font has loaded: the axis sizes itself to the names
+    // as measured, and names measured in the fallback font come out clipped.
+    var drawCompare = function () { new Chart(cmpEl, {
+      type: "bar",
+      data: { labels: cmp.rows.map(function (r) { return r.name; }),
+              datasets: [
+                Object.assign({ label: "A · " + cmp.a.label, data: cmp.rows.map(function (r) { return r.a; }), backgroundColor: CMP.a }, bar),
+                Object.assign({ label: "B · " + cmp.b.label, data: cmp.rows.map(function (r) { return r.b; }), backgroundColor: CMP.b }, bar)
+              ] },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "top", align: "start",
+                    labels: { color: INK, usePointStyle: true, pointStyle: "circle", boxWidth: 8, padding: 16 } },
+          tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
+                     callbacks: {
+                       label: function (c) { return " " + c.parsed.x.toLocaleString() + " · " + c.dataset.label; },
+                       footer: function (items) { return items.length ? "Change: " + changeText(cmp.rows[items[0].dataIndex]) : ""; } } }
+        },
+        scales: {
+          x: { beginAtZero: true, grid: { color: GRID }, border: { display: false },
+               ticks: { color: MUTED, precision: 0, callback: function (v) { return v.toLocaleString(); } } },
+          y: { grid: { display: false }, ticks: { color: INK, autoSkip: false,
+               callback: function (value) { return shorten(this.getLabelForValue(value)); } } }
+        }
+      }
+    }); };
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(drawCompare);
+  }
 
   /* Drill-down: a source opens its campaigns, a campaign its contents. Closing
      a row closes everything under it. */
