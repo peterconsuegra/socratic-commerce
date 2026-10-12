@@ -4,11 +4,12 @@ Where first-time orders come from: each customer's first paid purchase (the
 store's purchase_number 1), by month, by utm_source, utm_campaign and
 utm_content.
 
-Three views of the same orders: a monthly trend by source since UTM tracking
-began, for any month since the first sale the breakdown source > campaign >
-content, and two periods side by side ("VS") by one of those fields. UTM values are
-shown as the store recorded them: "undefined" means the order carried no UTM,
-and "n/a" marks orders from before the store recorded UTMs.
+Views of the same orders: a monthly trend by source since UTM tracking began;
+for any month since the first sale, the breakdown source > campaign > content
+and where the new customers live, what they bought and when; and two periods
+side by side ("VS") by one of the UTM fields. UTM values are shown as the
+store recorded them: "undefined" means the order carried no UTM, and "n/a"
+marks orders from before the store recorded UTMs.
 """
 import logging
 import os
@@ -34,6 +35,9 @@ NOT_SET = "(not set)"
 # breakdown still reach back to the first sale.
 TREND_START = pd.Period("2023-09", freq="M")
 UTM_COLUMNS = ["utm_source", "utm_campaign", "utm_content"]
+# The city and product charts show this many bars, then one for the rest.
+TOP_BARS = 10
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 _LOCK = threading.Lock()
 _CACHE: dict = {"key": None, "first": None, "orders_by_month": None}
@@ -48,11 +52,14 @@ def _load(orders_csv_path: str) -> tuple[pd.DataFrame, pd.Series]:
         if _CACHE["key"] != key:
             data = load_orders(orders_csv_path)
             month = data["order_date"].dt.to_period("M")
-            first = data.loc[data["purchase_number"].eq(1), ["total_value", *UTM_COLUMNS]].copy()
+            first = data.loc[data["purchase_number"].eq(1),
+                             ["order_date", "total_value", *UTM_COLUMNS, "city", "state", "sku", "product"]].copy()
             first["month"] = month[first.index]
-            first["day"] = data.loc[first.index, "order_date"].dt.normalize()
-            for col in UTM_COLUMNS:
+            first["day"] = first["order_date"].dt.normalize()
+            for col in [*UTM_COLUMNS, "city"]:
                 first[col] = first[col].str.strip().replace("", NOT_SET)
+            for col in ["state", "sku", "product"]:
+                first[col] = first[col].str.strip()
             first["utm_source"] = first["utm_source"].str.lower()
             _CACHE.update(key=key, first=first, orders_by_month=month.value_counts())
             logger.info("first-time orders rebuilt from %s (%d orders)", orders_csv_path, len(first))
@@ -83,6 +90,66 @@ def _breakdown(orders: pd.DataFrame) -> list[dict]:
         sources.append({**_row(source, by_source["orders"].sum(), by_source["revenue"].sum(), total),
                         "campaigns": _ranked(campaigns)})
     return _ranked(sources)
+
+
+def _with_rest(rows: list[dict], rest_label: str) -> list[dict]:
+    """The first TOP_BARS rows for a chart, then one row for all the others."""
+    rest = rows[TOP_BARS:]
+    if not rest:
+        return rows
+    return rows[:TOP_BARS] + [{"name": rest_label.format(n=len(rest)), "orders": sum(r["orders"] for r in rest),
+                               "share": sum(r["share"] for r in rest), "other": True}]
+
+
+def _cities(orders: pd.DataFrame) -> list[dict]:
+    """Where the new customers live: one row per city of the order, with its department, largest first."""
+    total = len(orders)
+    by_city = orders.groupby("city").agg(orders=("total_value", "size"), revenue=("total_value", "sum"))
+    department = orders.groupby("city")["state"].agg(lambda s: s.mode().iat[0])
+    return _ranked([{**_row(city, r.orders, r.revenue, total), "state": department[city]}
+                    for city, r in by_city.iterrows()])
+
+
+def _products(orders: pd.DataFrame, first: pd.DataFrame) -> list[dict]:
+    """
+    What the new customers bought: the first-time orders that included each
+    product, by SKU. An order with several products counts once for each, so
+    the shares can add up to more than 100%. Orders from before the store set
+    SKUs (most of them before September 2023) count by product name instead.
+    Revenue belongs to the order, not to its products, so it is not split here.
+    """
+    total = len(orders)
+    # A SKU is named as the store showed it that month, else by its latest
+    # name, both from the orders holding that SKU alone: "product" names one
+    # arbitrary item of a multi-item order.
+    single = first[first["sku"].ne("") & ~first["sku"].str.contains(",", regex=False)].sort_values("order_date")
+    names = {**single.groupby("sku")["product"].last().to_dict(),
+             **single[single.index.isin(orders.index)].groupby("sku")["product"].last().to_dict()}
+    skus = orders["sku"].str.split(",").explode().str.strip()
+    counts = skus[skus.ne("")].reset_index().drop_duplicates()["sku"].value_counts()
+    by_name = orders.loc[orders["sku"].eq(""), "product"].replace("", NOT_SET).value_counts()
+    rows = [{"name": names.get(sku, sku), "sku": sku, "orders": int(n)} for sku, n in counts.items()]
+    rows += [{"name": name, "sku": "", "orders": int(n)} for name, n in by_name.items()]
+    return sorted(({**r, "share": r["orders"] / total} for r in rows), key=lambda r: (-r["orders"], r["name"]))
+
+
+def _times(orders: pd.DataFrame) -> dict:
+    """
+    When the new customers bought: first-time orders by hour of the day and
+    by day of the week, Colombia time (the store's order_date). peak_hour and
+    peak_day index the busiest row of each, None without orders.
+    """
+    total = len(orders)
+    hours = orders["order_date"].dt.hour.value_counts().reindex(range(24), fill_value=0)
+    days = orders["order_date"].dt.weekday.value_counts().reindex(range(7), fill_value=0)
+    return {
+        "hours": [{"label": f"{h:02d}:00–{h:02d}:59", "orders": int(n), "share": n / total if total else 0.0}
+                  for h, n in hours.items()],
+        "weekdays": [{"label": WEEKDAYS[d], "orders": int(n), "share": n / total if total else 0.0}
+                     for d, n in days.items()],
+        "peak_hour": int(hours.idxmax()) if total else None,
+        "peak_day": int(days.idxmax()) if total else None,
+    }
 
 
 def _trend(first: pd.DataFrame, months: pd.PeriodIndex) -> dict:
@@ -123,6 +190,8 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
     total = len(orders)
     revenue = float(orders["total_value"].sum())
     all_orders = int(orders_by_month.get(selected, 0))
+    cities = _cities(orders) if total else []
+    products = _products(orders, first) if total else []
 
     return {
         "months": [{"month": str(m), "orders": int(per_month[m]), "partial": m == current}
@@ -137,6 +206,11 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
         },
         "trend": _trend(first, months[months >= TREND_START]),
         "breakdown": _breakdown(orders),
+        "cities": cities,
+        "cities_chart": _with_rest(cities, "{n} other cities"),
+        "products": products,
+        "products_chart": _with_rest(products, "{n} other products"),
+        "times": _times(orders),
     }
 
 

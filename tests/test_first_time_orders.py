@@ -1,6 +1,7 @@
 """
 /first-time-orders: where each customer's first purchase (purchase_number 1)
-came from, by month and by utm_source > utm_campaign > utm_content.
+came from, by month and by utm_source > utm_campaign > utm_content, and where
+those new customers live, what they bought and when.
 
 Orders are written relative to the current month, so the month a test expects
 by default does not depend on the day it runs. In-memory SQLite; nothing
@@ -22,7 +23,8 @@ os.environ["DATABASE_URL"] = "sqlite://"
 from app import create_app, db  # noqa: E402
 from app.models import User  # noqa: E402
 from app.services.first_orders import (  # noqa: E402
-    COMPARE_TOP, NO_UTM_SERIES, OTHER_SERIES, TREND_SOURCES, TREND_START, compare_periods, first_orders_report,
+    COMPARE_TOP, NO_UTM_SERIES, OTHER_SERIES, TOP_BARS, TREND_SOURCES, TREND_START, compare_periods,
+    first_orders_report,
 )
 from app.services.get_data import BOGOTA, write_orders_csv  # noqa: E402
 
@@ -181,6 +183,91 @@ class ComparePeriodsTests(unittest.TestCase):
         self.assertEqual((rows[-1]["name"], rows[-1]["a"], rows[-1].get("other")), ("2 more", 2, True))
 
 
+def placed(order_id, when, city="BOGOTA (C/MARCA)", state="Cundinamarca", sku="pack_favorito",
+           product="Pack Favorito", purchase_number=1, total=100000):
+    """An order at a given time (Colombia), with its city and what it held, shaped like the API's JSON."""
+    return {"order_id": order_id, "order_date": when, "email": f"c{order_id}@x.com", "total_value": f"{total}.00",
+            "city": city, "state": state, "sku": sku, "product": product,
+            "utm_source": "facebook", "utm_campaign": "c", "utm_content": "ad",
+            "purchase_number": purchase_number, "is_repurchase": purchase_number > 1}
+
+
+PLACED = [
+    # January: both products in one order, neither on its own that month.
+    placed("1", "2026-01-20 15:00:00", sku="una_unidad, pack_favorito", product="Desodorante 1 unidad"),
+    # February. "product" names one item of a multi-item order; the SKUs list them all.
+    placed("2", "2026-02-02 09:15:00"),                                                    # Monday
+    placed("3", "2026-02-04 09:40:00", "MEDELLIN (ANT)", "Antioquia", sku="una_unidad",
+           product="Desodorante 1 unidad", total=40000),                                    # Wednesday
+    placed("4", "2026-02-04 20:05:00", sku="una_unidad, pack_favorito", product="Desodorante 1 unidad"),
+    placed("5", "2026-02-11 09:59:00", "CALI (VALLE)", "Valle del Cauca", sku="", product="Promoción 2X1"),
+    placed("6", "2026-02-11 21:30:00", purchase_number=2),  # a repeat order: never counted
+    # March: the store renamed pack_favorito.
+    placed("7", "2026-03-03 10:00:00", product="Pack Ahorro Favorito"),
+]
+
+
+class NewCustomersTests(unittest.TestCase):
+    """Where the month's new customers live, what they bought and when."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "all_orders.csv")
+        write_orders_csv(PLACED, self.path)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def report(self, month="2026-02"):
+        return first_orders_report(self.path, month)
+
+    def test_cities_rank_by_first_time_orders_with_their_department(self):
+        cities = self.report()["cities"]
+        self.assertEqual([(c["name"], c["state"], c["orders"]) for c in cities],
+                         [("BOGOTA (C/MARCA)", "Cundinamarca", 2), ("CALI (VALLE)", "Valle del Cauca", 1),
+                          ("MEDELLIN (ANT)", "Antioquia", 1)])  # a tie goes to the larger revenue
+        self.assertEqual(cities[0]["revenue"], 200000.0)
+        self.assertAlmostEqual(cities[0]["share"], 2 / 4)
+
+    def test_the_city_chart_shows_the_top_ones_and_gathers_the_rest(self):
+        write_orders_csv([placed(str(i), "2026-02-10 12:00:00", city=f"TOWN {i:02d}", total=100000 + i)
+                          for i in range(TOP_BARS + 3)], self.path)
+        report = self.report()
+        self.assertEqual(len(report["cities"]), TOP_BARS + 3)
+        chart = report["cities_chart"]
+        self.assertEqual(len(chart), TOP_BARS + 1)
+        self.assertEqual((chart[-1]["name"], chart[-1]["orders"], chart[-1]["other"]), ("3 other cities", 3, True))
+        self.assertAlmostEqual(sum(c["share"] for c in chart), 1.0)
+
+    def test_products_count_each_order_once_per_product(self):
+        products = self.report()["products"]
+        self.assertEqual([(p["name"], p["sku"], p["orders"]) for p in products],
+                         [("Desodorante 1 unidad", "una_unidad", 2), ("Pack Favorito", "pack_favorito", 2),
+                          ("Promoción 2X1", "", 1)])  # no SKU: by the name the store recorded
+        self.assertAlmostEqual(sum(p["share"] for p in products), 5 / 4)
+
+    def test_products_carry_the_name_of_the_month_else_their_latest(self):
+        names = {p["sku"]: p["name"] for p in self.report("2026-03")["products"]}
+        self.assertEqual(names, {"pack_favorito": "Pack Ahorro Favorito"})
+        # In January neither product was bought on its own: their latest names.
+        names = {p["sku"]: p["name"] for p in self.report("2026-01")["products"]}
+        self.assertEqual(names, {"pack_favorito": "Pack Ahorro Favorito", "una_unidad": "Desodorante 1 unidad"})
+
+    def test_times_by_hour_and_day_with_the_busiest_of_each(self):
+        times = self.report()["times"]
+        self.assertEqual([h["orders"] for h in times["hours"]][9], 3)
+        self.assertEqual(sum(h["orders"] for h in times["hours"]), 4)  # the repeat order at 21:30 does not count
+        self.assertEqual(times["hours"][times["peak_hour"]]["label"], "09:00–09:59")
+        self.assertEqual([d["orders"] for d in times["weekdays"]], [1, 0, 3, 0, 0, 0, 0])
+        self.assertEqual(times["weekdays"][times["peak_day"]], {"label": "Wednesday", "orders": 3, "share": 0.75})
+
+    def test_a_month_without_first_time_orders(self):
+        report = self.report(str(CURRENT))
+        self.assertEqual((report["cities"], report["products"]), ([], []))
+        self.assertIsNone(report["times"]["peak_hour"])
+        self.assertEqual(sum(h["orders"] for h in report["times"]["hours"]), 0)
+
+
 class FirstTimeOrdersPageTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -227,6 +314,19 @@ class FirstTimeOrdersPageTests(unittest.TestCase):
         self.assertIn('<input type="hidden" name="vs" value="week">', html)
         self.assertIn('<input type="hidden" name="vs_by" value="campaign">', html)
         self.assertIn(f'<input type="hidden" name="month" value="{LAST}">', html)
+
+    def test_page_shows_where_the_new_customers_live_what_they_bought_and_when(self):
+        write_orders_csv(PLACED, self.app.config["ALL_ORDERS_CSV"])
+        html = self.get("?month=2026-02")
+        self.assertIn("Where the new customers of 2026-02 live", html)
+        self.assertIn("<td>CALI (VALLE)</td><td>Valle del Cauca</td>", html)
+        self.assertIn("<code>pack_favorito</code>", html)
+        self.assertIn("Busiest hour <strong>09:00–09:59</strong>, 3 orders (75.0%)", html)
+        self.assertIn("busiest day <strong>Wednesday</strong>", html)
+
+        empty = self.get(f"?month={CURRENT}")
+        self.assertIn(f"When the new customers of {CURRENT} (to date) bought", empty)
+        self.assertNotIn('id="citiesChart"', empty)
 
     def test_sales_menu_links_first_time_orders_and_repurchase_stats(self):
         html = self.get()

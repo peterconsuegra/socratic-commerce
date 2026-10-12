@@ -40,6 +40,9 @@ SOURCE_COLORS = {
 # one it is compared with (emphasis - B is context). The pair separates for
 # colour-blind readers; gray sits under 3:1, so the chart has a table view.
 COMPARE_COLORS = {"a": "#0F8B7C", "b": "#A3ACB5"}
+# The city, product and time bars: one hue, and gray for the bar gathering the
+# cities or products beyond the top ones (context, as period B is above).
+BAR_COLORS = {"bar": "#0F8B7C", "rest": "#A3ACB5"}
 # The comparison's query parameters, kept when the month selector changes.
 COMPARE_PARAMS = ("vs", "vs_by", "vs_week", "vs_month", "a_start", "a_end", "b_start", "b_end")
 
@@ -89,7 +92,8 @@ def stats():
 def first_time_orders():
     """
     Where the first-time orders of a month came from (utm_source >
-    utm_campaign > utm_content), and two periods side by side.
+    utm_campaign > utm_content), where those new customers live, what they
+    bought and when; and two periods side by side.
     """
     error = None
     report = None
@@ -113,5 +117,6 @@ def first_time_orders():
 
     return render_template(
         "first_time_orders.html", error=error, report=report, compare=compare, colors=SOURCE_COLORS,
-        compare_colors=COMPARE_COLORS, compare_params={k: args[k] for k in COMPARE_PARAMS if args.get(k)},
+        compare_colors=COMPARE_COLORS, bar_colors=BAR_COLORS,
+        compare_params={k: args[k] for k in COMPARE_PARAMS if args.get(k)},
     )

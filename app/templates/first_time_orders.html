@@ -225,6 +225,116 @@
       {% endif %}
     </div>
 
+    <div class="row g-3 mt-1 mb-3">
+      <div class="col-xl-6">
+        <div class="card shadow-sm h-100" id="cities">
+          <div class="card-header fw-bold">Where the new customers of {{ month_label }} live
+            <span class="text-muted small fw-normal">· first-time orders by city{% if report.cities %} · {{ num(report.cities | length) }} {{ "city" if report.cities | length == 1 else "cities" }}{% endif %}</span></div>
+          <div class="card-body">
+            {% if report.cities %}
+              <div style="position:relative;"><canvas id="citiesChart" role="img"
+                   aria-label="First-time orders by city, largest first; the table view lists every city"></canvas></div>
+              <details class="small mt-2">
+                <summary class="text-muted">Table view · every city</summary>
+                <div class="table-responsive mt-2" style="max-height: 320px;">
+                  <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                    <thead><tr><th>City</th><th>Department</th><th class="text-end">Orders</th>
+                      <th class="text-end">Share</th><th class="text-end">Revenue</th></tr></thead>
+                    <tbody>
+                    {% for r in report.cities %}
+                      <tr><td>{{ r.name }}</td><td>{{ r.state }}</td><td class="text-end">{{ num(r.orders) }}</td>
+                        <td class="text-end">{{ pct(r.share) }}</td><td class="text-end text-nowrap">{{ r.revenue | cop }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            {% else %}
+              <p class="text-muted mb-0">No first-time orders in {{ month_label }}.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-6">
+        <div class="card shadow-sm h-100" id="products">
+          <div class="card-header fw-bold">What the new customers of {{ month_label }} bought
+            <span class="text-muted small fw-normal">· first-time orders that included each product</span></div>
+          <div class="card-body">
+            {% if report.products %}
+              <div style="position:relative;"><canvas id="productsChart" role="img"
+                   aria-label="First-time orders that included each product, largest first; the table view lists every product"></canvas></div>
+              <details class="small mt-2">
+                <summary class="text-muted">Table view · every product</summary>
+                <div class="table-responsive mt-2" style="max-height: 320px;">
+                  <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                    <thead><tr><th>Product</th><th>SKU</th><th class="text-end">Orders</th><th class="text-end">Share</th></tr></thead>
+                    <tbody>
+                    {% for r in report.products %}
+                      <tr><td>{{ r.name }}</td><td>{% if r.sku %}<code>{{ r.sku }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td class="text-end">{{ num(r.orders) }}</td><td class="text-end">{{ pct(r.share) }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+              <p class="text-muted small mt-2 mb-0">An order with several products counts once for each, so the shares
+                can add up to more than 100%. Products are named as the store showed them that month; orders from
+                before the store set SKUs (most up to August 2023) are listed by name, without a SKU.</p>
+            {% else %}
+              <p class="text-muted mb-0">No first-time orders in {{ month_label }}.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% set t = report.times %}
+    <div class="card shadow-sm mb-3" id="times">
+      <div class="card-header fw-bold">When the new customers of {{ month_label }} bought
+        <span class="text-muted small fw-normal">· first-time orders by hour of the day and day of the week, Colombia time</span></div>
+      <div class="card-body">
+        {% if t.peak_hour is not none %}
+          {% set busiest_hour, busiest_day = t.hours[t.peak_hour], t.weekdays[t.peak_day] %}
+          <p class="small mb-3">Busiest hour <strong>{{ busiest_hour.label }}</strong>, {{ num(busiest_hour.orders) }} orders ({{ pct(busiest_hour.share) }})
+            <span class="text-muted mx-1">·</span> busiest day <strong>{{ busiest_day.label }}</strong>, {{ num(busiest_day.orders) }} orders ({{ pct(busiest_day.share) }})</p>
+          <div class="row g-4">
+            <div class="col-lg-8">
+              <div class="small text-muted mb-1">By hour of the day</div>
+              <div style="position:relative; height:240px;"><canvas id="hoursChart" role="img"
+                   aria-label="First-time orders by hour of the day; the table view lists every hour"></canvas></div>
+            </div>
+            <div class="col-lg-4">
+              <div class="small text-muted mb-1">By day of the week</div>
+              <div style="position:relative; height:240px;"><canvas id="weekdaysChart" role="img"
+                   aria-label="First-time orders by day of the week; the table view lists every day"></canvas></div>
+            </div>
+          </div>
+          <details class="small mt-2">
+            <summary class="text-muted">Table view</summary>
+            <div class="row g-3 mt-1">
+              {% for title, rows in [("Hour", t.hours), ("Day", t.weekdays)] %}
+                <div class="col-md-6">
+                  <div class="table-responsive" style="max-height: 320px;">
+                    <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                      <thead><tr><th>{{ title }}</th><th class="text-end">Orders</th><th class="text-end">Share</th></tr></thead>
+                      <tbody>
+                      {% for r in rows %}
+                        <tr><td>{{ r.label }}</td><td class="text-end">{{ num(r.orders) }}</td><td class="text-end">{{ pct(r.share) }}</td></tr>
+                      {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </details>
+        {% else %}
+          <p class="text-muted mb-0">No first-time orders in {{ month_label }}.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <p class="text-muted small mb-5">
       A first-time order is a customer's first paid purchase, as the store numbers them. UTM values are shown
       as the store recorded them: <code>undefined</code> means the order carried no UTM, and <code>n/a</code>
@@ -245,6 +355,10 @@
   var selected = {{ report.selected.month | tojson }};
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
   Chart.defaults.color = MUTED;
+  // Charts with names on an axis are drawn once the web font has loaded: the
+  // axis sizes itself to the names as measured, and names measured in the
+  // fallback font come out clipped.
+  var fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
 
   /* The selected month gets a light band behind its bar. */
   var selectedBand = {
@@ -318,8 +432,6 @@
     }
     function shorten(name) { return name.length > 32 ? name.slice(0, 31) + "…" : name; }
     var bar = { borderRadius: 4, borderSkipped: "start", maxBarThickness: 14, categoryPercentage: 0.8, barPercentage: 0.9 };
-    // Drawn once the web font has loaded: the axis sizes itself to the names
-    // as measured, and names measured in the fallback font come out clipped.
     var drawCompare = function () { new Chart(cmpEl, {
       type: "bar",
       data: { labels: cmp.rows.map(function (r) { return r.name; }),
@@ -346,8 +458,109 @@
         }
       }
     }); };
-    (document.fonts ? document.fonts.ready : Promise.resolve()).then(drawCompare);
+    fontsReady.then(drawCompare);
   }
+
+  /* Cities and products: one bar each, largest first, the count and share at
+     the end of the bar; the bar gathering the rest in gray. Chart.js caps the
+     name axis at half the chart's width, so names wrap (up to three lines) to
+     fit that, measured in the page font, and the chart grows with them. */
+  var BAR = {{ bar_colors | tojson }};
+  var LABEL_FONT = "12px " + Chart.defaults.font.family;
+  var measure = document.createElement("canvas").getContext("2d");
+  function textWidth(text) { measure.font = LABEL_FONT; return measure.measureText(text).width; }
+  function wrap(name, maxWidth) {
+    var lines = [], line = "";
+    name.split(" ").forEach(function (word) {
+      var longer = line ? line + " " + word : word;
+      if (line && textWidth(longer) > maxWidth) { lines.push(line); line = word; } else line = longer;
+    });
+    lines.push(line);
+    return lines.length > 3 ? lines.slice(0, 2).concat([lines[2] + "…"]) : lines;
+  }
+  function share(x) { return (x * 100).toFixed(1) + "%"; }
+  function endLabel(r) { return r.orders.toLocaleString() + " · " + share(r.share); }
+  var barEndLabels = {
+    id: "barEndLabels",
+    afterDatasetsDraw: function (chart) {
+      var rows = chart.options.plugins.barEndLabels.rows, ctx = chart.ctx;
+      ctx.save();
+      ctx.font = LABEL_FONT;
+      ctx.fillStyle = MUTED;
+      ctx.textBaseline = "middle";
+      chart.getDatasetMeta(0).data.forEach(function (bar, i) { ctx.fillText(endLabel(rows[i]), bar.x + 6, bar.y); });
+      ctx.restore();
+    }
+  };
+  function rankedBars(id, rows, footer) {
+    var el = document.getElementById(id);
+    if (!el || !rows.length) return;
+    var right = 12 + Math.max.apply(null, rows.map(function (r) { return textWidth(endLabel(r)); }));
+    function nameWidth(chartWidth) { return Math.max(90, (chartWidth - right) / 2 - 16); }
+    var lines = rows.map(function (r) { return wrap(r.name, nameWidth(el.parentNode.clientWidth)).length; });
+    el.parentNode.style.height = 16 + lines.reduce(function (h, n) { return h + 14 + 15 * n; }, 0) + "px";
+    new Chart(el, {
+      type: "bar",
+      data: { labels: rows.map(function (r) { return r.name; }),
+              datasets: [{ data: rows.map(function (r) { return r.orders; }),
+                           backgroundColor: rows.map(function (r) { return r.other ? BAR.rest : BAR.bar; }),
+                           borderRadius: 4, borderSkipped: "start", maxBarThickness: 18,
+                           categoryPercentage: 0.8, barPercentage: 0.9 }] },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        layout: { padding: { right: right } },
+        plugins: {
+          legend: { display: false },
+          barEndLabels: { rows: rows },
+          tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
+                     callbacks: {
+                       title: function (items) { return rows[items[0].dataIndex].name; },
+                       label: function (c) { return " " + c.parsed.x.toLocaleString() + " first-time orders · " + share(rows[c.dataIndex].share); },
+                       footer: function (items) { return footer ? footer(rows[items[0].dataIndex]) : ""; } } }
+        },
+        scales: {
+          x: { display: false, beginAtZero: true },
+          y: { grid: { display: false }, border: { display: false },
+               ticks: { autoSkip: false, color: function (c) { return rows[c.index] && rows[c.index].other ? MUTED : INK; },
+                        callback: function (value, i) { return wrap(rows[i].name, nameWidth(this.chart.width)); } } }
+        }
+      },
+      plugins: [barEndLabels]
+    });
+  }
+  fontsReady.then(function () {
+    rankedBars("citiesChart", {{ report.cities_chart | tojson }});
+    rankedBars("productsChart", {{ report.products_chart | tojson }}, function (r) { return r.sku ? "SKU " + r.sku : ""; });
+  });
+
+  /* Hours and days: one bar each in time order, the counts on a shared look. */
+  var times = {{ report.times | tojson }};
+  function timeBars(id, rows, ticks) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    new Chart(el, {
+      type: "bar",
+      data: { labels: rows.map(function (r) { return r.label; }),
+              datasets: [{ data: rows.map(function (r) { return r.orders; }), backgroundColor: BAR.bar,
+                           borderRadius: 3, borderSkipped: "start", maxBarThickness: 28,
+                           categoryPercentage: 0.85, barPercentage: 0.9 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", padding: 10, cornerRadius: 4,
+                     callbacks: { label: function (c) { return " " + c.parsed.y.toLocaleString() + " first-time orders · " + share(rows[c.dataIndex].share); } } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: MUTED, maxRotation: 0, autoSkip: false, callback: ticks } },
+          y: { beginAtZero: true, grid: { color: GRID }, border: { display: false },
+               ticks: { color: MUTED, precision: 0, callback: function (v) { return v.toLocaleString(); } } }
+        }
+      }
+    });
+  }
+  timeBars("hoursChart", times.hours, function (value, i) { return i % 3 ? "" : String(i).padStart(2, "0"); });
+  timeBars("weekdaysChart", times.weekdays, function (value, i) { return times.weekdays[i].label.slice(0, 3); });
 
   /* Drill-down: a source opens its campaigns, a campaign its contents. Closing
      a row closes everything under it. */
