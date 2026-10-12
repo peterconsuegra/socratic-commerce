@@ -1,7 +1,8 @@
 """
 /first-time-orders: where each customer's first purchase (purchase_number 1)
-came from, by month and by utm_source > utm_campaign > utm_content, and where
-those new customers live, what they bought and when.
+came from, by month and by utm_source > utm_campaign > utm_content, the month
+day by day with weekends and Colombian holidays set apart, and where those new
+customers live, what they bought and when.
 
 Orders are written relative to the current month, so the month a test expects
 by default does not depend on the day it runs. In-memory SQLite; nothing
@@ -268,6 +269,71 @@ class NewCustomersTests(unittest.TestCase):
         self.assertEqual(sum(h["orders"] for h in report["times"]["hours"]), 0)
 
 
+DAYS = [
+    placed("1", "2026-01-01 10:00:00"),                                          # Thursday, New Year's Day
+    placed("2", "2026-01-03 11:00:00", total=50000),                             # Saturday
+    placed("3", "2026-01-05 12:00:00"), placed("4", "2026-01-05 18:00:00"),      # Monday
+    placed("5", "2026-01-12 09:00:00"),                                          # Epiphany, moved to Monday
+    placed("6", "2026-01-12 10:00:00", purchase_number=2),                       # a repeat order: never counted
+    placed("7", "2026-03-10 10:00:00"), placed("8", "2026-03-11 08:00:00"),      # synced on 11 March
+]
+
+
+class DailyTests(unittest.TestCase):
+    """The month day by day, weekends and Colombia's public holidays set apart."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "all_orders.csv")
+        write_orders_csv(DAYS, self.path)
+        os.utime(self.path, (SYNCED_AT, SYNCED_AT))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def daily(self, month):
+        return first_orders_report(self.path, month)["daily"]
+
+    def test_every_day_of_the_month_with_its_kind(self):
+        daily = self.daily("2026-01")
+        days = {d["date"]: d for d in daily["days"]}
+        self.assertEqual(len(days), 31)
+        self.assertEqual((days["2026-01-01"]["type"], days["2026-01-01"]["holiday"]), ("holiday", "New Year's Day"))
+        self.assertEqual((days["2026-01-03"]["type"], days["2026-01-03"]["orders"]), ("weekend", 1))
+        self.assertEqual((days["2026-01-05"]["type"], days["2026-01-05"]["orders"]), ("weekday", 2))
+        self.assertEqual(days["2026-01-06"]["type"], "weekday")  # Epiphany's own date: the holiday moved to Monday
+        self.assertEqual((days["2026-01-12"]["type"], days["2026-01-12"]["orders"]), ("holiday", 1))
+        self.assertEqual(days["2026-01-02"]["orders"], 0)
+        self.assertEqual([(h["short"], h["holiday"]) for h in daily["holidays"]],
+                         [("Thu 1 Jan", "New Year's Day"), ("Mon 12 Jan", "Epiphany (observed)")])
+        self.assertIsNone(daily["through"])
+
+    def test_the_average_day_of_each_kind_against_weekdays(self):
+        weekdays, weekends, holidays = self.daily("2026-01")["averages"]
+        self.assertEqual((weekdays["days"], weekends["days"], holidays["days"]), (20, 9, 2))
+        self.assertAlmostEqual(weekdays["orders"], 2 / 20)
+        self.assertAlmostEqual(weekends["revenue"], 50000 / 9)
+        self.assertAlmostEqual(holidays["orders"], 1.0)
+        self.assertAlmostEqual(holidays["vs_weekdays"]["pct"], (1.0 - 0.1) / 0.1)
+
+    def test_a_month_under_way_counts_its_complete_days_and_shows_the_rest(self):
+        daily = self.daily("2026-03")
+        self.assertEqual(len(daily["days"]), 31)
+        self.assertEqual(daily["complete_days"], 10)
+        self.assertEqual(daily["through"], "10 Mar 2026")
+        self.assertEqual(sum(d["orders"] for d in daily["days"] if d["complete"]), 1)  # 11 March is not complete
+        self.assertEqual((daily["days"][10]["orders"], daily["days"][10]["complete"]), (None, False))
+        # Saint Joseph's Day (Monday 23 March) is still to come: on the calendar, not in the averages.
+        self.assertEqual([(h["short"], h["complete"]) for h in daily["holidays"]], [("Mon 23 Mar", False)])
+        self.assertEqual(daily["averages"][2]["days"], 0)
+        self.assertIsNone(daily["averages"][2]["orders"])
+
+    def test_no_complete_days_yet(self):
+        daily = self.daily(str(CURRENT))
+        self.assertEqual(daily["complete_days"], 0)
+        self.assertIsNone(daily["through"])
+
+
 class FirstTimeOrdersPageTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -327,6 +393,24 @@ class FirstTimeOrdersPageTests(unittest.TestCase):
         empty = self.get(f"?month={CURRENT}")
         self.assertIn(f"When the new customers of {CURRENT} (to date) bought", empty)
         self.assertNotIn('id="citiesChart"', empty)
+
+    def test_page_shows_the_month_day_by_day_with_its_holidays(self):
+        path = self.app.config["ALL_ORDERS_CSV"]
+        write_orders_csv(DAYS, path)
+        os.utime(path, (SYNCED_AT, SYNCED_AT))
+        html = self.get("?month=2026-01")
+        self.assertIn("The new customers of 2026-01, day by day", html)
+        self.assertIn("Mon 12 Jan · Epiphany (observed)", html)
+        self.assertIn("<td>Holiday · New Year&#39;s Day</td>", html)
+        self.assertIn("Holidays · 2 days", html)
+        self.assertIn('id="dailyChart"', html)
+
+        march = self.get("?month=2026-03")
+        self.assertIn("complete days up to 10 Mar 2026", march)
+        self.assertIn("Mon 23 Mar · Saint Joseph&#39;s Day (observed)", march)
+        self.assertIn("none in 2026-03 so far", march)
+
+        self.assertIn(f"No complete days yet in {CURRENT} (to date).", self.get(f"?month={CURRENT}"))
 
     def test_sales_menu_links_first_time_orders_and_repurchase_stats(self):
         html = self.get()

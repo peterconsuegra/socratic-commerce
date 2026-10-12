@@ -5,16 +5,19 @@ store's purchase_number 1), by month, by utm_source, utm_campaign and
 utm_content.
 
 Views of the same orders: a monthly trend by source since UTM tracking began;
-for any month since the first sale, the breakdown source > campaign > content
-and where the new customers live, what they bought and when; and two periods
-side by side ("VS") by one of the UTM fields. UTM values are shown as the
+for any month since the first sale, the breakdown source > campaign > content,
+the month day by day (weekends and Colombian holidays set apart), and where
+the new customers live, what they bought and when; and two periods side by
+side ("VS") by one of the UTM fields. UTM values are shown as the
 store recorded them: "undefined" means the order carried no UTM, and "n/a"
 marks orders from before the store recorded UTMs.
 """
 import logging
 import os
 import threading
+from functools import lru_cache
 
+import holidays
 import pandas as pd
 
 from app.services.get_data import BOGOTA, load_orders
@@ -38,6 +41,9 @@ UTM_COLUMNS = ["utm_source", "utm_campaign", "utm_content"]
 # The city and product charts show this many bars, then one for the rest.
 TOP_BARS = 10
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+# The day-by-day chart's kinds of day. A holiday that falls on a weekend
+# counts as a holiday.
+DAY_TYPES = {"weekday": "Weekdays", "weekend": "Weekends", "holiday": "Holidays"}
 
 _LOCK = threading.Lock()
 _CACHE: dict = {"key": None, "first": None, "orders_by_month": None}
@@ -152,6 +158,57 @@ def _times(orders: pd.DataFrame) -> dict:
     }
 
 
+@lru_cache(maxsize=None)
+def _colombian_holidays(year: int) -> dict:
+    """
+    Colombia's public holidays in a year, {date: name}: the days the law
+    sets, most of them moved to the Monday after (Ley Emiliani).
+    """
+    return dict(holidays.country_holidays("CO", years=year, language="en_US"))
+
+
+def _daily(orders: pd.DataFrame, month: pd.Period, through: pd.Timestamp) -> dict:
+    """
+    The month day by day, each day a weekday, a weekend day or a public
+    holiday in Colombia, with its first-time orders and revenue up to the last
+    complete day (None after it: a month under way still shows the weekends
+    and holidays to come), and the average complete day of each kind,
+    weekends and holidays against weekdays.
+    """
+    days = pd.date_range(month.start_time, month.end_time.normalize(), freq="D")
+    per_day = (orders.groupby("day").agg(orders=("total_value", "size"), revenue=("total_value", "sum"))
+               .reindex(days, fill_value=0))
+    rows = []
+    for day, r in per_day.iterrows():
+        weekday, holiday = WEEKDAYS[day.weekday()], _colombian_holidays(day.year).get(day.date())
+        complete = day <= through
+        rows.append({
+            "date": f"{day:%Y-%m-%d}", "label": f"{weekday} {day.day} {day:%b %Y}",
+            "short": f"{weekday[:3]} {day.day} {day:%b}", "tick": [str(day.day), weekday[:2]],
+            "type": "holiday" if holiday else "weekend" if day.weekday() >= 5 else "weekday",
+            "holiday": holiday, "complete": complete,
+            "orders": int(r.orders) if complete else None, "revenue": float(r.revenue) if complete else None,
+        })
+    complete = [r for r in rows if r["complete"]]
+    averages = []
+    for kind, label in DAY_TYPES.items():
+        of_kind = [r for r in complete if r["type"] == kind]
+        n = len(of_kind)
+        averages.append({"type": kind, "label": label, "days": n,
+                         "orders": sum(r["orders"] for r in of_kind) / n if n else None,
+                         "revenue": sum(r["revenue"] for r in of_kind) / n if n else None})
+    weekdays = averages[0]
+    for a in averages[1:]:
+        a["vs_weekdays"] = _change(a["orders"], weekdays["orders"]) if a["days"] and weekdays["days"] else None
+    return {
+        "days": rows,
+        "complete_days": len(complete),
+        "averages": averages,
+        "holidays": [r for r in rows if r["holiday"]],
+        "through": _label(through, through) if complete and not rows[-1]["complete"] else None,
+    }
+
+
 def _trend(first: pd.DataFrame, months: pd.PeriodIndex) -> dict:
     """First-time orders per month in the fixed series order, for a stacked chart."""
     source = first["utm_source"]
@@ -206,6 +263,7 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
         },
         "trend": _trend(first, months[months >= TREND_START]),
         "breakdown": _breakdown(orders),
+        "daily": _daily(orders, selected, _last_complete_day(orders_csv_path)),
         "cities": cities,
         "cities_chart": _with_rest(cities, "{n} other cities"),
         "products": products,

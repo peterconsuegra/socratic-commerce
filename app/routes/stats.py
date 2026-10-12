@@ -43,6 +43,10 @@ COMPARE_COLORS = {"a": "#0F8B7C", "b": "#A3ACB5"}
 # The city, product and time bars: one hue, and gray for the bar gathering the
 # cities or products beyond the top ones (context, as period B is above).
 BAR_COLORS = {"bar": "#0F8B7C", "rest": "#A3ACB5"}
+# The day-by-day chart shades weekends and holidays behind its bars rather
+# than recolouring them: a gray wash, and an amber one for holidays (checked:
+# the two washes and the card separate, and the bars keep 3:1 on both).
+DAY_BANDS = {"weekend": "rgba(21, 24, 29, 0.08)", "holiday": "rgba(237, 161, 0, 0.30)"}
 # The comparison's query parameters, kept when the month selector changes.
 COMPARE_PARAMS = ("vs", "vs_by", "vs_week", "vs_month", "a_start", "a_end", "b_start", "b_end")
 
@@ -92,8 +96,9 @@ def stats():
 def first_time_orders():
     """
     Where the first-time orders of a month came from (utm_source >
-    utm_campaign > utm_content), where those new customers live, what they
-    bought and when; and two periods side by side.
+    utm_campaign > utm_content), its days with weekends and Colombian holidays
+    set apart, where those new customers live, what they bought and when; and
+    two periods side by side.
     """
     error = None
     report = None
@@ -117,6 +122,6 @@ def first_time_orders():
 
     return render_template(
         "first_time_orders.html", error=error, report=report, compare=compare, colors=SOURCE_COLORS,
-        compare_colors=COMPARE_COLORS, bar_colors=BAR_COLORS,
+        compare_colors=COMPARE_COLORS, bar_colors=BAR_COLORS, day_bands=DAY_BANDS,
         compare_params={k: args[k] for k in COMPARE_PARAMS if args.get(k)},
     )

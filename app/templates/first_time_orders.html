@@ -289,6 +289,57 @@
       </div>
     </div>
 
+    {% set d = report.daily %}
+    <div class="card shadow-sm mb-3" id="daily">
+      <div class="card-header fw-bold">The new customers of {{ month_label }}, day by day
+        <span class="text-muted small fw-normal">· first-time orders each day, weekends and public holidays in Colombia shaded{% if d.through %} · complete days up to {{ d.through }}{% endif %}</span></div>
+      <div class="card-body">
+        {% if d.complete_days %}
+          <div class="row g-2 mb-3">
+            {% for a in d.averages %}
+              {% set label = a.label ~ " · " ~ a.days ~ (" day" if a.days == 1 else " days") %}
+              {% if not a.days %}
+                {{ tile(a.label, "—", "none in " ~ report.selected.month ~ (" so far" if d.through else ""), cols="col-12 col-md-4") }}
+              {% elif a.type == "weekday" %}
+                {{ tile(label, "%.1f a day"|format(a.orders), money(a.revenue) ~ " a day", cols="col-12 col-md-4") }}
+              {% else %}
+                {{ tile(label, "%.1f a day"|format(a.orders), change(a.vs_weekdays) ~ " vs weekdays · " ~ money(a.revenue) ~ " a day", cols="col-12 col-md-4") }}
+              {% endif %}
+            {% endfor %}
+          </div>
+          <div class="d-flex flex-wrap gap-3 small text-muted mb-1">
+            {% for kind, name in [("weekend", "Weekend"), ("holiday", "Public holiday in Colombia")] %}
+              <span><span class="d-inline-block align-middle me-1 rounded-1" style="width:12px; height:12px; background: {{ day_bands[kind] }}; box-shadow: inset 0 0 0 1px rgba(21, 24, 29, 0.15);"></span>{{ name }}</span>
+            {% endfor %}
+          </div>
+          <div style="position:relative; height:260px;"><canvas id="dailyChart" role="img"
+               aria-label="First-time orders each day of the month, weekends and holidays shaded; the table view lists every day"></canvas></div>
+          <p class="small mt-2 mb-0">
+            {% if d.holidays %}<span class="text-muted">Holidays:</span>
+              {% for h in d.holidays %}{{ h.short }} · {{ h.holiday }}{{ "; " if not loop.last }}{% endfor %}
+            {% else %}<span class="text-muted">No public holidays in Colombia in {{ report.selected.month }}.</span>{% endif %}
+          </p>
+          <details class="small mt-2">
+            <summary class="text-muted">Table view · every day</summary>
+            <div class="table-responsive mt-2" style="max-height: 320px;">
+              <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
+                <thead><tr><th>Day</th><th>Kind</th><th class="text-end">Orders</th><th class="text-end">Revenue</th></tr></thead>
+                <tbody>
+                {% for r in d.days if r.complete %}
+                  <tr{% if r.type != "weekday" %} class="table-light"{% endif %}><td>{{ r.label }}</td>
+                    <td>{{ "Holiday · " ~ r.holiday if r.holiday else r.type | capitalize }}</td>
+                    <td class="text-end">{{ num(r.orders) }}</td><td class="text-end text-nowrap">{{ r.revenue | cop }}</td></tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        {% else %}
+          <p class="text-muted mb-0">No complete days yet in {{ month_label }}.</p>
+        {% endif %}
+      </div>
+    </div>
+
     {% set t = report.times %}
     <div class="card shadow-sm mb-3" id="times">
       <div class="card-header fw-bold">When the new customers of {{ month_label }} bought
@@ -350,7 +401,7 @@
 <script>
 (function () {
   var COLORS = {{ colors | tojson }};
-  var INK = "#15181D", MUTED = "#6B7883", GRID = "#E5E9EC", SURFACE = "#FFFFFF";
+  var INK = "#15181D", MUTED = "#6B7883", FADED = "#A3ACB5", GRID = "#E5E9EC", SURFACE = "#FFFFFF";
   var trend = {{ report.trend | tojson }};
   var selected = {{ report.selected.month | tojson }};
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
@@ -561,6 +612,63 @@
   }
   timeBars("hoursChart", times.hours, function (value, i) { return i % 3 ? "" : String(i).padStart(2, "0"); });
   timeBars("weekdaysChart", times.weekdays, function (value, i) { return times.weekdays[i].label.slice(0, 3); });
+
+  /* Day by day: one bar a day in the one hue. Weekends and Colombian holidays
+     are bands shaded behind the bars, so the bars stay one series. */
+  var daily = {{ report.daily | tojson }};
+  var dailyEl = document.getElementById("dailyChart");
+  if (dailyEl && daily.complete_days) {
+    var DAY_BANDS = {{ day_bands | tojson }};
+    var dayBands = {
+      id: "dayBands",
+      beforeDatasetsDraw: function (chart) {
+        var x = chart.scales.x, area = chart.chartArea, ctx = chart.ctx;
+        var step = daily.days.length > 1 ? x.getPixelForValue(1) - x.getPixelForValue(0) : area.right - area.left;
+        ctx.save();
+        daily.days.forEach(function (d, i) {
+          if (!DAY_BANDS[d.type]) return;
+          ctx.fillStyle = DAY_BANDS[d.type];
+          ctx.fillRect(x.getPixelForValue(i) - step / 2, area.top, step, area.bottom - area.top);
+        });
+        ctx.restore();
+      }
+    };
+    function cop(v) { return "COP $" + String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+    new Chart(dailyEl, {
+      type: "bar",
+      data: { labels: daily.days.map(function (d) { return d.tick; }),
+              datasets: [{ data: daily.days.map(function (d) { return d.orders; }), backgroundColor: BAR.bar,
+                           borderRadius: 4, borderSkipped: "start", maxBarThickness: 24,
+                           categoryPercentage: 0.8, barPercentage: 0.9 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
+                     callbacks: {
+                       title: function (items) { return daily.days[items[0].dataIndex].label; },
+                       label: function (c) {
+                         var d = daily.days[c.dataIndex];
+                         return d.complete ? " " + d.orders.toLocaleString() + " first-time orders · " + cop(d.revenue)
+                                           : " Not complete yet";
+                       },
+                       footer: function (items) {
+                         var d = daily.days[items[0].dataIndex];
+                         return d.holiday ? "Holiday: " + d.holiday : d.type === "weekend" ? "Weekend" : "";
+                       } } }
+        },
+        scales: {
+          x: { grid: { display: false },
+               ticks: { maxRotation: 0, autoSkip: true,
+                        color: function (c) { return daily.days[c.index] && !daily.days[c.index].complete ? FADED : MUTED; } } },
+          y: { beginAtZero: true, grid: { color: GRID }, border: { display: false },
+               ticks: { color: MUTED, precision: 0, callback: function (v) { return v.toLocaleString(); } } }
+        }
+      },
+      plugins: [dayBands]
+    });
+  }
 
   /* Drill-down: a source opens its campaigns, a campaign its contents. Closing
      a row closes everything under it. */

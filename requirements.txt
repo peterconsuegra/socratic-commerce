@@ -15,3 +15,4 @@ flask_migrate
 statsmodels
 shapely
 cryptography
+holidays
