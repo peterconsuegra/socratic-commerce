@@ -1,7 +1,9 @@
 # app/routes/common.py
+import fcntl
 import os
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
@@ -183,8 +185,32 @@ _LAST_REFRESH_FAILURE = 0.0
 RETRY_AFTER_FAILURE_SECONDS = int(os.getenv("ALL_ORDERS_RETRY_AFTER_FAILURE_SECONDS", str(10 * 60)))
 
 
-def _refresh_in_background(app):
-    """Start one refresh per worker at a time; a second caller just returns."""
+@contextmanager
+def _sync_lock(wait: bool):
+    """
+    One sync of all_orders.csv at a time across the web workers (processes):
+    a file lock in DATA_DIR. Yields whether this process holds it; with wait,
+    blocks until the sync another worker is running has finished.
+    """
+    path = os.path.join(current_app.config["DATA_DIR"], ".all_orders_sync.lock")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _refresh_in_background(app, max_age_seconds: int | None = None):
+    """
+    Start one refresh per worker at a time; a second caller just returns, and
+    so does the refresh when another worker is syncing or has just synced.
+    """
     if not _REFRESH_LOCK.acquire(blocking=False):
         app.logger.info("all_orders.csv refresh already running; serving the cached file")
         return
@@ -192,7 +218,13 @@ def _refresh_in_background(app):
     def run():
         global _LAST_REFRESH_FAILURE
         try:
-            with app.app_context():
+            with app.app_context(), _sync_lock(wait=False) as holding:
+                if not holding:
+                    app.logger.info("all_orders.csv is being refreshed by another worker")
+                    return
+                if not should_refresh_all_orders(max_age_seconds=max_age_seconds):
+                    app.logger.info("all_orders.csv was just refreshed by another worker")
+                    return
                 app.logger.info("Refreshing all_orders.csv from API in the background")
                 generate_all_orders_csv()
                 app.logger.info("all_orders.csv refreshed and cached")
@@ -223,13 +255,20 @@ def refresh_all_orders_if_needed(force: bool = False, max_age_seconds: int | Non
         if time.time() - _LAST_REFRESH_FAILURE < RETRY_AFTER_FAILURE_SECONDS:
             current_app.logger.info("all_orders.csv refresh failed recently; serving the cached file")
             return
-        _refresh_in_background(current_app._get_current_object())
+        _refresh_in_background(current_app._get_current_object(), max_age_seconds)
         return
 
     current_app.logger.info("Refreshing all_orders.csv from API")
 
+    # A first sync waits for one another worker is running (at its start, see
+    # start_orders_sync_if_needed) and uses it, rather than fetching the whole
+    # history a second time.
     try:
-        generate_all_orders_csv()
+        with _sync_lock(wait=True):
+            if not force and not should_refresh_all_orders(max_age_seconds=max_age_seconds):
+                current_app.logger.info("all_orders.csv was refreshed by another worker")
+                return
+            generate_all_orders_csv()
     except Exception as e:
         current_app.logger.exception("Failed to refresh all_orders.csv")
         # If we already have a usable (if slightly stale) CSV, serve it rather
@@ -248,6 +287,18 @@ def refresh_all_orders_if_needed(force: bool = False, max_age_seconds: int | Non
         return
 
     raise FileNotFoundError(f"Could not generate required file: {csv_path}")
+
+
+def start_orders_sync_if_needed(app):
+    """
+    At a web worker's start (gunicorn.conf.py): sync the orders in the
+    background when the file is missing or older than the API allows. After a
+    deploy the disk is empty, and the first request would otherwise wait for
+    the whole history; this way the workers start the one sync themselves.
+    """
+    with app.app_context():
+        if should_refresh_all_orders(max_age_seconds=API_ORDERS_MAX_AGE_SECONDS):
+            _refresh_in_background(app, API_ORDERS_MAX_AGE_SECONDS)
 
 
 def admin_required(view_func):

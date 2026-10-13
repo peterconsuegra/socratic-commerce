@@ -1,0 +1,34 @@
+{#- app/templates/partials/api_custom_range.html
+    The API playgrounds' custom period: since and until, shown while the
+    "Custom" period button is picked. Pages add customRangeQuery(period) to
+    the request URL. -#}
+<div class="row g-2 mb-3 align-items-end" id="customRange" hidden>
+  <div class="col-auto">
+    <label class="form-label small text-muted mb-1" for="since">since</label>
+    <input type="date" id="since" class="form-control form-control-sm">
+  </div>
+  <div class="col-auto">
+    <label class="form-label small text-muted mb-1" for="until">until</label>
+    <input type="date" id="until" class="form-control form-control-sm">
+  </div>
+  <div class="col small text-muted">
+    Bogotá days, both included · at most 366 days · <code>until</code> no later than today.
+    The answer comes under <code>periods.custom</code>, its <code>start_date</code> and <code>end_date</code> these dates.
+  </div>
+</div>
+<script>
+  /* The since/until query for the custom period ("" for a preset). */
+  function customRangeQuery(period) {
+    if (period !== "custom") return "";
+    return "&since=" + encodeURIComponent(document.getElementById("since").value)
+         + "&until=" + encodeURIComponent(document.getElementById("until").value);
+  }
+  (function () {
+    /* Last month by default. */
+    const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    document.getElementById("since").value = iso(first);
+    document.getElementById("until").value = iso(last);
+  })();
+</script>

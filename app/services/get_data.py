@@ -16,6 +16,7 @@ ones, a new order can merge two customers), so a sync always overwrites.
 import csv
 import os
 import re
+import threading
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -357,6 +358,22 @@ def orders_file_is_current(csv_path: str) -> bool:
     return {"purchase_number", "is_repurchase"} <= set(header)
 
 
+# Parsed order files by path, (file version, frame): pages and API calls read
+# the same file many times between syncs, and parsing its 60,000 rows costs
+# more than most of what they compute from it. Each caller gets a shallow copy
+# (pandas copy-on-write keeps its edits off the cached frame). Two files at
+# most: the full history and the latest date-range file.
+_PARSED: dict[str, tuple[tuple, pd.DataFrame]] = {}
+_PARSED_LOCK = threading.Lock()
+_PARSED_MAX_FILES = 2
+
+
+def orders_as_of(csv_path: str) -> str:
+    """When an order file was last written, as naive Colombia time (ISO 8601, seconds)."""
+    synced = datetime.fromtimestamp(os.path.getmtime(csv_path), BOGOTA)
+    return synced.replace(tzinfo=None).isoformat(timespec="seconds")
+
+
 def load_orders(csv_path: str) -> pd.DataFrame:
     """
     An order CSV as a DataFrame, one row per paid order:
@@ -373,9 +390,16 @@ def load_orders(csv_path: str) -> pd.DataFrame:
 
     Raises OutdatedOrdersFile for a file written before those fields existed:
     the refresh that replaces it is already due (see orders_file_is_current).
+    Parsed once per file version (see _PARSED).
     """
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Orders data file not found: {csv_path}")
+    path = os.path.abspath(csv_path)
+    stat = os.stat(path)
+    version = (stat.st_mtime_ns, stat.st_size)
+    cached = _PARSED.get(path)
+    if cached and cached[0] == version:
+        return cached[1].copy(deep=False)
     if not orders_file_is_current(csv_path):
         raise OutdatedOrdersFile(
             f"{os.path.basename(csv_path)} was saved before the store sent each order's "
@@ -390,4 +414,9 @@ def load_orders(csv_path: str) -> pd.DataFrame:
     data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
     data["purchase_number"] = pd.to_numeric(data["purchase_number"], errors="coerce")
     data["is_repurchase"] = data["is_repurchase"].str.lower().eq("true")
-    return data
+    with _PARSED_LOCK:
+        _PARSED.pop(path, None)
+        _PARSED[path] = (version, data)
+        while len(_PARSED) > _PARSED_MAX_FILES:
+            _PARSED.pop(next(iter(_PARSED)))
+    return data.copy(deep=False)

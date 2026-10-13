@@ -1,7 +1,8 @@
 # app/services/utm_campaign_summary.py
 """
-Total sales and repurchase percentage grouped by utm_campaign, for a set of
-trailing time windows (Today, Last 7/30/90/180 days).
+Total sales and repurchase percentage grouped by utm_campaign, for the
+trailing time windows (Today, Last 7/30/90/180 days) or a custom range of days
+(see periods.py).
 
 This is the utm_campaign counterpart of utm_source_summary (which groups by
 utm_source). A "repurchase" is an order the store flags is_repurchase, as
@@ -15,36 +16,14 @@ import logging
 
 import pandas as pd
 
-from app.services.get_data import load_orders
+from app.services.get_data import load_orders, orders_as_of
+from app.services.periods import TIMEZONE, now_bogota_naive, resolve_windows
 
 from app.services.facebook_insights import _normalize_city, _normalize_gender
 
 logger = logging.getLogger(__name__)
 
-# period key -> days subtracted from today for the window start: window is
-# [today - N, now], today-inclusive (PYS "last N days" convention). "today" = 0.
-PERIODS: dict[str, int] = {
-    "today": 0,
-    "last_7d": 7,
-    "last_30d": 30,
-    "last_90d": 90,
-    "last_180d": 180,
-}
-
-LABELS = {
-    "today": "Today",
-    "last_7d": "Last 7 days",
-    "last_30d": "Last 30 days",
-    "last_90d": "Last 90 days",
-    "last_180d": "Last 180 days",
-}
-
 DEFAULT_LIMIT = 50
-
-
-def _now_bogota_naive() -> pd.Timestamp:
-    """Current Bogota time as a timezone-naive Timestamp (data is Bogota GMT-5)."""
-    return pd.Timestamp.now(tz="America/Bogota").tz_localize(None)
 
 
 def _normalize_campaign(series: pd.Series) -> pd.Series:
@@ -227,40 +206,33 @@ def get_utm_campaign_summary(
     period: str = "all",
     orders_csv_path: str = "data/all_orders.csv",
     limit: int = DEFAULT_LIMIT,
+    since: str | None = None,
+    until: str | None = None,
 ) -> dict:
     """
     Returns total sales and repurchase percentage grouped by utm_campaign.
 
     Args:
-        period: one of PERIODS keys or "all".
+        period: one of periods.PERIODS keys, "all", or "custom" for since to
+            until (YYYY-MM-DD Bogotá days, both included).
         orders_csv_path: path to the all-orders CSV.
         limit: max campaigns returned per period (top N by sales); the rest are
             rolled up into "others". Pass 0 to return every campaign.
-    """
-    period = (period or "all").strip().lower()
-    if period != "all" and period not in PERIODS:
-        raise ValueError(
-            f"Invalid period '{period}'. Valid values: {['all'] + list(PERIODS)}"
-        )
 
+    Raises periods.PeriodError for a period it cannot answer.
+    """
+    now = now_bogota_naive()
+    windows = resolve_windows(period, since, until, now)
     data = _load_orders(orders_csv_path)
 
-    now = _now_bogota_naive()
-    today = now.normalize()
-    selected = list(PERIODS) if period == "all" else [period]
-
-    out: dict = {"generated_at": now.isoformat(), "periods": {}}
-    for key in selected:
-        days = PERIODS[key]
-        start = today - pd.Timedelta(days=days)
-        window = data[(data["order_date"] >= start) & (data["order_date"] <= now)].copy()
-
-        out["periods"][key] = {
-            "label": LABELS[key],
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": today.strftime("%Y-%m-%d"),
-            **_summarize_window(window, limit),
-        }
+    out: dict = {
+        "generated_at": now.isoformat(),
+        "timezone": TIMEZONE,
+        "orders_as_of": orders_as_of(orders_csv_path),
+        "periods": {},
+    }
+    for window in windows:
+        out["periods"][window.key] = {**window.describe(), **_summarize_window(window.orders(data, now), limit)}
 
     return out
 
@@ -273,6 +245,8 @@ WATI_CAMPAIGN = "wati"
 def get_wati_summary(
     period: str = "all",
     orders_csv_path: str = "data/all_orders.csv",
+    since: str | None = None,
+    until: str | None = None,
 ) -> dict:
     """
     Same metrics as get_utm_campaign_summary but scoped to the single
@@ -288,37 +262,29 @@ def get_wati_summary(
     loader, window and helpers are reused.
 
     Args:
-        period: one of PERIODS keys or "all".
+        period: one of periods.PERIODS keys, "all", or "custom" for since to
+            until (YYYY-MM-DD Bogotá days, both included).
         orders_csv_path: path to the all-orders CSV.
-    """
-    period = (period or "all").strip().lower()
-    if period != "all" and period not in PERIODS:
-        raise ValueError(
-            f"Invalid period '{period}'. Valid values: {['all'] + list(PERIODS)}"
-        )
 
+    Raises periods.PeriodError for a period it cannot answer.
+    """
+    now = now_bogota_naive()
+    windows = resolve_windows(period, since, until, now)
     data = _load_orders(orders_csv_path)
     # Case-insensitive match, consistent with how the campaign labels are shown.
-    data = data[data["utm_campaign_norm"].str.lower() == WATI_CAMPAIGN].copy()
-
-    now = _now_bogota_naive()
-    today = now.normalize()
-    selected = list(PERIODS) if period == "all" else [period]
+    data = data[data["utm_campaign_norm"].str.lower() == WATI_CAMPAIGN]
 
     out: dict = {
         "generated_at": now.isoformat(),
+        "timezone": TIMEZONE,
+        "orders_as_of": orders_as_of(orders_csv_path),
         "utm_campaign": WATI_CAMPAIGN,
         "periods": {},
     }
-    for key in selected:
-        days = PERIODS[key]
-        start = today - pd.Timedelta(days=days)
-        window = data[(data["order_date"] >= start) & (data["order_date"] <= now)].copy()
-
-        out["periods"][key] = {
-            "label": LABELS[key],
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": today.strftime("%Y-%m-%d"),
+    for w in windows:
+        window = w.orders(data, now)
+        out["periods"][w.key] = {
+            **w.describe(),
             "totals": _metrics(
                 window["total_value"].sum(),
                 len(window),

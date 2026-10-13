@@ -1,13 +1,20 @@
 # app/routes/api.py
+"""
+The JSON API that ROAS Link and its MCP methods read: sales and repurchases by
+utm_source, utm_campaign and utm_content (and WATI alone), for the trailing
+presets or a custom range of Bogotá days (app/services/periods.py). Every
+summary says its timezone and how fresh its orders are (orders_as_of).
+"""
 import logging
 
 from flask import current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
+from app.services.periods import ALL, PERIODS, PeriodError, resolve_windows
 from app.services.utm_campaign_insights import get_utm_campaign_insights
 from app.services.utm_campaign_summary import get_utm_campaign_summary, get_wati_summary
 from app.services.utm_content_summary import CampaignNotFound, get_utm_content_summary
-from app.services.utm_source_summary import PERIODS, get_utm_source_summary
+from app.services.utm_source_summary import get_utm_source_summary
 
 from . import main
 from .common import (
@@ -22,6 +29,21 @@ logger = logging.getLogger(__name__)
 def _wants_fresh() -> bool:
     """True when the caller asks to bypass the orders cache (?refresh=true)."""
     return (request.args.get("refresh", "") or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _window_args() -> dict:
+    """
+    period, since and until from the query, as the summaries take them;
+    checked before the orders are touched. Raises PeriodError (a 400, its
+    message for the caller) for a request no window answers.
+    """
+    args = {
+        "period": request.args.get("period", ALL),
+        "since": request.args.get("since"),
+        "until": request.args.get("until"),
+    }
+    resolve_windows(**args)
+    return args
 
 
 def _refresh_orders():
@@ -107,26 +129,32 @@ def api_utm_source_summary():
 
     Query params:
         period: one of "today", "last_7d", "last_30d", "last_90d",
-                "last_180d", or "all" (default) to return every period.
+                "last_180d", "all" (default) to return every one of those,
+                or "custom" for since to until.
+        since, until: with period=custom, and only then (required): the
+                first and last Bogotá days as YYYY-MM-DD, both included; at
+                most 366 days, until no later than today. The period comes
+                back under "custom", its start_date and end_date the same
+                dates.
 
         refresh: "true" to bypass the orders cache and fetch the latest
                 orders before computing (default: use cache, ~1h TTL).
 
-    Example: GET /api/utm_source_summary?period=last_30d
-    """
-    period = (request.args.get("period", "all") or "all").strip().lower()
+    Each response also carries timezone ("America/Bogota") and orders_as_of,
+    when the orders were last synced from the store (Bogotá time).
 
-    valid = ["all"] + list(PERIODS)
-    if period not in valid:
-        return jsonify({
-            "status": "error",
-            "message": f"Invalid period '{period}'. Valid values: {valid}",
-        }), 400
+    Examples: GET /api/utm_source_summary?period=last_30d
+              GET /api/utm_source_summary?period=custom&since=2026-01-01&until=2026-01-31
+    """
+    try:
+        window_args = _window_args()
+    except PeriodError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     try:
         _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
-        result = get_utm_source_summary(period=period, orders_csv_path=orders_csv)
+        result = get_utm_source_summary(orders_csv_path=orders_csv, **window_args)
 
         return jsonify({"status": "success", **result}), 200
 
@@ -199,7 +227,13 @@ def api_utm_campaign_summary():
 
     Query params:
         period: one of "today", "last_7d", "last_30d", "last_90d",
-                "last_180d", or "all" (default) to return every period.
+                "last_180d", "all" (default) to return every one of those,
+                or "custom" for since to until.
+        since, until: with period=custom, and only then (required): the
+                first and last Bogotá days as YYYY-MM-DD, both included; at
+                most 366 days, until no later than today. The period comes
+                back under "custom", its start_date and end_date the same
+                dates.
         limit: max campaigns per period (top N by sales); the rest are rolled
                 up into "others". Pass 0 for all campaigns. Default 50.
 
@@ -208,14 +242,10 @@ def api_utm_campaign_summary():
 
     Example: GET /api/utm_campaign_summary?period=last_30d&limit=20
     """
-    period = (request.args.get("period", "all") or "all").strip().lower()
-
-    valid = ["all"] + list(PERIODS)
-    if period not in valid:
-        return jsonify({
-            "status": "error",
-            "message": f"Invalid period '{period}'. Valid values: {valid}",
-        }), 400
+    try:
+        window_args = _window_args()
+    except PeriodError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     try:
         limit = int(request.args.get("limit", 50))
@@ -229,9 +259,9 @@ def api_utm_campaign_summary():
         _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_campaign_summary(
-            period=period,
             orders_csv_path=orders_csv,
             limit=limit,
+            **window_args,
         )
 
         return jsonify({"status": "success", **result}), 200
@@ -255,25 +285,27 @@ def api_wati_summary():
 
     Query params:
         period: one of "today", "last_7d", "last_30d", "last_90d",
-                "last_180d", or "all" (default) to return every period.
+                "last_180d", "all" (default) to return every one of those,
+                or "custom" for since to until.
+        since, until: with period=custom, and only then (required): the
+                first and last Bogotá days as YYYY-MM-DD, both included; at
+                most 366 days, until no later than today. The period comes
+                back under "custom", its start_date and end_date the same
+                dates.
         refresh: "true" to bypass the orders cache and fetch the latest
                 orders before computing (default: use cache, ~1h TTL).
 
     Example: GET /api/wati_summary?period=last_30d
     """
-    period = (request.args.get("period", "all") or "all").strip().lower()
-
-    valid = ["all"] + list(PERIODS)
-    if period not in valid:
-        return jsonify({
-            "status": "error",
-            "message": f"Invalid period '{period}'. Valid values: {valid}",
-        }), 400
+    try:
+        window_args = _window_args()
+    except PeriodError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     try:
         _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
-        result = get_wati_summary(period=period, orders_csv_path=orders_csv)
+        result = get_wati_summary(orders_csv_path=orders_csv, **window_args)
 
         return jsonify({"status": "success", **result}), 200
 
@@ -299,7 +331,13 @@ def api_utm_content_summary():
                 case-insensitively against utm_campaign (use the value returned
                 by /api/utm_campaign_summary).
         period: one of "today", "last_7d", "last_30d", "last_90d",
-                "last_180d", or "all" (default) to return every period.
+                "last_180d", "all" (default) to return every one of those,
+                or "custom" for since to until.
+        since, until: with period=custom, and only then (required): the
+                first and last Bogotá days as YYYY-MM-DD, both included; at
+                most 366 days, until no later than today. The period comes
+                back under "custom", its start_date and end_date the same
+                dates.
         limit: max utm_content rows per period (top N by sales); the rest are
                 rolled up into "others". Pass 0 for all. Default 50.
         refresh: "true" to bypass the orders cache and fetch the latest
@@ -314,14 +352,10 @@ def api_utm_content_summary():
             "message": "campaign_name is required.",
         }), 400
 
-    period = (request.args.get("period", "all") or "all").strip().lower()
-
-    valid = ["all"] + list(PERIODS)
-    if period not in valid:
-        return jsonify({
-            "status": "error",
-            "message": f"Invalid period '{period}'. Valid values: {valid}",
-        }), 400
+    try:
+        window_args = _window_args()
+    except PeriodError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     try:
         limit = int(request.args.get("limit", 50))
@@ -336,9 +370,9 @@ def api_utm_content_summary():
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_content_summary(
             campaign_name=campaign_name,
-            period=period,
             orders_csv_path=orders_csv,
             limit=limit,
+            **window_args,
         )
 
         return jsonify({"status": "success", **result}), 200

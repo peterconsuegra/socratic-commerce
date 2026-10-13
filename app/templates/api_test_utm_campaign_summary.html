@@ -21,7 +21,9 @@
         <button type="button" class="btn btn-outline-primary" data-period="last_30d">Last 30 days</button>
         <button type="button" class="btn btn-outline-primary" data-period="last_90d">Last 90 days</button>
         <button type="button" class="btn btn-outline-primary" data-period="last_180d">Last 180 days</button>
+        <button type="button" class="btn btn-outline-primary" data-period="custom">Custom</button>
       </div>
+      {% include "partials/api_custom_range.html" %}
 
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <label class="small text-muted mb-0">Top N campaigns
@@ -73,7 +75,8 @@
 
   function buildUrl() {
     const lim = encodeURIComponent($limit.value === "" ? "50" : $limit.value);
-    return ENDPOINT + "?period=" + encodeURIComponent(selectedPeriod) + "&limit=" + lim;
+    return ENDPOINT + "?period=" + encodeURIComponent(selectedPeriod) + customRangeQuery(selectedPeriod)
+         + "&limit=" + lim;
   }
   function refreshUrlPreview() { $reqUrl.textContent = buildUrl(); }
 
@@ -83,8 +86,10 @@
     selectedPeriod = btn.dataset.period;
     $buttons.querySelectorAll("button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
+    document.getElementById("customRange").hidden = selectedPeriod !== "custom";
     refreshUrlPreview();
   });
+  document.querySelectorAll("#customRange input").forEach(i => i.addEventListener("input", refreshUrlPreview));
   $limit.addEventListener("input", refreshUrlPreview);
 
   const copFmt = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });

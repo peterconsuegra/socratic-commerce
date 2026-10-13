@@ -1,7 +1,8 @@
 # app/services/utm_content_summary.py
 """
 Total sales and repurchase percentage grouped by utm_content, for a single
-utm_campaign, across the trailing time windows (Today, Last 7/30/90/180 days).
+utm_campaign, across the trailing time windows (Today, Last 7/30/90/180 days)
+or a custom range of days (see periods.py).
 
 This is the drill-down counterpart of utm_campaign_summary: that endpoint lists
 campaigns, this one breaks a single campaign down by its utm_content values.
@@ -11,29 +12,12 @@ import logging
 
 import pandas as pd
 
-from app.services.get_data import load_orders
+from app.services.get_data import load_orders, orders_as_of
+from app.services.periods import TIMEZONE, now_bogota_naive, resolve_windows
 
 from app.services.facebook_insights import _normalize_gender
 
 logger = logging.getLogger(__name__)
-
-# period key -> days subtracted from today for the window start: window is
-# [today - N, now], today-inclusive (PYS "last N days" convention). "today" = 0.
-PERIODS: dict[str, int] = {
-    "today": 0,
-    "last_7d": 7,
-    "last_30d": 30,
-    "last_90d": 90,
-    "last_180d": 180,
-}
-
-LABELS = {
-    "today": "Today",
-    "last_7d": "Last 7 days",
-    "last_30d": "Last 30 days",
-    "last_90d": "Last 90 days",
-    "last_180d": "Last 180 days",
-}
 
 DEFAULT_LIMIT = 50
 
@@ -45,11 +29,6 @@ class CampaignNotFound(Exception):
         self.campaign_name = campaign_name
         self.suggestions = suggestions
         super().__init__(f"No campaign matching '{campaign_name}' was found.")
-
-
-def _now_bogota_naive() -> pd.Timestamp:
-    """Current Bogota time as a timezone-naive Timestamp (data is Bogota GMT-5)."""
-    return pd.Timestamp.now(tz="America/Bogota").tz_localize(None)
 
 
 def _normalize_label(series: pd.Series) -> pd.Series:
@@ -203,6 +182,8 @@ def get_utm_content_summary(
     period: str = "all",
     orders_csv_path: str = "data/all_orders.csv",
     limit: int = DEFAULT_LIMIT,
+    since: str | None = None,
+    until: str | None = None,
 ) -> dict:
     """
     Returns total sales and repurchase percentage grouped by utm_content for a
@@ -212,45 +193,33 @@ def get_utm_content_summary(
         campaign_name: the campaign to break down (case-insensitive exact match
             on the trimmed utm_campaign value, as returned by
             /api/utm_campaign_summary).
-        period: one of PERIODS keys or "all".
+        period: one of periods.PERIODS keys, "all", or "custom" for since to
+            until (YYYY-MM-DD Bogotá days, both included).
         orders_csv_path: path to the all-orders CSV.
         limit: max utm_content rows per period (top N by sales); the rest are
             rolled up into "others". Pass 0 to return every value.
 
     Raises:
+        periods.PeriodError: for a period it cannot answer.
         CampaignNotFound: if no orders match campaign_name.
     """
-    period = (period or "all").strip().lower()
-    if period != "all" and period not in PERIODS:
-        raise ValueError(
-            f"Invalid period '{period}'. Valid values: {['all'] + list(PERIODS)}"
-        )
-
+    now = now_bogota_naive()
+    windows = resolve_windows(period, since, until, now)
     data = _load_orders(orders_csv_path)
     resolved = _resolve_campaign(data, campaign_name)
-    campaign_data = data[data["utm_campaign_norm"] == resolved].copy()
-
-    now = _now_bogota_naive()
-    today = now.normalize()
-    selected = list(PERIODS) if period == "all" else [period]
+    campaign_data = data[data["utm_campaign_norm"] == resolved]
 
     out: dict = {
         "generated_at": now.isoformat(),
+        "timezone": TIMEZONE,
+        "orders_as_of": orders_as_of(orders_csv_path),
         "utm_campaign": resolved,
         "periods": {},
     }
-    for key in selected:
-        days = PERIODS[key]
-        start = today - pd.Timedelta(days=days)
-        window = campaign_data[
-            (campaign_data["order_date"] >= start) & (campaign_data["order_date"] <= now)
-        ].copy()
-
-        out["periods"][key] = {
-            "label": LABELS[key],
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": today.strftime("%Y-%m-%d"),
-            **_summarize_window(window, limit),
+    for window in windows:
+        out["periods"][window.key] = {
+            **window.describe(),
+            **_summarize_window(window.orders(campaign_data, now), limit),
         }
 
     return out

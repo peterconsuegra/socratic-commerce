@@ -1,7 +1,8 @@
 # app/services/utm_source_summary.py
 """
-Total sales and repurchase percentage grouped by utm_source, for a set of
-trailing time windows (Today, Last 7/30/90/180 days).
+Total sales and repurchase percentage grouped by utm_source, for the trailing
+time windows (Today, Last 7/30/90/180 days) or a custom range of days (see
+periods.py).
 
 A "repurchase" is an order the store flags is_repurchase: the customer's
 second or later paid purchase across their whole history, so a time window
@@ -11,24 +12,10 @@ import logging
 
 import pandas as pd
 
-from app.services.get_data import load_orders
+from app.services.get_data import load_orders, orders_as_of
+from app.services.periods import TIMEZONE, now_bogota_naive, resolve_windows
 
 logger = logging.getLogger(__name__)
-
-# period key -> days subtracted from today for the window start: window is
-# [today - N, now], today-inclusive (PYS "last N days" convention). "today" = 0.
-PERIODS: dict[str, int] = {
-    "today": 0,
-    "last_7d": 7,
-    "last_30d": 30,
-    "last_90d": 90,
-    "last_180d": 180,
-}
-
-
-def _now_bogota_naive() -> pd.Timestamp:
-    """Current Bogota time as a timezone-naive Timestamp (data is Bogota GMT-5)."""
-    return pd.Timestamp.now(tz="America/Bogota").tz_localize(None)
 
 
 def _normalize_utm_source(series: pd.Series) -> pd.Series:
@@ -106,18 +93,27 @@ def _summarize_window(window: pd.DataFrame) -> dict:
 def get_utm_source_summary(
     period: str = "all",
     orders_csv_path: str = "data/all_orders.csv",
+    since: str | None = None,
+    until: str | None = None,
 ) -> dict:
     """
     Returns total sales and repurchase percentage grouped by utm_source.
 
     Args:
-        period: one of PERIODS keys ("today", "last_7d", "last_30d",
-                "last_90d", "last_180d") or "all" to return every period.
+        period: one of periods.PERIODS keys ("today", "last_7d", "last_30d",
+                "last_90d", "last_180d"), "all" to return every one, or
+                "custom" for since to until.
         orders_csv_path: path to the all-orders CSV.
+        since, until: with period "custom" only, the first and last Bogotá
+                days (YYYY-MM-DD), both included.
+
+    Raises periods.PeriodError for a period it cannot answer.
 
     Returns a dict shaped as:
         {
           "generated_at": "<ISO Bogota time>",
+          "timezone": "America/Bogota",
+          "orders_as_of": "<ISO Bogota time the orders were last synced>",
           "periods": {
              "last_30d": {
                 "label": "Last 30 days",
@@ -131,40 +127,19 @@ def get_utm_source_summary(
              ...
           }
         }
+        (a custom period comes under "custom", labelled "YYYY-MM-DD – YYYY-MM-DD")
     """
-    period = (period or "all").strip().lower()
-    if period != "all" and period not in PERIODS:
-        raise ValueError(
-            f"Invalid period '{period}'. Valid values: {['all'] + list(PERIODS)}"
-        )
-
+    now = now_bogota_naive()
+    windows = resolve_windows(period, since, until, now)
     data = _load_orders(orders_csv_path)
 
-    now = _now_bogota_naive()
-    today = now.normalize()
-
-    labels = {
-        "today": "Today",
-        "last_7d": "Last 7 days",
-        "last_30d": "Last 30 days",
-        "last_90d": "Last 90 days",
-        "last_180d": "Last 180 days",
+    out: dict = {
+        "generated_at": now.isoformat(),
+        "timezone": TIMEZONE,
+        "orders_as_of": orders_as_of(orders_csv_path),
+        "periods": {},
     }
-
-    selected = list(PERIODS) if period == "all" else [period]
-
-    out: dict = {"generated_at": now.isoformat(), "periods": {}}
-    for key in selected:
-        days = PERIODS[key]
-        start = today - pd.Timedelta(days=days)
-        window = data[(data["order_date"] >= start) & (data["order_date"] <= now)].copy()
-
-        summary = _summarize_window(window)
-        out["periods"][key] = {
-            "label": labels[key],
-            "start_date": start.strftime("%Y-%m-%d"),
-            "end_date": today.strftime("%Y-%m-%d"),
-            **summary,
-        }
+    for window in windows:
+        out["periods"][window.key] = {**window.describe(), **_summarize_window(window.orders(data, now))}
 
     return out
