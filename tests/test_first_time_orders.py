@@ -23,9 +23,9 @@ os.environ["DATABASE_URL"] = "sqlite://"
 
 from app import create_app, db  # noqa: E402
 from app.models import User  # noqa: E402
-from app.services.first_orders import (  # noqa: E402
+from app.services.orders_by_kind import (  # noqa: E402
     COMPARE_TOP, NO_UTM_SERIES, OTHER_SERIES, TOP_BARS, TREND_SOURCES, TREND_START, compare_periods,
-    first_orders_report,
+    orders_report,
 )
 from app.services.get_data import BOGOTA, write_orders_csv  # noqa: E402
 
@@ -66,14 +66,14 @@ class FirstOrdersReportTests(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def test_defaults_to_the_last_complete_month_and_counts_first_orders_only(self):
-        report = first_orders_report(self.path)
+        report = orders_report(self.path, "first")
         self.assertEqual(report["selected"], {"month": str(LAST), "partial": False})
         self.assertEqual(report["kpis"]["orders"], 5)
         self.assertEqual(report["kpis"]["all_orders"], 6)
         self.assertEqual(report["kpis"]["revenue"], 450000.0)
 
     def test_breakdown_nests_source_campaign_content_largest_first(self):
-        breakdown = first_orders_report(self.path)["breakdown"]
+        breakdown = orders_report(self.path, "first")["breakdown"]
         self.assertEqual([(s["name"], s["orders"]) for s in breakdown], [("facebook", 3), ("undefined", 1), ("wati", 1)])
         facebook = breakdown[0]
         self.assertEqual([(c["name"], c["orders"]) for c in facebook["campaigns"]], [("Prospecting", 2), ("Retargeting", 1)])
@@ -81,11 +81,11 @@ class FirstOrdersReportTests(unittest.TestCase):
         self.assertAlmostEqual(facebook["share"], 3 / 5)
 
     def test_another_month_can_be_chosen_and_a_bad_one_falls_back(self):
-        self.assertEqual(first_orders_report(self.path, str(CURRENT))["breakdown"][0]["name"], "google")
-        self.assertEqual(first_orders_report(self.path, "2099-13")["selected"]["month"], str(LAST))
+        self.assertEqual(orders_report(self.path, "first", str(CURRENT))["breakdown"][0]["name"], "google")
+        self.assertEqual(orders_report(self.path, "first", "2099-13")["selected"]["month"], str(LAST))
 
     def test_trend_keeps_a_fixed_series_order_and_groups_the_rest(self):
-        trend = first_orders_report(self.path)["trend"]
+        trend = orders_report(self.path, "first")["trend"]
         self.assertEqual([s["name"] for s in trend["series"]], [*TREND_SOURCES, OTHER_SERIES, NO_UTM_SERIES])
         self.assertEqual(trend["months"], [str(LAST - 1), str(LAST), str(CURRENT)])
         counts = {s["name"]: s["counts"] for s in trend["series"]}
@@ -103,11 +103,11 @@ class TrendStartTests(unittest.TestCase):
             before = TREND_START - 1
             write_orders_csv([order("1", before, "n/a", "N/A", "N/A"), *ORDERS], path)
 
-            trend = first_orders_report(path)["trend"]
+            trend = orders_report(path, "first")["trend"]
             self.assertEqual(trend["months"][0], str(TREND_START))
             self.assertEqual(sum(sum(s["counts"]) for s in trend["series"]), 7)  # every first order but the old one
 
-            old = first_orders_report(path, str(before))
+            old = orders_report(path, "first", str(before))
             self.assertEqual(old["selected"]["month"], str(before))
             self.assertEqual([s["name"] for s in old["breakdown"]], ["n/a"])
 
@@ -149,37 +149,37 @@ class ComparePeriodsTests(unittest.TestCase):
         return [(r["name"], r["a"], r["b"]) for r in result["rows"]]
 
     def test_month_defaults_to_the_last_complete_month_against_the_one_before(self):
-        result = compare_periods(self.path, mode="month")
+        result = compare_periods(self.path, "first", mode="month")
         self.assertEqual((result["a"]["label"], result["b"]["label"]), ("February 2026", "January 2026"))
         self.assertEqual(self.rows(result), [("facebook", 3, 1), ("wati", 1, 0), ("google", 0, 2)])
         self.assertEqual(result["kpis"]["orders"], {"a": 4, "b": 3, "pct": 1 / 3})
         self.assertEqual(result["through"], "10 Mar 2026")
 
     def test_a_month_under_way_meets_the_same_days_of_the_one_before(self):
-        result = compare_periods(self.path, mode="month", month="2026-03")
+        result = compare_periods(self.path, "first", mode="month", month="2026-03")
         self.assertEqual((result["a"]["label"], result["b"]["label"]), ("1 – 10 Mar 2026 (to date)", "1 – 10 Feb 2026"))
         self.assertEqual(result["kpis"]["orders"]["a"], 3)  # 11 March is not complete yet
         self.assertEqual(result["kpis"]["orders"]["b"], 2)  # the repeat order on 4 February does not count
 
     def test_week_defaults_to_the_last_complete_week_against_the_one_before(self):
-        result = compare_periods(self.path, mode="week")
+        result = compare_periods(self.path, "first", mode="week")
         self.assertEqual((result["a"]["label"], result["b"]["label"]), ("2 – 8 Mar 2026", "23 Feb – 1 Mar 2026"))
         self.assertEqual(result["kpis"]["orders"], {"a": 1, "b": 0, "pct": None})
 
     def test_custom_periods_and_a_backwards_one(self):
-        result = compare_periods(self.path, mode="custom", custom={
+        result = compare_periods(self.path, "first", mode="custom", custom={
             "a_start": "2026-02-01", "a_end": "2026-02-28", "b_start": "2026-01-01", "b_end": "2026-01-31"})
         self.assertEqual(result["kpis"]["orders"]["a"], 4)
         self.assertEqual(result["b"]["label"], "January 2026")
 
-        bad = compare_periods(self.path, mode="custom", custom={
+        bad = compare_periods(self.path, "first", mode="custom", custom={
             "a_start": "2026-02-28", "a_end": "2026-02-01", "b_start": "2026-01-01", "b_end": "2026-01-31"})
         self.assertIn("start", bad["error"])
         self.assertEqual(bad["rows"], [])
 
     def test_campaigns_beyond_the_top_ones_roll_into_one_row(self):
         self.write([on("2026-02-0%d" % (1 + i % 9), str(i), campaign=f"camp{i:02d}") for i in range(COMPARE_TOP + 2)])
-        rows = compare_periods(self.path, mode="month", month="2026-02", by="campaign")["rows"]
+        rows = compare_periods(self.path, "first", mode="month", month="2026-02", by="campaign")["rows"]
         self.assertEqual(len(rows), COMPARE_TOP + 1)
         self.assertEqual((rows[-1]["name"], rows[-1]["a"], rows[-1].get("other")), ("2 more", 2, True))
 
@@ -220,7 +220,7 @@ class NewCustomersTests(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def report(self, month="2026-02"):
-        return first_orders_report(self.path, month)
+        return orders_report(self.path, "first", month)
 
     def test_cities_rank_by_first_time_orders_with_their_department(self):
         cities = self.report()["cities"]
@@ -292,7 +292,7 @@ class DailyTests(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def daily(self, month):
-        return first_orders_report(self.path, month)["daily"]
+        return orders_report(self.path, "first", month)["daily"]
 
     def test_every_day_of_the_month_with_its_kind(self):
         daily = self.daily("2026-01")

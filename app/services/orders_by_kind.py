@@ -1,16 +1,17 @@
-# app/services/first_orders.py
+# app/services/orders_by_kind.py
 """
-Where first-time orders come from: each customer's first paid purchase (the
-store's purchase_number 1), by month, by utm_source, utm_campaign and
+Where each kind of order comes from - first-time orders (a customer's first
+paid purchase, the store's purchase_number 1) or repurchases (every later one,
+the store's is_repurchase) - by month, by utm_source, utm_campaign and
 utm_content.
 
-Views of the same orders: a monthly trend by source since UTM tracking began;
-for any month since the first sale, the breakdown source > campaign > content,
-the month day by day (weekends and Colombian holidays set apart), and where
-the new customers live, what they bought and when; and two periods side by
-side ("VS") by one of the UTM fields. UTM values are shown as the
-store recorded them: "undefined" means the order carried no UTM, and "n/a"
-marks orders from before the store recorded UTMs.
+Views of one kind of order: a monthly trend by source since UTM tracking
+began; for any month since the first sale, the breakdown source > campaign >
+content, the month day by day (weekends and Colombian holidays set apart), and
+where those customers live, what they bought and when; and two periods side
+by side ("VS") by one of the UTM fields. UTM values are shown as the store
+recorded them: "undefined" means the order carried no UTM, and "n/a" marks
+orders from before the store recorded UTMs.
 """
 import logging
 import os
@@ -38,6 +39,11 @@ NOT_SET = "(not set)"
 # breakdown still reach back to the first sale.
 TREND_START = pd.Period("2023-09", freq="M")
 UTM_COLUMNS = ["utm_source", "utm_campaign", "utm_content"]
+# The kinds of order, as the store numbers each customer's paid purchases.
+KINDS = {
+    "first": lambda data: data["purchase_number"].eq(1),
+    "repeat": lambda data: data["is_repurchase"],
+}
 # The city and product charts show this many bars, then one for the rest.
 TOP_BARS = 10
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -46,30 +52,36 @@ WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 DAY_TYPES = {"weekday": "Weekdays", "weekend": "Weekends", "holiday": "Holidays"}
 
 _LOCK = threading.Lock()
-_CACHE: dict = {"key": None, "first": None, "orders_by_month": None}
+_CACHE: dict = {"key": None, "kinds": None, "orders_by_month": None}
 
 
-def _load(orders_csv_path: str) -> tuple[pd.DataFrame, pd.Series]:
-    """(first-time orders, all orders per month), cached per orders-file version."""
+def _load(orders_csv_path: str, kind: str) -> tuple[pd.DataFrame, pd.Series]:
+    """(the orders of one kind, all orders per month), cached per orders-file version."""
     key = _file_key(orders_csv_path)
     if _CACHE["key"] == key:
-        return _CACHE["first"], _CACHE["orders_by_month"]
+        return _CACHE["kinds"][kind], _CACHE["orders_by_month"]
     with _LOCK:
         if _CACHE["key"] != key:
             data = load_orders(orders_csv_path)
             month = data["order_date"].dt.to_period("M")
-            first = data.loc[data["purchase_number"].eq(1),
-                             ["order_date", "total_value", *UTM_COLUMNS, "city", "state", "sku", "product"]].copy()
-            first["month"] = month[first.index]
-            first["day"] = first["order_date"].dt.normalize()
-            for col in [*UTM_COLUMNS, "city"]:
-                first[col] = first[col].str.strip().replace("", NOT_SET)
-            for col in ["state", "sku", "product"]:
-                first[col] = first[col].str.strip()
-            first["utm_source"] = first["utm_source"].str.lower()
-            _CACHE.update(key=key, first=first, orders_by_month=month.value_counts())
-            logger.info("first-time orders rebuilt from %s (%d orders)", orders_csv_path, len(first))
-        return _CACHE["first"], _CACHE["orders_by_month"]
+            kinds = {name: _prepare(data.loc[picks(data)], month) for name, picks in KINDS.items()}
+            _CACHE.update(key=key, kinds=kinds, orders_by_month=month.value_counts())
+            logger.info("orders by kind rebuilt from %s (%s)", orders_csv_path,
+                        ", ".join(f"{len(orders)} {name}" for name, orders in kinds.items()))
+        return _CACHE["kinds"][kind], _CACHE["orders_by_month"]
+
+
+def _prepare(orders: pd.DataFrame, month: pd.Series) -> pd.DataFrame:
+    """The columns the views read: blank UTMs and cities as "(not set)", sources in lower case."""
+    orders = orders[["order_date", "total_value", *UTM_COLUMNS, "city", "state", "sku", "product"]].copy()
+    orders["month"] = month[orders.index]
+    orders["day"] = orders["order_date"].dt.normalize()
+    for col in [*UTM_COLUMNS, "city"]:
+        orders[col] = orders[col].str.strip().replace("", NOT_SET)
+    for col in ["state", "sku", "product"]:
+        orders[col] = orders[col].str.strip()
+    orders["utm_source"] = orders["utm_source"].str.lower()
+    return orders
 
 
 def _row(name: str, orders: int, revenue: float, total: int) -> dict:
@@ -82,7 +94,7 @@ def _ranked(rows: list[dict]) -> list[dict]:
 
 
 def _breakdown(orders: pd.DataFrame) -> list[dict]:
-    """The month's first-time orders as source > campaign > content, largest first."""
+    """The month's orders as source > campaign > content, largest first."""
     total = len(orders)
     leaves = orders.groupby(UTM_COLUMNS).agg(orders=("total_value", "size"), revenue=("total_value", "sum"))
     sources = []
@@ -108,7 +120,7 @@ def _with_rest(rows: list[dict], rest_label: str) -> list[dict]:
 
 
 def _cities(orders: pd.DataFrame) -> list[dict]:
-    """Where the new customers live: one row per city of the order, with its department, largest first."""
+    """Where the customers live: one row per city of the order, with its department, largest first."""
     total = len(orders)
     by_city = orders.groupby("city").agg(orders=("total_value", "size"), revenue=("total_value", "sum"))
     department = orders.groupby("city")["state"].agg(lambda s: s.mode().iat[0])
@@ -116,10 +128,10 @@ def _cities(orders: pd.DataFrame) -> list[dict]:
                     for city, r in by_city.iterrows()])
 
 
-def _products(orders: pd.DataFrame, first: pd.DataFrame) -> list[dict]:
+def _products(orders: pd.DataFrame, of_kind: pd.DataFrame) -> list[dict]:
     """
-    What the new customers bought: the first-time orders that included each
-    product, by SKU. An order with several products counts once for each, so
+    What the customers bought: the month's orders that included each product,
+    by SKU. An order with several products counts once for each, so
     the shares can add up to more than 100%. Orders from before the store set
     SKUs (most of them before September 2023) count by product name instead.
     Revenue belongs to the order, not to its products, so it is not split here.
@@ -128,7 +140,7 @@ def _products(orders: pd.DataFrame, first: pd.DataFrame) -> list[dict]:
     # A SKU is named as the store showed it that month, else by its latest
     # name, both from the orders holding that SKU alone: "product" names one
     # arbitrary item of a multi-item order.
-    single = first[first["sku"].ne("") & ~first["sku"].str.contains(",", regex=False)].sort_values("order_date")
+    single = of_kind[of_kind["sku"].ne("") & ~of_kind["sku"].str.contains(",", regex=False)].sort_values("order_date")
     names = {**single.groupby("sku")["product"].last().to_dict(),
              **single[single.index.isin(orders.index)].groupby("sku")["product"].last().to_dict()}
     skus = orders["sku"].str.split(",").explode().str.strip()
@@ -141,8 +153,8 @@ def _products(orders: pd.DataFrame, first: pd.DataFrame) -> list[dict]:
 
 def _times(orders: pd.DataFrame) -> dict:
     """
-    When the new customers bought: first-time orders by hour of the day and
-    by day of the week, Colombia time (the store's order_date). peak_hour and
+    When the customers bought: orders by hour of the day and by day of the
+    week, Colombia time (the store's order_date). peak_hour and
     peak_day index the busiest row of each, None without orders.
     """
     total = len(orders)
@@ -170,7 +182,7 @@ def _colombian_holidays(year: int) -> dict:
 def _daily(orders: pd.DataFrame, month: pd.Period, through: pd.Timestamp) -> dict:
     """
     The month day by day, each day a weekday, a weekend day or a public
-    holiday in Colombia, with its first-time orders and revenue up to the last
+    holiday in Colombia, with its orders and revenue up to the last
     complete day (None after it: a month under way still shows the weekends
     and holidays to come), and the average complete day of each kind,
     weekends and holidays against weekdays.
@@ -209,12 +221,12 @@ def _daily(orders: pd.DataFrame, month: pd.Period, through: pd.Timestamp) -> dic
     }
 
 
-def _trend(first: pd.DataFrame, months: pd.PeriodIndex) -> dict:
-    """First-time orders per month in the fixed series order, for a stacked chart."""
-    source = first["utm_source"]
+def _trend(of_kind: pd.DataFrame, months: pd.PeriodIndex) -> dict:
+    """Orders per month in the fixed series order, for a stacked chart."""
+    source = of_kind["utm_source"]
     series = source.where(source.isin(TREND_SOURCES), OTHER_SERIES).mask(source.isin(NO_UTM), NO_UTM_SERIES)
     counts = (
-        first.groupby([first["month"], series]).size().unstack(fill_value=0)
+        of_kind.groupby([of_kind["month"], series]).size().unstack(fill_value=0)
         .reindex(index=months, columns=[*TREND_SOURCES, OTHER_SERIES, NO_UTM_SERIES], fill_value=0)
     )
     return {
@@ -223,18 +235,19 @@ def _trend(first: pd.DataFrame, months: pd.PeriodIndex) -> dict:
     }
 
 
-def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
+def orders_report(orders_csv_path: str, kind: str, month: str | None = None) -> dict:
     """
-    The first-time orders report for one month (YYYY-MM): by default the last
-    complete month, or the current one while it is the only month on record.
+    The report on one kind of order ("first" or "repeat", see KINDS) for one
+    month (YYYY-MM): by default the last complete month, or the current one
+    while it is the only month on record.
     """
-    first, orders_by_month = _load(orders_csv_path)
+    of_kind, orders_by_month = _load(orders_csv_path, kind)
     current = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
-    if first.empty:
+    if of_kind.empty:
         return {"months": [], "selected": None, "trend": {"months": [], "series": []}, "breakdown": [], "kpis": None}
 
-    months = pd.period_range(first["month"].min(), current, freq="M")
-    per_month = first["month"].value_counts().reindex(months, fill_value=0)
+    months = pd.period_range(of_kind["month"].min(), current, freq="M")
+    per_month = of_kind["month"].value_counts().reindex(months, fill_value=0)
 
     try:
         selected = pd.Period(month, freq="M") if month else None
@@ -243,12 +256,12 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
     if selected not in months:
         selected = current - 1 if current - 1 in months else current
 
-    orders = first[first["month"] == selected]
+    orders = of_kind[of_kind["month"] == selected]
     total = len(orders)
     revenue = float(orders["total_value"].sum())
     all_orders = int(orders_by_month.get(selected, 0))
     cities = _cities(orders) if total else []
-    products = _products(orders, first) if total else []
+    products = _products(orders, of_kind) if total else []
 
     return {
         "months": [{"month": str(m), "orders": int(per_month[m]), "partial": m == current}
@@ -261,7 +274,7 @@ def first_orders_report(orders_csv_path: str, month: str | None = None) -> dict:
             "revenue": revenue,
             "avg_value": revenue / total if total else 0.0,
         },
-        "trend": _trend(first, months[months >= TREND_START]),
+        "trend": _trend(of_kind, months[months >= TREND_START]),
         "breakdown": _breakdown(orders),
         "daily": _daily(orders, selected, _last_complete_day(orders_csv_path)),
         "cities": cities,
@@ -352,11 +365,12 @@ def _parse_day(value: str | None) -> pd.Timestamp | None:
         return None
 
 
-def compare_periods(orders_csv_path: str, mode: str = "month", by: str = "source", week: str | None = None,
-                    month: str | None = None, custom: dict | None = None) -> dict:
+def compare_periods(orders_csv_path: str, kind: str, mode: str = "month", by: str = "source",
+                    week: str | None = None, month: str | None = None, custom: dict | None = None) -> dict:
     """
-    First-time orders of two periods side by side, by utm_source, utm_campaign
-    or utm_content: period A (the one looked at) against period B.
+    The orders of one kind ("first" or "repeat", see KINDS) of two periods
+    side by side, by utm_source, utm_campaign or utm_content: period A (the
+    one looked at) against period B.
 
     mode "week": A is a week (Monday to Sunday), B the week before.
     mode "month": A is a calendar month, B the month before.
@@ -368,15 +382,15 @@ def compare_periods(orders_csv_path: str, mode: str = "month", by: str = "source
     days so far against the same number of days of the one before. By
     default A is the last complete week or month.
     """
-    first, _orders_by_month = _load(orders_csv_path)
+    of_kind, _orders_by_month = _load(orders_csv_path, kind)
     mode = mode if mode in COMPARE_MODES else "month"
     by = by if by in COMPARE_BY else "source"
     yesterday = _last_complete_day(orders_csv_path)
     out = {"mode": mode, "by": by, "error": None, "week": None, "month": None, "custom": None,
            "through": _label(yesterday, yesterday)}
-    if first.empty:
+    if of_kind.empty:
         return {**out, "a": None, "b": None, "kpis": None, "rows": [], "weeks": [], "months": []}
-    out["weeks"], out["months"] = _week_and_month_options(first["day"], yesterday)
+    out["weeks"], out["months"] = _week_and_month_options(of_kind["day"], yesterday)
 
     if mode == "week":
         values = [w["value"] for w in out["weeks"]]
@@ -422,8 +436,8 @@ def compare_periods(orders_csv_path: str, mode: str = "month", by: str = "source
     out["custom"] = {"a_start": f"{a_start:%Y-%m-%d}", "a_end": f"{a_end:%Y-%m-%d}",
                      "b_start": f"{b_start:%Y-%m-%d}", "b_end": f"{b_end:%Y-%m-%d}"}
 
-    a_orders = first[first["day"].between(a_start, a_end)]
-    b_orders = first[first["day"].between(b_start, b_end)]
+    a_orders = of_kind[of_kind["day"].between(a_start, a_end)]
+    b_orders = of_kind[of_kind["day"].between(b_start, b_end)]
     a_revenue, b_revenue = float(a_orders["total_value"].sum()), float(b_orders["total_value"].sum())
     return {
         **out,
