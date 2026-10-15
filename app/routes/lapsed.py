@@ -249,18 +249,21 @@ def _attach_interviews(rows):
             row["interview"] = interview.to_dict()
 
 
-def _segment_page(channel: str | None) -> dict:
+def _segment_page(channel: str | None, hide_contacted: bool = True) -> dict:
     """
     Build what every segment page shares: the filtered, paginated customer rows
     and the template context for the filter controls. The page-specific action
     (WATI tag, email send) is layered on by the route; channel scopes the
     contact window and limit to that action's channel. With channel=None
     (the export page) the contact log plays no part: nobody is hidden and
-    the contact controls and columns are not rendered. The email page also
-    hides everyone who unsubscribed from email; WhatsApp is unaffected.
+    the contact controls and columns are not rendered. hide_contacted=False
+    keeps the channel's contact columns but hides nobody, and drops the two
+    hiding controls. The email page also hides everyone who unsubscribed from
+    email; WhatsApp is unaffected.
     """
     skus, months, customer_type, min_orders, max_orders, exclude_days, max_contacts = _read_segment_filters()
-    if channel is None:
+    contact_filters = channel is not None and hide_contacted
+    if not contact_filters:
         exclude_days, max_contacts = 0, 0
 
     error = None
@@ -308,6 +311,7 @@ def _segment_page(channel: str | None) -> dict:
         exclude_choices=EXCLUDE_DAYS_CHOICES,
         max_contacts=max_contacts,
         max_contacts_choices=MAX_CONTACTS_CHOICES,
+        contact_filters=contact_filters,
         channel=channel,
         wording=CHANNEL_WORDING.get(channel),
     )
@@ -352,6 +356,18 @@ def _last_orders(selected: list[dict]) -> dict:
     return {r["email"].lower(): r.get("last_order_utc") or "" for r in selected}
 
 
+def _wati_action_context() -> dict:
+    """What the WATI tagging panel needs, shared by both WATI segment pages."""
+    return dict(
+        wati_attribute=ATTRIBUTE_NAME,
+        wati_purchase_attribute=PURCHASE_ATTRIBUTE,
+        wati_purchase_value=PURCHASE_RESET_VALUE,
+        wati_max_value=MAX_VALUE_CHARS,
+        wati_max=MAX_CONTACTS_PER_RUN,
+        wati_ready=bool(get_secret("wati_api_token")),
+    )
+
+
 @main.route("/lapsed-customers")
 @login_required
 def lapsed_customers():
@@ -361,13 +377,26 @@ def lapsed_customers():
         page_title="Lapsed Customers",
         page_heading="Lapsed Customers",
         endpoint="main.lapsed_customers",
-        wati_attribute=ATTRIBUTE_NAME,
-        wati_purchase_attribute=PURCHASE_ATTRIBUTE,
-        wati_purchase_value=PURCHASE_RESET_VALUE,
-        wati_max_value=MAX_VALUE_CHARS,
-        wati_max=MAX_CONTACTS_PER_RUN,
-        wati_ready=bool(get_secret("wati_api_token")),
+        **_wati_action_context(),
         **_segment_page(CustomerContact.CHANNEL_WATI),
+    )
+
+
+@main.route("/lapsed-customers-all")
+@login_required
+def lapsed_customers_all():
+    """
+    /lapsed-customers without hiding anyone: customers tagged in WATI recently
+    or past the contact limit are listed too. The WATI contact columns stay,
+    so the operator sees who was reached and when before tagging again.
+    """
+    return render_template(
+        "lapsed_customers_all.html",
+        page_title="All Lapsed Customers",
+        page_heading="All Lapsed Customers",
+        endpoint="main.lapsed_customers_all",
+        **_wati_action_context(),
+        **_segment_page(CustomerContact.CHANNEL_WATI, hide_contacted=False),
     )
 
 

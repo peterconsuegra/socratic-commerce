@@ -200,7 +200,7 @@ window.LapsedSelection = (function () {
       </div>
     </div>
 
-    {% if channel and (s.excluded or s.exhausted) %}
+    {% if contact_filters and (s.excluded or s.exhausted) %}
       <p class="text-center text-muted small mb-3">
         <span class="material-icons align-middle" style="font-size:16px;">visibility_off</span>
         {% if s.excluded %}
@@ -269,7 +269,7 @@ window.LapsedSelection = (function () {
             </select>
           </div>
 
-          {% if channel %}
+          {% if contact_filters %}
           <div class="col-sm-4">
             <label class="form-label small text-muted mb-1">Hide customers {{ wording.past }} in the last</label>
             <select name="exclude_contacted" class="form-select"
@@ -291,7 +291,7 @@ window.LapsedSelection = (function () {
           </div>
           {% endif %}
 
-          <div class="{{ 'col-sm-4' if channel else 'col-sm-12' }} d-flex align-items-end justify-content-end">
+          <div class="{{ 'col-sm-4' if contact_filters else 'col-sm-12' }} d-flex align-items-end justify-content-end">
             <button type="submit" class="btn btn-primary px-4">Apply</button>
           </div>
         </div>
