@@ -7,6 +7,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 from typing import Any
 
 from app.services.get_data import filter_by_location
+from app.services.periods import orders_cutoff
 
 
 def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
@@ -58,6 +59,7 @@ def get_daily_sales_trend(
     utm_source_filter: str | None = None,
     state: str | None = None,
     city: str | None = None,
+    include_today: bool = False,
 ):
     logger = logging.getLogger(__name__)
     tz = "America/Bogota"
@@ -88,10 +90,10 @@ def get_daily_sales_trend(
 
     data["total_value"] = pd.to_numeric(data["total_value"], errors="coerce").fillna(0.0)
 
-    now_bogota = pd.Timestamp.now(tz=tz).normalize()
-    end_yesterday = now_bogota - pd.Timedelta(microseconds=1)
-    data = data[data["order_date_local"] <= end_yesterday].copy()
-    logger.info("Using orders up to %s (end of yesterday, Bogota)", end_yesterday)
+    # Up to the end of yesterday, or up to now when the range runs through today.
+    cutoff = orders_cutoff(include_today).tz_localize(tz)
+    data = data[data["order_date_local"] <= cutoff].copy()
+    logger.info("Using orders up to %s (Bogota)", cutoff)
 
     if utm_source_filter:
         if "utm_source" not in data.columns:
@@ -384,12 +386,14 @@ def build_daily_sales_dashboard_context(
     min_channel_share_percent: float = 2.0,
     state: str | None = None,
     city: str | None = None,
+    include_today: bool = False,
 ) -> dict[str, Any]:
     """
     Builds the complete context needed by templates/daily_sales.html.
 
     state and city, when given, limit every chart to the orders of that
-    department and/or city (see get_data.filter_by_location).
+    department and/or city (see get_data.filter_by_location). include_today
+    counts today's orders so far in the trends (a range running through today).
 
     This keeps the Flask route focused on request orchestration only.
     """
@@ -410,6 +414,7 @@ def build_daily_sales_dashboard_context(
             utm_source_filter=None,
             state=state,
             city=city,
+            include_today=include_today,
         )
 
         context["daily_sales_trend"] = daily_sales_trend
@@ -486,6 +491,7 @@ def build_daily_sales_dashboard_context(
                 utm_source_filter=channel,
                 state=state,
                 city=city,
+                include_today=include_today,
             )
 
             if not trend_rows:

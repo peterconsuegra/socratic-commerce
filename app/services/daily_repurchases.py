@@ -6,6 +6,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 from app.services.get_data import filter_by_location, load_orders
+from app.services.periods import orders_cutoff, range_includes_today
 
 
 def _now_bogota_naive() -> pd.Timestamp:
@@ -94,7 +95,8 @@ def get_daily_repurchases_trend(
       If start_date and end_date are provided (DD/MM/YYYY), output is filtered to that window.
 
     Cutoff:
-      Always excludes today's partial day by cutting to end of yesterday (Bogota time).
+      Up to the end of yesterday (Bogota time), leaving out today's partial day,
+      unless end_date is today: a range running through today counts today so far.
 
     Optional filters:
       If utm_source_filter is provided, only repurchase orders with that utm_source are included
@@ -111,11 +113,12 @@ def get_daily_repurchases_trend(
 
     data = filter_by_location(load_orders(orders_csv_path), state, city)
 
-    # Cut to end of yesterday in Bogota (avoid partial day)
-    today_bogota = _now_bogota_naive().normalize()
-    end_yesterday = today_bogota - pd.Timedelta(microseconds=1)
-    data = data[data["order_date"] <= end_yesterday].copy()
-    logger.info("Using orders up to %s (end of yesterday, Bogota)", end_yesterday)
+    # Cut to end of yesterday in Bogota (avoid partial day), or to now when
+    # the range runs through today
+    now = _now_bogota_naive()
+    cutoff = orders_cutoff(range_includes_today(end_date, now), now)
+    data = data[data["order_date"] <= cutoff].copy()
+    logger.info("Using orders up to %s (Bogota)", cutoff)
 
     if data.empty:
         return ([], []) if return_forecast else []

@@ -14,6 +14,7 @@ from app.services.bogota_insights import (
 from app.services.checkout_insights import get_checkout_insights_daily
 from app.services.facebook_insights import get_facebook_insights_daily
 from app.services.google_insights import get_google_insights_daily
+from app.services.periods import range_includes_today
 from app.services.wati_insights import get_wati_sales_trend
 
 from . import main
@@ -87,6 +88,7 @@ def wati_insights():
         wati_sales_trend, forecast_data, kpis = get_wati_sales_trend(
             orders_csv_path=input_file,
             forecast_periods=14,
+            include_today=range_includes_today(end_date),
         )
 
         df = pd.read_csv(input_file)
@@ -520,6 +522,7 @@ def _render_ad_platform_insights(
             orders_csv_path=input_file,
             forecast_periods=30,
             min_share_percent=2.0,
+            include_today=range_includes_today(end_date),
         )
 
         total_daily_trend = result["total_daily_trend"]

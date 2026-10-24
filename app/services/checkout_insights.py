@@ -5,6 +5,8 @@ import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+from app.services.periods import orders_cutoff, range_includes_today
+
 
 def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
     series = series.astype(float)
@@ -131,13 +133,12 @@ def _apply_date_window_naive(
         return df
 
 
-def _cutoff_end_of_yesterday_bogota_naive(df: pd.DataFrame, dt_col: str) -> pd.DataFrame:
+def _cutoff_bogota_naive(df: pd.DataFrame, dt_col: str, include_today: bool = False) -> pd.DataFrame:
     """
-    Cuts data up to end of yesterday in Bogota, treating dt_col as naive local time.
+    Cuts data up to end of yesterday in Bogota (or up to now with
+    include_today), treating dt_col as naive local time.
     """
-    today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
-    end_yesterday = today_bogota - pd.Timedelta(microseconds=1)
-    return df[df[dt_col] <= end_yesterday].copy()
+    return df[df[dt_col] <= orders_cutoff(include_today)].copy()
 
 
 def _build_daily_series(df: pd.DataFrame, forecast_periods: int) -> tuple[list[dict], list[dict]]:
@@ -278,7 +279,8 @@ def get_checkout_insights_daily(
 
     Notes:
       - order_date is treated as Bogota (GMT-5) already and kept timezone-naive
-      - data is cut to end of yesterday (Bogota) to avoid partial day
+      - data is cut to end of yesterday (Bogota) to avoid partial day, unless
+        end_date is today: a range running through today counts today so far
       - optional date window is applied after cutoff
     """
     logger = logging.getLogger(__name__)
@@ -309,7 +311,7 @@ def get_checkout_insights_daily(
     df["city_norm"] = df["city"].apply(_normalize_city)
 
     # Cutoff then optional date window
-    df = _cutoff_end_of_yesterday_bogota_naive(df, "order_date")
+    df = _cutoff_bogota_naive(df, "order_date", range_includes_today(end_date))
     df = _apply_date_window_naive(df, "order_date", start_date, end_date, logger)
 
     if df.empty:

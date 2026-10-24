@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
+from app.services.periods import orders_cutoff
+
 
 def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
     s = pd.Series(series).astype(float).copy()
@@ -129,7 +131,7 @@ def _normalize_content(val: str) -> str:
     return s
 
 
-def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
+def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str, include_today: bool = False) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
@@ -140,17 +142,16 @@ def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
     dfx["order_date_local"] = dfx["order_date"].dt.tz_localize(tz)
     dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
 
-    now_local = pd.Timestamp.now(tz=tz).normalize()
-    end_yesterday = now_local - pd.Timedelta(microseconds=1)
-    dfx = dfx[dfx["order_date_local"] <= end_yesterday].copy()
+    cutoff = orders_cutoff(include_today).tz_localize(tz)
+    dfx = dfx[dfx["order_date_local"] <= cutoff].copy()
     return dfx
 
 
-def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> tuple[list[dict], list[dict]]:
+def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int, include_today: bool = False) -> tuple[list[dict], list[dict]]:
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -192,11 +193,11 @@ def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> tup
     return trend_rows, forecast_rows
 
 
-def _count_nonzero_sales_days(df: pd.DataFrame, tz: str) -> int:
+def _count_nonzero_sales_days(df: pd.DataFrame, tz: str, include_today: bool = False) -> int:
     if df.empty:
         return 0
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return 0
 
@@ -205,11 +206,11 @@ def _count_nonzero_sales_days(df: pd.DataFrame, tz: str) -> int:
     return int((daily > 0).sum())
 
 
-def _build_hour_bucket_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[float]]:
+def _build_hour_bucket_pie(df: pd.DataFrame, tz: str, include_today: bool = False) -> tuple[list[str], list[float]]:
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -231,11 +232,11 @@ def _build_hour_bucket_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[f
     return labels, values
 
 
-def _build_gender_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[float]]:
+def _build_gender_pie(df: pd.DataFrame, tz: str, include_today: bool = False) -> tuple[list[str], list[float]]:
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -262,11 +263,11 @@ def _build_gender_pie(df: pd.DataFrame, tz: str) -> tuple[list[str], list[float]
     return labels, values
 
 
-def _build_city_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list[str], list[float]]:
+def _build_city_pie(df: pd.DataFrame, tz: str, top_n: int = 12, include_today: bool = False) -> tuple[list[str], list[float]]:
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -297,7 +298,7 @@ def _build_city_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list[st
     return [str(x) for x in grouped.index.tolist()], [float(x) for x in grouped.values.tolist()]
 
 
-def _build_content_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list[str], list[float]]:
+def _build_content_pie(df: pd.DataFrame, tz: str, top_n: int = 12, include_today: bool = False) -> tuple[list[str], list[float]]:
     """
     Pie distribution by utm_content based on SALES (sum total_value).
     Keeps top_n contents, aggregates the rest into "Other".
@@ -305,7 +306,7 @@ def _build_content_pie(df: pd.DataFrame, tz: str, top_n: int = 12) -> tuple[list
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -340,6 +341,7 @@ def get_google_insights_daily(
     orders_csv_path: str = "data/google_sales_orders.csv",
     forecast_periods: int = 30,
     min_share_percent: float = 2.0,
+    include_today: bool = False,
 ):
     tz = "America/Bogota"
 
@@ -359,7 +361,7 @@ def get_google_insights_daily(
     df["utm_campaign_key"] = df["utm_campaign"].apply(_normalize_campaign_key)
     df["utm_campaign_display"] = df["utm_campaign"].apply(lambda x: _normalize_str(x, fallback="unknown"))
 
-    total_daily_trend, forecast_data = _build_daily_series(df=df.copy(), tz=tz, forecast_periods=forecast_periods)
+    total_daily_trend, forecast_data = _build_daily_series(df=df.copy(), tz=tz, include_today=include_today, forecast_periods=forecast_periods)
 
     if not total_daily_trend:
         return {
@@ -381,14 +383,14 @@ def get_google_insights_daily(
             "total_content_pie_values": [],
         }
 
-    total_hour_pie_labels, total_hour_pie_values = _build_hour_bucket_pie(df=df.copy(), tz=tz)
-    total_gender_pie_labels, total_gender_pie_values = _build_gender_pie(df=df.copy(), tz=tz)
-    total_city_pie_labels, total_city_pie_values = _build_city_pie(df=df.copy(), tz=tz, top_n=12)
+    total_hour_pie_labels, total_hour_pie_values = _build_hour_bucket_pie(df=df.copy(), tz=tz, include_today=include_today)
+    total_gender_pie_labels, total_gender_pie_values = _build_gender_pie(df=df.copy(), tz=tz, include_today=include_today)
+    total_city_pie_labels, total_city_pie_values = _build_city_pie(df=df.copy(), tz=tz, include_today=include_today, top_n=12)
 
     # NEW
-    total_content_pie_labels, total_content_pie_values = _build_content_pie(df=df.copy(), tz=tz, top_n=12)
+    total_content_pie_labels, total_content_pie_values = _build_content_pie(df=df.copy(), tz=tz, include_today=include_today, top_n=12)
 
-    df2 = _apply_time_cutoff_rules(df.copy(), tz=tz)
+    df2 = _apply_time_cutoff_rules(df.copy(), tz=tz, include_today=include_today)
     if df2.empty:
         return {
             "total_daily_trend": total_daily_trend,
@@ -454,22 +456,22 @@ def get_google_insights_daily(
 
         subset = df[df["utm_campaign_key"] == camp_key].copy()
 
-        nonzero_days = _count_nonzero_sales_days(subset, tz=tz)
+        nonzero_days = _count_nonzero_sales_days(subset, tz=tz, include_today=include_today)
 
         campaign_forecast_periods = forecast_periods
         if nonzero_days <= SHORT_CAMPAIGN_NONZERO_DAYS_THRESHOLD:
             campaign_forecast_periods = SHORT_CAMPAIGN_FORECAST_DAYS
 
-        trend_rows, fc_rows = _build_daily_series(df=subset, tz=tz, forecast_periods=campaign_forecast_periods)
+        trend_rows, fc_rows = _build_daily_series(df=subset, tz=tz, include_today=include_today, forecast_periods=campaign_forecast_periods)
         if not trend_rows:
             continue
 
-        hour_pie_labels, hour_pie_values = _build_hour_bucket_pie(df=subset, tz=tz)
-        gender_pie_labels, gender_pie_values = _build_gender_pie(df=subset, tz=tz)
-        city_pie_labels, city_pie_values = _build_city_pie(df=subset, tz=tz, top_n=12)
+        hour_pie_labels, hour_pie_values = _build_hour_bucket_pie(df=subset, tz=tz, include_today=include_today)
+        gender_pie_labels, gender_pie_values = _build_gender_pie(df=subset, tz=tz, include_today=include_today)
+        city_pie_labels, city_pie_values = _build_city_pie(df=subset, tz=tz, include_today=include_today, top_n=12)
 
         # NEW
-        content_pie_labels, content_pie_values = _build_content_pie(df=subset, tz=tz, top_n=12)
+        content_pie_labels, content_pie_values = _build_content_pie(df=subset, tz=tz, include_today=include_today, top_n=12)
 
         safe = "".join(c if c.isalnum() else "_" for c in str(camp_key).lower())
 

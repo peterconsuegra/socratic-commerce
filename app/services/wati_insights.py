@@ -93,10 +93,12 @@ def _compute_wati_kpis(
 def get_wati_sales_trend(
     orders_csv_path: str = "data/daily_sales_orders.csv",
     forecast_periods: int = 14,
+    include_today: bool = False,
 ):
     """
     Returns (trend_rows, forecast_rows, kpis) for utm_source == 'wati'
-    using the same daily_sales service logic.
+    using the same daily_sales service logic. include_today counts today's
+    orders so far in the trend; the KPIs stay up to the end of yesterday.
     """
     logger = logging.getLogger(__name__)
     logger.info("Building Wati insights from %s", orders_csv_path)
@@ -106,6 +108,7 @@ def get_wati_sales_trend(
         return_forecast=True,
         orders_csv_path=orders_csv_path,
         utm_source_filter="wati",
+        include_today=include_today,
     )
 
     kpis = _compute_wati_kpis(orders_csv_path=orders_csv_path)

@@ -9,6 +9,7 @@ from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
 from app.services.get_data import load_orders, location_choices
+from app.services.periods import orders_cutoff, range_includes_today
 
 from . import main
 from .common import refresh_all_orders_if_needed
@@ -120,6 +121,7 @@ def _render_daily_sales(file_name: str, state: str | None = None, city: str | No
         min_channel_share_percent=2.0,
         state=state,
         city=city,
+        include_today=range_includes_today(end_date),
     )
 
     all_orders_file = current_app.config["ALL_ORDERS_CSV"]
@@ -274,9 +276,7 @@ def daily_repurchases():
         df["city"] = df["city"].str.strip()
         df.loc[df["city"] == "", "city"] = "unknown"
 
-        today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
-        end_yesterday = today_bogota - pd.Timedelta(microseconds=1)
-        df = df[df["order_date"] <= end_yesterday].copy()
+        df = df[df["order_date"] <= orders_cutoff(range_includes_today(end_date))].copy()
 
         if df.empty:
             return render_template(

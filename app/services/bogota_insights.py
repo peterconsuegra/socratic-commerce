@@ -8,6 +8,8 @@ import pandas as pd
 from typing import Optional, Dict, Any, Tuple, List
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
+from app.services.periods import orders_cutoff, range_includes_today
+
 
 def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
     s = pd.Series(series).astype(float).copy()
@@ -184,7 +186,7 @@ def _to_local(dt_series: pd.Series, tz: str) -> pd.Series:
     return s.dt.tz_localize(tz)
 
 
-def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
+def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str, include_today: bool = False) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
@@ -199,17 +201,14 @@ def _apply_time_cutoff_rules(df: pd.DataFrame, tz: str) -> pd.DataFrame:
 
     dfx["total_value"] = pd.to_numeric(dfx["total_value"], errors="coerce").fillna(0.0)
 
-    now_local = pd.Timestamp.now(tz=tz).normalize()
-    end_yesterday = now_local - pd.Timedelta(microseconds=1)
-
-    return dfx[dfx["order_date_local"] <= end_yesterday].copy()
+    return dfx[dfx["order_date_local"] <= orders_cutoff(include_today).tz_localize(tz)].copy()
 
 
-def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int) -> Tuple[list[dict], list[dict]]:
+def _build_daily_series(df: pd.DataFrame, tz: str, forecast_periods: int, include_today: bool = False) -> Tuple[list[dict], list[dict]]:
     if df.empty:
         return [], []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return [], []
 
@@ -254,6 +253,7 @@ def get_bogota_insights_daily(
     forecast_periods: int = 30,
     city_value: str = "BOGOTA (C/MARCA)",
     gender: Optional[str] = None,
+    include_today: bool = False,
 ) -> dict:
     tz = "America/Bogota"
 
@@ -282,7 +282,7 @@ def get_bogota_insights_daily(
         df["gender_norm"] = df["gender"].apply(_normalize_gender)
         df = df[df["gender_norm"] == gender_norm].copy()
 
-    total_daily_trend, forecast_data = _build_daily_series(df=df, tz=tz, forecast_periods=forecast_periods)
+    total_daily_trend, forecast_data = _build_daily_series(df=df, tz=tz, include_today=include_today, forecast_periods=forecast_periods)
 
     return {
         "total_daily_trend": total_daily_trend,
@@ -565,7 +565,7 @@ def _time_chunk_label(hour: int) -> str:
     return f"{start:02d}:00-{end:02d}:59"
 
 
-def _time_of_day_3h_breakdown(df: pd.DataFrame, tz: str) -> List[Dict[str, Any]]:
+def _time_of_day_3h_breakdown(df: pd.DataFrame, tz: str, include_today: bool = False) -> List[Dict[str, Any]]:
     """
     Pie chart input:
     [{label: "00:00-02:59", value: <sales>}, ...]
@@ -578,7 +578,7 @@ def _time_of_day_3h_breakdown(df: pd.DataFrame, tz: str) -> List[Dict[str, Any]]
     if not needed.issubset(set(df.columns)):
         return []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return []
 
@@ -688,6 +688,7 @@ def _build_campaign_charts_from_csv(
     tz: str,
     forecast_periods: int,
     logger: Optional[logging.Logger] = None,
+    include_today: bool = False,
 ) -> List[Dict[str, Any]]:
     if not os.path.exists(filtered_file):
         return []
@@ -711,7 +712,7 @@ def _build_campaign_charts_from_csv(
             logger.warning("Campaign charts skipped. utm_campaign column not found in %s", filtered_file)
         return []
 
-    dfx = _apply_time_cutoff_rules(df, tz=tz)
+    dfx = _apply_time_cutoff_rules(df, tz=tz, include_today=include_today)
     if dfx.empty:
         return []
 
@@ -724,7 +725,7 @@ def _build_campaign_charts_from_csv(
         counts = g["utm_campaign_display"].value_counts(dropna=False).to_dict()
         display_name = _choose_display_name(counts, fallback_key=campaign_key)
 
-        trend_rows, forecast_rows = _build_daily_series(g, tz=tz, forecast_periods=forecast_periods)
+        trend_rows, forecast_rows = _build_daily_series(g, tz=tz, include_today=include_today, forecast_periods=forecast_periods)
         if not trend_rows and not forecast_rows:
             continue
 
@@ -735,7 +736,7 @@ def _build_campaign_charts_from_csv(
         nivel_breakdown = _nivel_socioeconomico_breakdown(g, top_n=10)
 
         # NEW: time-of-day breakdown (3-hour chunks)
-        time_of_day_breakdown = _time_of_day_3h_breakdown(g, tz=tz)
+        time_of_day_breakdown = _time_of_day_3h_breakdown(g, tz=tz, include_today=include_today)
 
         # Existing: utm_content totals by localidad (stacked bar data)
         utm_content_localidad = _utm_content_by_localidad_stacked(
@@ -829,6 +830,7 @@ def get_bogota_insights_view_data(
     file_name = os.path.basename(source_file)
 
     opts = read_saved_date_options(OptionModel, file_name=file_name, logger=logger)
+    include_today = range_includes_today(opts["end_date"])
 
     payload: Dict[str, Any] = {
         "error": None,
@@ -854,6 +856,7 @@ def get_bogota_insights_view_data(
         forecast_periods=forecast_periods,
         city_value=city_value,
         gender=gender,
+        include_today=include_today,
     )
 
     payload["total_daily_trend"] = result.get("total_daily_trend", [])
@@ -862,6 +865,7 @@ def get_bogota_insights_view_data(
     charts = _build_campaign_charts_from_csv(
         filtered_file=filtered_file,
         tz=tz,
+        include_today=include_today,
         forecast_periods=forecast_periods,
         logger=logger,
     )

@@ -74,6 +74,28 @@ def now_bogota_naive() -> pd.Timestamp:
     return pd.Timestamp.now(tz=TIMEZONE).tz_localize(None)
 
 
+def range_includes_today(end_date: str | None, now: pd.Timestamp | None = None) -> bool:
+    """
+    Whether a date selector range, its end_date DD/MM/YYYY, runs through today
+    in Bogotá. Only a custom range can: the presets end yesterday.
+    """
+    try:
+        last = pd.to_datetime((end_date or "").strip(), format="%d/%m/%Y")
+    except (ValueError, TypeError):
+        return False
+    return last >= (now if now is not None else now_bogota_naive()).normalize()
+
+
+def orders_cutoff(include_today: bool = False, now: pd.Timestamp | None = None) -> pd.Timestamp:
+    """
+    The last moment the dashboards count orders up to, Bogotá time (tz-naive):
+    the end of yesterday, so a half-finished day never reads as a slow one;
+    now when the page's range runs through today (range_includes_today).
+    """
+    now = now if now is not None else now_bogota_naive()
+    return now if include_today else now.normalize() - pd.Timedelta(microseconds=1)
+
+
 def _day(name: str, value: str) -> pd.Timestamp:
     if not _ISO_DAY.fullmatch(value):
         raise PeriodError(f"{name} must be a date as YYYY-MM-DD, got '{value}'.")
