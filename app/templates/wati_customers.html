@@ -1,0 +1,195 @@
+{% extends "layout.html" %}
+
+{% block title %}WATI Customers{% endblock %}
+
+{% macro page_url(page=None, sort=None, direction=None) -%}
+{{ url_for('main.wati_customers',
+           page=page or result.pagination.page,
+           per_page=result.pagination.per_page,
+           sort=sort or result.sort.key,
+           direction=direction or result.sort.direction,
+           customer_type=customer_type,
+           q=result.search or None) }}
+{%- endmacro %}
+
+{% macro sort_link(key, label, first='desc') -%}
+  {% set active = result.sort.key == key %}
+  {% set other = 'asc' if first == 'desc' else 'desc' %}
+  {% set next_dir = other if (active and result.sort.direction == first) else first %}
+  <a href="{{ page_url(page=1, sort=key, direction=next_dir) }}"
+     class="text-decoration-none {% if active %}fw-bold{% endif %}">
+    {{ label }}{% if active %} <span class="material-icons align-middle" style="font-size:14px;">{{ 'arrow_downward' if result.sort.direction == 'desc' else 'arrow_upward' }}</span>{% endif %}
+  </a>
+{%- endmacro %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+
+  <h2 class="text-center mb-1">WATI Customers</h2>
+  <p class="text-center text-muted mb-4">
+    Every customer with at least one order tagged <code>utm_campaign=wati</code> (WhatsApp / admin orders).
+    Export them as a CSV for a Meta Ads custom audience.
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif result %}
+
+    {% set s = result.summary %}
+    {% set p = result.pagination %}
+    {% set export_url = url_for('main.wati_customers_export', customer_type=customer_type,
+                                sort=result.sort.key, direction=result.sort.direction,
+                                q=result.search or None) %}
+
+    <div class="row text-center g-2 mb-3">
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">WATI customers</div>
+          <div class="fw-bold">{{ "{:,}".format(s.recurrent_customers) }}</div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Of all customers</div>
+          <div class="fw-bold">{{ "{:,}".format(s.total_customers) }}
+            <span class="text-muted small">({{ "%.1f"|format(s.recurrent_customers / s.total_customers * 100 if s.total_customers else 0) }}%)</span>
+          </div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Their orders (all channels)</div>
+          <div class="fw-bold">{{ "{:,}".format(s.recurrent_orders) }}</div>
+        </div></div>
+      </div>
+      <div class="col">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Their lifetime revenue</div>
+          <div class="fw-bold">{{ s.recurrent_revenue | cop }}</div>
+        </div></div>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('main.wati_customers') }}" class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-sm-3">
+            <label class="form-label small text-muted mb-1">Customers</label>
+            <select name="customer_type" class="form-select">
+              {% for key, cfg in customer_types.items() %}
+                <option value="{{ key }}" {% if key == customer_type %}selected{% endif %}>{{ cfg.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-5">
+            <label class="form-label small text-muted mb-1">Search name or email</label>
+            <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="e.g. maria">
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label small text-muted mb-1">Per page</label>
+            <select name="per_page" class="form-select">
+              {% for n in per_page_choices %}
+                <option value="{{ n }}" {% if n == p.per_page %}selected{% endif %}>{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-2 d-flex align-items-end justify-content-end">
+            <button type="submit" class="btn btn-primary px-4">Apply</button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <span class="text-muted small">
+        {% if p.total_rows %}
+          Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
+        {% else %}
+          No customers match these filters
+        {% endif %}
+      </span>
+      <span class="d-flex align-items-center gap-3">
+        <a class="btn btn-outline-success btn-sm" href="{{ export_url }}"
+           title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
+          Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
+        </a>
+        <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:70px;">#</th>
+            <th>{{ sort_link('name', 'Name') }}</th>
+            <th>Phone</th>
+            <th>{{ sort_link('email', 'Email') }}</th>
+            <th class="text-end" title="Orders tagged utm_campaign=wati under this email">WATI orders</th>
+            <th class="text-end" title="Revenue from those WATI orders">WATI spent</th>
+            <th class="text-end" title="Paid purchases as the store counts them, on any channel">{{ sort_link('orders', 'Orders') }}</th>
+            <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
+            <th>Last purchase (SKU)</th>
+            <th>Last WATI order (UTC)</th>
+            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in result.rows %}
+            <tr>
+              <td class="text-muted">{{ c.rank }}</td>
+              <td>{{ c.name or '—' }}</td>
+              <td>{% if c.phone %}<a href="tel:{{ c.phone }}">{{ c.phone }}</a>{% endif %}</td>
+              <td><a href="mailto:{{ c.email }}">{{ c.email }}</a></td>
+              <td class="text-end">{{ c.wati_orders }}</td>
+              <td class="text-end">{{ c.wati_spent | cop }}</td>
+              <td class="text-end">{{ c.orders_count }}</td>
+              <td class="text-end fw-bold">{{ c.total_spent | cop }}</td>
+              <td style="min-width:150px;">
+                {%- for sku in c.last_skus %}
+                  <span class="badge bg-light text-dark border me-1 mb-1">{{ sku }}</span>
+                {%- endfor %}
+              </td>
+              <td class="text-muted small">{{ c.last_wati_order_utc }}</td>
+              <td class="text-muted small">{{ c.last_order_utc }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="11" class="text-center text-muted">No customers found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if p.total_pages > 1 %}
+      <nav class="d-flex justify-content-center my-3">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=p.page - 1) if p.has_prev else '#' }}">Previous</a>
+          </li>
+          <li class="page-item disabled"><span class="page-link">{{ p.page }} / {{ p.total_pages }}</span></li>
+          <li class="page-item {% if not p.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page=p.page + 1) if p.has_next else '#' }}">Next</a>
+          </li>
+        </ul>
+      </nav>
+    {% endif %}
+
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <h6 class="mb-1">Export this list</h6>
+            <span class="text-muted small">
+              Every customer matching the filters above, all pages, as a CSV shaped for Meta Ads custom
+              audiences (fn, ln, email, phone, country=CO, ct, gen, value = lifetime spend). Nothing is sent and nothing is logged.
+            </span>
+          </div>
+          <a class="btn btn-success" href="{{ export_url }}">
+            Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
+          </a>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

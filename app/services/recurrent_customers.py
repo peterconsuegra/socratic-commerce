@@ -226,6 +226,40 @@ def _aggregate_customers(data: pd.DataFrame) -> pd.DataFrame:
     return grouped
 
 
+# Per-campaign customer stats, cached per orders-file version like the
+# customers table: {(file key, campaign): DataFrame indexed by email_key}.
+_CAMPAIGN_LOCK = threading.Lock()
+_CAMPAIGN_CACHE: dict = {}
+
+
+def customers_by_utm_campaign(orders_csv_path: str, campaign: str) -> pd.DataFrame:
+    """
+    The customers with at least one order tagged utm_campaign == campaign
+    (case-insensitive, trimmed), one row per email_key with that campaign's
+    orders, revenue and most recent order date (UTC, ISO-8601 "Z").
+
+    Pass the index as get_recurrent_customers(emails=...) to list them with
+    the usual per-customer columns.
+    """
+    wanted = (campaign or "").strip().lower()
+    key = (_file_key(orders_csv_path), wanted)
+    cached = _CAMPAIGN_CACHE.get(key)
+    if cached is not None:
+        return cached
+    with _CAMPAIGN_LOCK:
+        data = _load_orders(orders_csv_path)
+        tagged = data[data["utm_campaign"].str.strip().str.lower() == wanted]
+        stats = tagged.groupby("email_key").agg(
+            campaign_orders=("total_value", "size"),
+            campaign_spent=("total_value", "sum"),
+            last_campaign_order_utc=("order_date_utc", "max"),
+        )
+        # One file version at a time: an older one is never read again.
+        _CAMPAIGN_CACHE.clear()
+        _CAMPAIGN_CACHE[key] = stats
+        return stats
+
+
 def get_recurrent_customers(
     orders_csv_path: str = "data/all_orders.csv",
     page: int = 1,
@@ -316,7 +350,9 @@ def get_recurrent_customers(
     # Optional segment filters. Applied before the summary so the tiles
     # describe the segment being listed, and skipped entirely when not asked
     # for, which keeps the plain recurrent-customers figures unchanged.
-    if emails:
+    # "is not None": an empty list means "nobody", not "no filter" - a
+    # campaign with no customers must list none, not everyone.
+    if emails is not None:
         wanted = {str(e).strip().lower() for e in emails if str(e).strip()}
         recurrent = recurrent[recurrent.index.isin(wanted)].copy()
 

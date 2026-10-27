@@ -108,6 +108,36 @@ def _clean_city(v) -> str:
     return v.title()
 
 
+def meta_audience_csv(rows) -> tuple[str, int]:
+    """
+    Customer rows (get_recurrent_customers) as a Meta Ads custom audience CSV:
+    fn,ln,email,phone,country,ct,gen,value - see lapsed_customers_export for
+    what each column holds. Rows with neither an email nor a usable phone are
+    skipped, as Meta has nothing to match them on. Returns (csv text, rows written).
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["fn", "ln", "email", "phone", "country", "ct", "gen", "value"])
+    exported = 0
+    for row in rows:
+        email = (row.get("email") or "").strip().lower()
+        target, _reason = prepare_target(row.get("phone"))
+        if not email and not target:
+            continue
+        writer.writerow([
+            (row.get("name") or "").strip(),
+            (row.get("last_name") or "").strip(),
+            email,
+            f"+{target}" if target else "",
+            "CO",
+            _clean_city(row.get("city")),
+            _GENDER_TO_META.get((row.get("gender") or "").strip().lower(), ""),
+            int(round(row.get("total_spent") or 0)),
+        ])
+        exported += 1
+    return buf.getvalue(), exported
+
+
 def _read_segment_filters():
     """Parse the segment filters from the query string. Shared by the list view
     and the CSV export so both always describe the same set of customers."""
@@ -468,26 +498,7 @@ def lapsed_customers_export():
         paginate=False,
     )
 
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["fn", "ln", "email", "phone", "country", "ct", "gen", "value"])
-    exported = 0
-    for row in result["rows"]:
-        email = (row.get("email") or "").strip().lower()
-        target, _reason = prepare_target(row.get("phone"))
-        if not email and not target:
-            continue  # nothing for Meta to match on
-        writer.writerow([
-            (row.get("name") or "").strip(),
-            (row.get("last_name") or "").strip(),
-            email,
-            f"+{target}" if target else "",
-            "CO",
-            _clean_city(row.get("city")),
-            _GENDER_TO_META.get((row.get("gender") or "").strip().lower(), ""),
-            int(round(row.get("total_spent") or 0)),
-        ])
-        exported += 1
+    body, exported = meta_audience_csv(result["rows"])
 
     logger.info("%s exported %d customers for a Meta custom audience (label filters: sku=%s months=%s type=%s)",
                 getattr(current_user, "username", "unknown"), exported, skus, months, customer_type)
@@ -507,7 +518,7 @@ def lapsed_customers_export():
         f"{datetime.now():%Y_%m_%d}.csv"
     )
     return Response(
-        buf.getvalue(),
+        body,
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
