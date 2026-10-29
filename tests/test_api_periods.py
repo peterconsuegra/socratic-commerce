@@ -179,15 +179,104 @@ class SummaryApiTests(unittest.TestCase):
                         client=self.app.test_client())
         self.assertIn("Unauthorized", body["message"])
 
-    def test_an_unknown_campaign_is_still_a_404(self):
+    def test_a_campaign_no_order_carries_is_empty_not_an_error(self):
         since = f"{days_ago(7):%Y-%m-%d}"
         body = self.get(f"/api/utm_content_summary?campaign_name=Nope&period=custom&since={since}"
-                        f"&until={TODAY:%Y-%m-%d}", status=404)
-        self.assertEqual(body["message"], "No campaign matching 'Nope' was found.")
+                        f"&until={TODAY:%Y-%m-%d}")
+        self.assertEqual((body["status"], body["campaign_found"], body["resolved_utm_campaigns"]),
+                         ("success", False, []))
+        custom = body["periods"]["custom"]
+        self.assertEqual((custom["by_utm_content"], custom["totals"]["total_orders"]), ([], 0))
+
+    def test_no_campaign_name_nor_id_is_a_400(self):
+        body = self.get("/api/utm_content_summary?period=last_7d", status=400)
+        self.assertEqual(body["message"], "campaign_name or campaign_id is required.")
 
     def test_presets_say_their_timezone_too(self):
         body = self.get("/api/utm_source_summary?period=last_30d")
         self.assertEqual((body["timezone"], list(body["periods"])), ("America/Bogota", ["last_30d"]))
+
+
+class CampaignMatchingTests(unittest.TestCase):
+    """/api/utm_content_summary matches campaigns as ROAS Link does, and
+    /api/utm_campaign_content_summary answers every campaign at once."""
+
+    ORDERS = RECENT + [
+        order("20", days_ago(2), campaign="AdSystemSudoracin", content="ad_x"),
+        order("21", days_ago(5), campaign="AdSystemSudoracin", content="ad_y", repurchase=True),
+        order("22", days_ago(2), campaign="Ad System Sudoracin", content="ad_x"),
+        order("23", days_ago(4), campaign="adsystemrepurchases", content="ad_r"),
+        order("24", days_ago(6), campaign="AdSystemRepurchases", content="ad_r", repurchase=True),
+        order("25", days_ago(3), campaign="120252038187090627", content="ad_id"),
+        order("26", days_ago(3), campaign="Prospecting_WPSales_2026W42", content="ad_id"),
+        order("27", days_ago(9), campaign="HandTyped", content="c"),
+        order("28", days_ago(9), campaign="Promo Acción", content="c"),
+        order("29", days_ago(9), campaign="PromoAccion", content="c"),
+    ]
+
+    tearDown = SummaryApiTests.tearDown
+    get = SummaryApiTests.get
+
+    def setUp(self):
+        SummaryApiTests.setUp(self)
+        write_orders_csv(self.ORDERS, self.app.config["ALL_ORDERS_CSV"])
+        get_data._PARSED.clear()
+
+    def content(self, query, period="last_7d"):
+        return self.get(f"/api/utm_content_summary?period={period}&limit=0&{query}")
+
+    def test_an_accented_name_finds_the_tag_that_lost_its_accent(self):
+        body = self.content("campaign_name=Ad System Sudoración")
+        self.assertTrue(body["campaign_found"])
+        self.assertEqual(sorted(body["resolved_utm_campaigns"]), ["Ad System Sudoracin", "AdSystemSudoracin"])
+        totals = body["periods"]["last_7d"]["totals"]
+        self.assertEqual((totals["total_orders"], totals["repurchase_orders"]), (3, 1))
+        rows = {r["utm_content"]: r["total_orders"] for r in body["periods"]["last_7d"]["by_utm_content"]}
+        self.assertEqual(rows, {"ad_x": 2, "ad_y": 1})
+
+    def test_the_nfkd_form_is_the_fallback(self):
+        # "Promo Acción" collapses to "promoaccin" first; that tag has orders,
+        # so the hand-typed "PromoAccion" is not added on top.
+        body = self.content("campaign_name=Promo Acción", period="last_30d")
+        self.assertEqual(body["resolved_utm_campaigns"], ["Promo Acción"])
+        body = self.content("campaign_name=Hand Typéd", period="last_30d")
+        self.assertEqual(body["resolved_utm_campaigns"], ["HandTyped"])
+
+    def test_case_and_spaces_do_not_matter(self):
+        lower = self.content("campaign_name=adsystemrepurchases")
+        exact = self.content("campaign_name=AdSystemRepurchases")
+        self.assertEqual(lower["periods"], exact["periods"])
+        self.assertEqual(lower["periods"]["last_7d"]["totals"]["total_orders"], 2)
+
+    def test_a_campaign_id_finds_the_orders_tagged_with_it(self):
+        body = self.content("campaign_id=120252038187090627")
+        self.assertEqual(body["resolved_utm_campaigns"], ["120252038187090627"])
+        self.assertEqual(body["periods"]["last_7d"]["totals"]["total_orders"], 1)
+        both = self.content("campaign_name=Prospecting_WPSales_2026W42&campaign_id=120252038187090627")
+        self.assertEqual(both["periods"]["last_7d"]["totals"]["total_orders"], 2)
+        same = self.content("campaign_name=120252038187090627&campaign_id=120252038187090627")
+        self.assertEqual(same["periods"]["last_7d"]["totals"]["total_orders"], 1)
+
+    def test_the_batch_rows_add_up_to_each_campaigns_call(self):
+        batch = self.get("/api/utm_campaign_content_summary?period=all")
+        for key, period in batch["periods"].items():
+            by_key: dict = {}
+            for row in period["by_campaign_content"]:
+                entry = by_key.setdefault(row["utm_campaign_key"], [0, 0.0, 0, row["utm_campaign"]])
+                entry[0] += row["total_orders"]
+                entry[1] += row["total_sales"]
+                entry[2] += row["repurchase_orders"]
+            self.assertEqual(sum(v[0] for v in by_key.values()), period["totals"]["total_orders"])
+            for campaign_key, (orders, sales, repurchases, tag) in by_key.items():
+                with self.subTest(period=key, campaign=campaign_key):
+                    totals = self.content(f"campaign_name={tag}", period=key)["periods"][key]["totals"]
+                    self.assertEqual((totals["total_orders"], totals["repurchase_orders"]), (orders, repurchases))
+                    self.assertAlmostEqual(totals["total_sales"], sales, places=2)
+
+    def test_the_batch_limit_rolls_the_rest_up(self):
+        period = self.get("/api/utm_campaign_content_summary?period=last_30d&limit=2")["periods"]["last_30d"]
+        self.assertEqual(len(period["by_campaign_content"]), 2)
+        self.assertEqual(period["others"]["rows_count"], period["totals"]["distinct_rows"] - 2)
 
 
 class LoadOrdersCacheTests(unittest.TestCase):

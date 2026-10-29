@@ -255,12 +255,13 @@
     const order = ["today", "last_7d", "last_30d", "last_90d", "last_180d"];
     const keys = Object.keys(data.periods).sort((a, b) => order.indexOf(a) - order.indexOf(b));
     const header = `<div class="alert alert-light border mb-3">
-        Campaign: <strong>${esc(data.utm_campaign)}</strong>
+        Campaign: <strong>${esc((data.resolved_utm_campaigns || [data.utm_campaign]).join(", "))}</strong>
       </div>`;
     $results.innerHTML = header + keys.map(k => periodCard(data.periods[k])).join("");
   }
 
-  // 404 responses carry near-match suggestions — render them as clickable chips.
+  // A campaign no order carries (campaign_found: false) comes with near-match
+  // suggestions — render them as clickable chips.
   function renderSuggestions(data) {
     const s = data.suggestions || [];
     const chips = s.length
@@ -269,7 +270,7 @@
                     data-name="${esc(x)}">${esc(x)}</button>`).join("")}</div>`
       : "";
     $results.innerHTML = `<div class="alert alert-warning">
-        ${esc(data.message || "Campaign not found.")}
+        No orders carry campaign '${esc(data.campaign_name || data.campaign_id || "")}'.
         ${s.length ? "<div class='small mt-2'>Did you mean:</div>" : ""}
         ${chips}
       </div>`;
@@ -300,12 +301,12 @@
       const data = await resp.json();
       $rawJson.textContent = JSON.stringify(data, null, 2);
 
-      if (resp.ok && data.status === "success") {
+      if (resp.ok && data.status === "success" && data.campaign_found === false) {
+        $status.innerHTML = `<span class="text-warning">${resp.status} · no orders · ${ms} ms</span>`;
+        renderSuggestions(data);
+      } else if (resp.ok && data.status === "success") {
         $status.innerHTML = `<span class="text-success">${resp.status} OK · ${ms} ms</span>`;
         render(data);
-      } else if (resp.status === 404) {
-        $status.innerHTML = `<span class="text-warning">404 · ${ms} ms</span>`;
-        renderSuggestions(data);
       } else {
         $status.innerHTML = `<span class="text-danger">${resp.status} · ${ms} ms</span>`;
         $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || "Request failed.")}</div>`;

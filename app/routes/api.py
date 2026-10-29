@@ -13,7 +13,10 @@ from flask_login import current_user, login_required
 from app.services.periods import ALL, PERIODS, PeriodError, resolve_windows
 from app.services.utm_campaign_insights import get_utm_campaign_insights
 from app.services.utm_campaign_summary import get_utm_campaign_summary, get_wati_summary
-from app.services.utm_content_summary import CampaignNotFound, get_utm_content_summary
+from app.services.utm_content_summary import (
+    get_utm_campaign_content_summary,
+    get_utm_content_summary,
+)
 from app.services.utm_source_summary import get_utm_source_summary
 
 from . import main
@@ -327,9 +330,14 @@ def api_utm_content_summary():
     the /facebook_insights view.
 
     Query params:
-        campaign_name: REQUIRED. The campaign to break down, matched
-                case-insensitively against utm_campaign (use the value returned
-                by /api/utm_campaign_summary).
+        campaign_name: the campaign to break down. Matched the way ROAS Link
+                matches: whitespace and '+' removed, lowercased, non-ASCII
+                dropped (then the NFKD form, ó as o), so "Ad System Sudoración"
+                finds "AdSystemSudoracin". Every utm_campaign tag with that key
+                is summed; resolved_utm_campaigns lists them.
+        campaign_id: a Meta campaign id, matched exactly against utm_campaign.
+                With campaign_name too, both are summed, each order once.
+                One of campaign_name and campaign_id is required.
         period: one of "today", "last_7d", "last_30d", "last_90d",
                 "last_180d", "all" (default) to return every one of those,
                 or "custom" for since to until.
@@ -343,13 +351,18 @@ def api_utm_content_summary():
         refresh: "true" to bypass the orders cache and fetch the latest
                 orders before computing (default: use cache, ~1h TTL).
 
+    A campaign no order carries is a 200 like any other: campaign_found is
+    false, every period has by_utm_content [] and zero totals, and
+    suggestions lists close tags.
+
     Example: GET /api/utm_content_summary?campaign_name=wati&period=last_30d
     """
     campaign_name = (request.args.get("campaign_name", "") or "").strip()
-    if not campaign_name:
+    campaign_id = (request.args.get("campaign_id", "") or "").strip()
+    if not campaign_name and not campaign_id:
         return jsonify({
             "status": "error",
-            "message": "campaign_name is required.",
+            "message": "campaign_name or campaign_id is required.",
         }), 400
 
     try:
@@ -369,7 +382,8 @@ def api_utm_content_summary():
         _refresh_orders()
         orders_csv = current_app.config["ALL_ORDERS_CSV"]
         result = get_utm_content_summary(
-            campaign_name=campaign_name,
+            campaign_name=campaign_name or None,
+            campaign_id=campaign_id or None,
             orders_csv_path=orders_csv,
             limit=limit,
             **window_args,
@@ -377,13 +391,52 @@ def api_utm_content_summary():
 
         return jsonify({"status": "success", **result}), 200
 
-    except CampaignNotFound as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-            "suggestions": e.suggestions,
-        }), 404
-
     except Exception as e:
         logger.exception("Failed to build utm content summary")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@main.route("/api/utm_campaign_content_summary", methods=["GET"])
+@api_access_required
+def api_utm_campaign_content_summary():
+    """
+    Every campaign's utm_content breakdown in one call: one row per
+    (utm_campaign, utm_content) in periods.<key>.by_campaign_content, with the
+    fields of /api/utm_content_summary's rows plus utm_campaign and
+    utm_campaign_key (the key /api/utm_content_summary matches names on).
+    Summing a key's rows gives that call's totals for the campaign.
+
+    Query params:
+        period, since, until, refresh: as /api/utm_content_summary.
+        limit: max rows per period (top N by sales); the rest are rolled up
+                into "others". Default 0: every row.
+
+    Example: GET /api/utm_campaign_content_summary?period=last_7d
+    """
+    try:
+        window_args = _window_args()
+    except PeriodError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+    try:
+        limit = int(request.args.get("limit", 0))
+    except (TypeError, ValueError):
+        return jsonify({
+            "status": "error",
+            "message": "limit must be an integer.",
+        }), 400
+
+    try:
+        _refresh_orders()
+        orders_csv = current_app.config["ALL_ORDERS_CSV"]
+        result = get_utm_campaign_content_summary(
+            orders_csv_path=orders_csv,
+            limit=limit,
+            **window_args,
+        )
+
+        return jsonify({"status": "success", **result}), 200
+
+    except Exception as e:
+        logger.exception("Failed to build utm campaign content summary")
         return jsonify({"status": "error", "message": str(e)}), 500
