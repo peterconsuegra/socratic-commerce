@@ -9,6 +9,7 @@ from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
 from app.services.get_data import load_orders, location_choices
+from app.services.location_stats import build_location_stats
 from app.services.periods import orders_cutoff, range_includes_today
 
 from . import main
@@ -173,12 +174,27 @@ def sales_by_location():
     state = state if state in states else ""
     city = city if city in cities else ""
 
+    stats, stats_error = None, None
+    if os.path.exists(f"data/{file_name}"):
+        try:
+            stats = build_location_stats(
+                f"data/{file_name}",
+                state=state or None,
+                city=city or None,
+                include_today=range_includes_today(_saved_date_range(file_name)[2]),
+            )
+        except Exception as exc:
+            current_app.logger.exception("Failed building the location stats")
+            stats_error = str(exc)
+
     return _render_daily_sales(
         file_name,
         state=state or None,
         city=city or None,
         page_title="Sales by Location",
         location={"state": state, "city": city, "states": states, "cities": cities},
+        location_stats=stats,
+        location_stats_error=stats_error,
     )
 
 

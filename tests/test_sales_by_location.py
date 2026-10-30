@@ -130,6 +130,27 @@ class SalesByLocationPageTests(TempOrdersTestCase):
         self.assertIn('<option value="Antioquia" selected>', html)
         self.assertNotIn("selected>BOGOTA", html)
 
+    def test_stats_section_sums_the_selection(self):
+        html = self.get()
+        self.assertIn("Stats for every location", html)
+        self.assertIn("$259,000", html)  # total sales
+        self.assertIn("20.0% of orders", html)  # 1 repurchase of 5 orders
+
+        html = self.get("?state=Cundinamarca&city=BOGOTA%20(C/MARCA)")
+        self.assertIn("Stats for BOGOTA (C/MARCA), Cundinamarca", html)
+        self.assertIn("$150,000", html)
+        self.assertIn("33.3% of sales", html)  # the 50,000 repurchase
+
+    def test_stats_breakdowns(self):
+        from app.services.location_stats import build_location_stats
+        stats = build_location_stats("data/sales_by_location_orders.csv", state="Cundinamarca")
+        self.assertEqual([r["label"] for r in stats["by_city"]], ["BOGOTA (C/MARCA)", "CHIA (C/MARCA)"])
+        bogota = stats["by_city"][0]
+        self.assertEqual((bogota["orders"], bogota["first_purchases"], bogota["repurchases"]), (2, 1, 1))
+        self.assertEqual(stats["summary"]["first_purchases"], 2)
+        self.assertEqual(stats["by_sku"][0]["orders"], 3)
+        self.assertIsNone(build_location_stats("data/sales_by_location_orders.csv", city="NOWHERE"))
+
     def test_sidebar_links_the_page(self):
         self.assertIn('<a href="/sales_by_location" class="active">Sales by Location</a>', self.get())
 
