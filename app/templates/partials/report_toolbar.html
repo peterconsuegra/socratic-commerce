@@ -1,0 +1,144 @@
+<!-- app/templates/partials/report_toolbar.html -->
+{#
+  The toolbar at the top of /sales_by_location: the page's language
+  (?lang=, remembered in the session), the USD exchange rate and currency
+  switch of the charts, and a button that prints the whole view, or saves
+  it as a PDF from the print dialog.
+
+  Printed, the toolbar and the selectors give way to a header naming the
+  location and the date range; every stats tab shows, and the charts are
+  scaled to the page (see the @media print rules below).
+#}
+{% set saved_range = (custom_date_range_options | selectattr("value", "equalto", date_range) | list) if date_range else [] %}
+{% set place = location.city or location.state or _("Every location") %}
+{% if location.city and location.state %}{% set place = place ~ ", " ~ location.state %}{% endif %}
+{% if start_date and end_date %}
+  {% set range_text = _("{start} to {end}").format(start=start_date, end=end_date) %}
+{% elif saved_range %}
+  {% set range_text = _(saved_range[0].label) %}
+{% else %}
+  {% set range_text = "" %}
+{% endif %}
+
+<div class="container report-toolbar mb-3">
+  <div class="card shadow-sm">
+    <div class="card-body d-flex flex-wrap align-items-end justify-content-center gap-3">
+      <form method="get" action="{{ url_for('main.sales_by_location') }}">
+        {% if location.state %}<input type="hidden" name="state" value="{{ location.state }}">{% endif %}
+        {% if location.city %}<input type="hidden" name="city" value="{{ location.city }}">{% endif %}
+        <label for="report_lang" class="form-label small mb-1">{{ _("Language") }}</label>
+        <select id="report_lang" name="lang" class="form-select" onchange="this.form.submit()">
+          {% for code, name in languages.items() %}
+            <option value="{{ code }}" {% if code == lang %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </form>
+
+      {% if daily_sales_trend %}
+        <div>
+          <label for="exchangeRateDailySales" class="form-label small mb-1">{{ _("USD Exchange Rate (COP):") }}</label>
+          <div class="input-group">
+            <input type="number" id="exchangeRateDailySales" class="form-control" style="max-width: 7.5rem;" value="4000" step="50" min="3000" max="6000">
+            <button type="button" onclick="toggleCurrencyDailySales()" class="btn btn-outline-primary">{{ _("Switch Currency") }}</button>
+          </div>
+        </div>
+      {% endif %}
+
+      <button type="button" class="btn btn-primary" onclick="printReport()">
+        {{ _("Print / Save as PDF") }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container print-only report-print-header">
+  <h1>{{ _(page_title) }}</h1>
+  <p>
+    <strong>{{ _("Location") }}:</strong> {{ place }}
+    {% if range_text %} &middot; <strong>{{ _("Date range") }}:</strong> {{ range_text }}{% endif %}
+  </p>
+  <p class="small" id="reportGeneratedOn" data-template="{{ _('Report generated on {date}') }}"></p>
+</div>
+
+<style>
+  .print-only { display: none; }
+
+  @media print {
+    @page { margin: 12mm; }
+
+    body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Navigation, selectors and buttons: the header says what is shown. */
+    .app-header, .nav-sidebar, .nav-backdrop, .report-toolbar, .date-range-card,
+    .loc-stats .nav-tabs, #response { display: none !important; }
+
+    .print-only { display: block !important; }
+    .report-print-header { margin-bottom: 1rem; }
+    .report-print-header h1 { font-size: 1.6rem; margin-bottom: .25rem; }
+    .report-print-header p { margin-bottom: .15rem; }
+
+    .full-screen, .container { max-width: 100% !important; width: 100% !important; margin-top: 0 !important; }
+    .card { box-shadow: none !important; border: 0 !important; }
+    .card-body { padding: 0 !important; }
+
+    /* Every stats tab, one after the other. */
+    .loc-stats .tab-content > .tab-pane { display: block !important; opacity: 1 !important; margin-bottom: 1.25rem; }
+    .loc-stats .print-heading { display: block !important; font-weight: 700; margin: .75rem 0 .5rem; }
+    .loc-stats .table-responsive { overflow: visible !important; }
+    .loc-stats table { font-size: 7.5pt; width: 100%; }
+    .loc-stats table th { white-space: normal !important; vertical-align: bottom; }
+    .loc-stats table td, .loc-stats table th { padding: .15rem .3rem !important; }
+    .loc-stats .col-lg-3 { flex: 0 0 25%; max-width: 25%; }
+    .loc-stats .stat-value { font-size: 1.1rem; }
+    .loc-stats tr, .loc-stats .stat-tile { break-inside: avoid; }
+
+    /* Charts: the pies three to a row, every chart redrawn at the page's size
+       (sizeChartsForPrint) and, should it not be, scaled down to the page's
+       width keeping its proportions, its box growing to fit. */
+    .col-lg-4 { flex: 0 0 33.333%; max-width: 33.333%; }
+    .container div[style*="height"] { height: auto !important; break-inside: avoid; }
+    canvas { max-width: 100% !important; height: auto !important; }
+    h2, h3, h5, h6 { break-after: avoid; }
+    hr { break-after: avoid; }
+  }
+</style>
+
+<script>
+  // The file name the browser suggests when saving as PDF comes from the title.
+  window.printReport = function() {
+    var generated = document.getElementById("reportGeneratedOn");
+    if (generated) {
+      var today = new Date().toLocaleDateString({{ ("es-CO" if lang == "es" else "en-US")|tojson }},
+        { year: "numeric", month: "long", day: "numeric" });
+      generated.textContent = generated.dataset.template.replace("{date}", today);
+    }
+
+    var title = document.title;
+    document.title = {{ (_(page_title) ~ " - " ~ place ~ (" - " ~ range_text if range_text else "")) | replace("/", "-") | tojson }};
+    window.print();
+    document.title = title;
+  };
+
+  // Charts are drawn at the screen's size. beforeprint fires while the screen
+  // layout still applies, so the print sizes are given outright: the page's
+  // printable width (A4 or Letter less the margins), a third of it for the
+  // pies, and the heights of the @media print rules. afterprint draws them
+  // back at the screen's size.
+  var PRINT_WIDTH = 690;
+
+  function sizeChartsForPrint() {
+    if (typeof Chart === "undefined" || !Chart.instances) return;
+    Object.values(Chart.instances).forEach(function(chart) {
+      var third = chart.canvas.closest(".col-lg-4");
+      chart.resize(third ? Math.floor(PRINT_WIDTH / 3) - 16 : PRINT_WIDTH, third ? 400 : 330);
+    });
+  }
+
+  function sizeChartsForScreen() {
+    if (typeof Chart === "undefined" || !Chart.instances) return;
+    Object.values(Chart.instances).forEach(function(chart) { chart.resize(); });
+  }
+
+  window.addEventListener("beforeprint", sizeChartsForPrint);
+  window.addEventListener("afterprint", sizeChartsForScreen);
+</script>

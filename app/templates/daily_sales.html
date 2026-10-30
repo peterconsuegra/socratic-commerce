@@ -2,7 +2,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-{{ page_title | default("Daily Sales") }}
+{{ _(page_title | default("Daily Sales")) }}
 {% endblock %}
 
 {% block content %}
@@ -23,6 +23,10 @@
   {"value": "lifetime", "label": "Lifetime"}
 ] %}
 
+{% if location %}
+  {% include "partials/report_toolbar.html" %}
+{% endif %}
+
 {% include "partials/daterange_selector.html" %}
 
 {% if location %}
@@ -40,19 +44,22 @@
 
   {% if not daily_sales_trend %}
     <div class="alert alert-warning mt-3">
-      No data available to display for this selection.
+      {{ _("No data available to display for this selection.") }}
     </div>
   {% else %}
 
-    <div class="text-center mb-3">
-      <label for="exchangeRateDailySales">USD Exchange Rate (COP):</label>
-      <input type="number" id="exchangeRateDailySales" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleCurrencyDailySales()" class="btn btn-primary">Switch Currency</button>
-    </div>
+    {# /sales_by_location has the exchange rate in its toolbar (partials/report_toolbar.html). #}
+    {% if not location %}
+      <div class="text-center mb-3">
+        <label for="exchangeRateDailySales">USD Exchange Rate (COP):</label>
+        <input type="number" id="exchangeRateDailySales" value="4000" step="50" min="3000" max="6000">
+        <button onclick="toggleCurrencyDailySales()" class="btn btn-primary">Switch Currency</button>
+      </div>
+    {% endif %}
 
-    <h2 class="text-center">Sales by UTM Source</h2>
+    <h2 class="text-center">{{ _("Sales by UTM Source") }}</h2>
     <p class="text-center text-muted mb-3">
-      This pie reflects the selected date range (from the selector above).
+      {{ _("This pie reflects the selected date range (from the selector above).") }}
     </p>
 
     <div style="height: 420px;">
@@ -61,32 +68,32 @@
 
     {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
       <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
-        Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
+        {{ _("Other channels (<2%)") }}: {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
       </p>
     {% endif %}
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Total Sales and All Repurchases Trend and Forecast</h2>
+    <h2 class="text-center">{{ _("Daily Total Sales and All Repurchases Trend and Forecast") }}</h2>
     <p class="text-center text-muted mb-3">
-      Total sales and all repurchases are shown together for easier comparison.
+      {{ _("Total sales and all repurchases are shown together for easier comparison.") }}
     </p>
 
     <div class="row mt-4">
       <div class="col-12 col-lg-4">
-        <h5 class="text-center">Gender split of total sales</h5>
+        <h5 class="text-center">{{ _("Gender split of total sales") }}</h5>
         <div style="height: 360px;">
           <canvas id="genderPieTotal"></canvas>
         </div>
       </div>
       <div class="col-12 col-lg-4">
-        <h5 class="text-center">City split of total sales</h5>
+        <h5 class="text-center">{{ _("City split of total sales") }}</h5>
         <div style="height: 630px;">
           <canvas id="cityPieTotal"></canvas>
         </div>
       </div>
       <div class="col-12 col-lg-4">
-        <h5 class="text-center">Time split of total sales (3h)</h5>
+        <h5 class="text-center">{{ _("Time split of total sales (3h)") }}</h5>
         <div style="height: 420px;">
           <canvas id="timePieTotal"></canvas>
         </div>
@@ -105,45 +112,37 @@
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Sales Trend and Forecast by Channel</h2>
+    <h2 class="text-center">{{ _("Daily Sales Trend and Forecast by Channel") }}</h2>
 
     {% if not channel_charts %}
       <div class="alert alert-warning mt-3">
-        No channel charts available for this selection.
+        {{ _("No channel charts available for this selection.") }}
       </div>
     {% else %}
       {% for ch in channel_charts %}
-        {% if ch.key|lower == "wati" %}
+        {% if ch.key|lower in ("wati", "facebook", "google") %}
           <h3 class="text-center mt-5">
-            WATI Daily Sales and Repurchase Sales Trend and Forecast
-          </h3>
-        {% elif ch.key|lower == "facebook" %}
-          <h3 class="text-center mt-5">
-            FACEBOOK Daily Sales and Repurchase Sales Trend and Forecast
-          </h3>
-        {% elif ch.key|lower == "google" %}
-          <h3 class="text-center mt-5">
-            GOOGLE Daily Sales and Repurchase Sales Trend and Forecast
+            {{ _("{channel} Daily Sales and Repurchase Sales Trend and Forecast").format(channel=ch.key|upper) }}
           </h3>
         {% else %}
-          <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+          <h3 class="text-center mt-5">{{ _("{channel} Sales Trend and Forecast").format(channel=ch.label) }}</h3>
         {% endif %}
 
         <div class="row mt-3">
           <div class="col-12 col-lg-4">
-            <h6 class="text-center">Gender split</h6>
+            <h6 class="text-center">{{ _("Gender split") }}</h6>
             <div style="height: 340px;">
               <canvas id="{{ ch.gender_canvas_id }}"></canvas>
             </div>
           </div>
           <div class="col-12 col-lg-4">
-            <h6 class="text-center">City split</h6>
+            <h6 class="text-center">{{ _("City split") }}</h6>
             <div style="height: 630px;">
               <canvas id="{{ ch.city_canvas_id }}"></canvas>
             </div>
           </div>
           <div class="col-12 col-lg-4">
-            <h6 class="text-center">Time split (3h)</h6>
+            <h6 class="text-center">{{ _("Time split (3h)") }}</h6>
             <div style="height: 420px;">
               <canvas id="{{ ch.time_canvas_id }}"></canvas>
             </div>
@@ -159,7 +158,7 @@
 
           {% if not wati_daily_repurchases_trend %}
             <div class="alert alert-warning mt-3">
-              No WATI repurchase sales data available for this selection.
+              {{ _("No {channel} repurchase sales data available for this selection.").format(channel="WATI") }}
             </div>
           {% endif %}
 
@@ -176,7 +175,7 @@
 
           {% if not facebook_daily_repurchases_trend %}
             <div class="alert alert-warning mt-3">
-              No FACEBOOK repurchase sales data available for this selection.
+              {{ _("No {channel} repurchase sales data available for this selection.").format(channel="FACEBOOK") }}
             </div>
           {% endif %}
 
@@ -193,7 +192,7 @@
 
           {% if not google_daily_repurchases_trend %}
             <div class="alert alert-warning mt-3">
-              No GOOGLE repurchase sales data available for this selection.
+              {{ _("No {channel} repurchase sales data available for this selection.").format(channel="GOOGLE") }}
             </div>
           {% endif %}
 
@@ -277,6 +276,14 @@ document.addEventListener("DOMContentLoaded", function() {
     return String(s || "").trim().toLowerCase();
   }
 
+  // Slices keep the store's labels as keys (colors go by them); the page's
+  // language only changes the text drawn.
+  var SLICE_TEXT = {{ {"female": _("female"), "male": _("male"), "unknown": _("unknown"), "other": _("Other")}|tojson }};
+
+  function sliceText(label) {
+    return SLICE_TEXT[normKey(label)] || label;
+  }
+
   function buildGenderColors(labels) {
     var out = [];
 
@@ -333,7 +340,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var chart = new Chart(ctx, {
       type: "pie",
       data: {
-        labels: fl,
+        labels: fl.map(sliceText),
         datasets: [{
           data: fv,
           backgroundColor: colors,
@@ -437,7 +444,7 @@ document.addEventListener("DOMContentLoaded", function() {
     pieChart = new Chart(pieCtx, {
       type: "pie",
       data: {
-        labels: filteredPieLabels,
+        labels: filteredPieLabels.map(sliceText),
         datasets: [{
           data: filteredPieValuesCOP,
           backgroundColor: pieColors,
@@ -549,22 +556,12 @@ document.addEventListener("DOMContentLoaded", function() {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
-    function stripHistoricalPrefix(value) {
-      return String(value || "").replace(/^Historical\s+/i, "");
-    }
-
     function historicalDatasetLabel(value, currencyCode) {
-      var clean = String(value || "");
-
-      if (/^Historical\s+/i.test(clean)) {
-        return clean + " (" + currencyCode + ")";
-      }
-
-      return "Historical " + clean + " (" + currencyCode + ")";
+      return {{ _("Historical {x}")|tojson }}.replace("{x}", String(value || "")) + " (" + currencyCode + ")";
     }
 
     function forecastDatasetLabel(value, currencyCode) {
-      return "Forecasted " + stripHistoricalPrefix(value) + " (" + currencyCode + ")";
+      return {{ _("Forecasted {x}")|tojson }}.replace("{x}", String(value || "")) + " (" + currencyCode + ")";
     }
 
     var ctx = canvas.getContext("2d");
@@ -640,10 +637,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var REPURCHASE_COLOR = opts.repurchaseColor || "#e15759";
 
     var labelPrefixes = opts.labelPrefixes || [
-      "Historical Total Sales",
-      "Forecasted Total Sales",
-      "Historical All Repurchases",
-      "Forecasted All Repurchases"
+      {{ _("Historical Total Sales")|tojson }},
+      {{ _("Forecasted Total Sales")|tojson }},
+      {{ _("Historical All Repurchases")|tojson }},
+      {{ _("Forecasted All Repurchases")|tojson }}
     ];
 
     function makeMap(rows) {
@@ -761,7 +758,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 var value = context.parsed.y;
 
                 if (value === null || value === undefined) {
-                  return label + ": no data";
+                  return label + ": " + {{ _("no data")|tojson }};
                 }
 
                 var formattedValue = useUSD
@@ -985,10 +982,10 @@ document.addEventListener("DOMContentLoaded", function() {
             totalColor: color || "#4e79a7",
             repurchaseColor: "#e15759",
             labelPrefixes: [
-              "Historical WATI Sales",
-              "Forecasted WATI Sales",
-              "Historical WATI Repurchase Sales",
-              "Forecasted WATI Repurchase Sales"
+              {{ _("Historical {channel} Sales").format(channel="WATI")|tojson }},
+              {{ _("Forecasted {channel} Sales").format(channel="WATI")|tojson }},
+              {{ _("Historical {channel} Repurchase Sales").format(channel="WATI")|tojson }},
+              {{ _("Forecasted {channel} Repurchase Sales").format(channel="WATI")|tojson }}
             ]
           }
         );
@@ -1043,10 +1040,10 @@ document.addEventListener("DOMContentLoaded", function() {
             totalColor: facebookSalesColor,
             repurchaseColor: facebookRepurchaseColor,
             labelPrefixes: [
-              "Historical FACEBOOK Sales",
-              "Forecasted FACEBOOK Sales",
-              "Historical FACEBOOK Repurchase Sales",
-              "Forecasted FACEBOOK Repurchase Sales"
+              {{ _("Historical {channel} Sales").format(channel="FACEBOOK")|tojson }},
+              {{ _("Forecasted {channel} Sales").format(channel="FACEBOOK")|tojson }},
+              {{ _("Historical {channel} Repurchase Sales").format(channel="FACEBOOK")|tojson }},
+              {{ _("Forecasted {channel} Repurchase Sales").format(channel="FACEBOOK")|tojson }}
             ]
           }
         );
@@ -1101,10 +1098,10 @@ document.addEventListener("DOMContentLoaded", function() {
             totalColor: googleSalesColor,
             repurchaseColor: googleRepurchaseColor,
             labelPrefixes: [
-              "Historical GOOGLE Sales",
-              "Forecasted GOOGLE Sales",
-              "Historical GOOGLE Repurchase Sales",
-              "Forecasted GOOGLE Repurchase Sales"
+              {{ _("Historical {channel} Sales").format(channel="GOOGLE")|tojson }},
+              {{ _("Forecasted {channel} Sales").format(channel="GOOGLE")|tojson }},
+              {{ _("Historical {channel} Repurchase Sales").format(channel="GOOGLE")|tojson }},
+              {{ _("Forecasted {channel} Repurchase Sales").format(channel="GOOGLE")|tojson }}
             ]
           }
         );
@@ -1119,7 +1116,7 @@ document.addEventListener("DOMContentLoaded", function() {
           labels,
           hist,
           fcst,
-          "{{ ch.label }} Sales",
+          {{ _("{channel} Sales").format(channel=ch.label)|tojson }},
           color
         );
 

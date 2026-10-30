@@ -151,6 +151,28 @@ class SalesByLocationPageTests(TempOrdersTestCase):
         self.assertEqual(stats["by_sku"][0]["orders"], 3)
         self.assertIsNone(build_location_stats("data/sales_by_location_orders.csv", city="NOWHERE"))
 
+    def test_toolbar_holds_language_exchange_rate_and_print(self):
+        html = self.get()
+        toolbar = html.split('class="container report-toolbar', 1)[1].split("</form>", 1)[1].split("print-only", 1)[0]
+        self.assertIn('id="exchangeRateDailySales"', toolbar)
+        self.assertIn('onclick="printReport()"', toolbar)
+        self.assertEqual(html.count('id="exchangeRateDailySales"'), 1)
+
+    def test_spanish_is_chosen_and_remembered(self):
+        html = self.get("?lang=es")
+        self.assertIn('<html lang="es">', html)
+        self.assertIn("Estadísticas de todas las ubicaciones", html)
+        self.assertIn("$259.000", html)
+        self.assertIn("20,0% de los pedidos", html)
+        self.assertIn('"Ventas totales (hist\\u00f3rico)"', html)
+
+        html = self.get("?state=Cundinamarca")  # no lang: the session's
+        self.assertIn("Estadísticas de Cundinamarca", html)
+
+        html = self.get("?lang=en")
+        self.assertIn("Stats for every location", html)
+        self.assertIn("$259,000", html)
+
     def test_sidebar_links_the_page(self):
         self.assertIn('<a href="/sales_by_location" class="active">Sales by Location</a>', self.get())
 

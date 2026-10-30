@@ -2,7 +2,7 @@
 <div class="container date-range-card">
   <div class="card shadow-sm">
     <div class="card-body">
-      <h5 class="card-title text-center mb-4">Select Date Range</h5>
+      <h5 class="card-title text-center mb-4">{{ _("Select Date Range") }}</h5>
 
       <!--
         Only one button now: Fetch Data.
@@ -14,7 +14,7 @@
       -->
       <form id="dataForm" onsubmit="return false;">
         <div class="mb-3">
-          <label for="date_range" class="form-label">Select Predefined Date Range:</label>
+          <label for="date_range" class="form-label">{{ _("Select Predefined Date Range:") }}</label>
 
           {% set selected_range = (date_range | default('') | lower | trim) %}
 
@@ -22,17 +22,17 @@
             {% for option in custom_date_range_options %}
               {% set opt_val = (option.value | default('') | lower | trim) %}
               <option value="{{ option.value }}" {% if selected_range and selected_range == opt_val %}selected{% endif %}>
-                {{ option.label }}
+                {{ _(option.label) }}
               </option>
             {% endfor %}
           </select>
         </div>
 
-        <p class="text-center my-3">Or enter a custom date range:</p>
+        <p class="text-center my-3">{{ _("Or enter a custom date range:") }}</p>
 
         <div class="row g-3">
           <div class="col-md-6">
-            <label for="start_date" class="form-label">Start Date:</label>
+            <label for="start_date" class="form-label">{{ _("Start Date:") }}</label>
             <input
               type="text"
               id="start_date"
@@ -46,7 +46,7 @@
           </div>
 
           <div class="col-md-6">
-            <label for="end_date" class="form-label">End Date:</label>
+            <label for="end_date" class="form-label">{{ _("End Date:") }}</label>
             <input
               type="text"
               id="end_date"
@@ -84,7 +84,7 @@
 
         <div class="text-center mt-4">
           <button type="button" id="fetchData" class="btn btn-primary btn-lg">
-            Fetch Data
+            {{ _("Fetch Data") }}
           </button>
         </div>
       </form>
@@ -147,7 +147,7 @@ $(document).ready(function() {
 
     $("#fetchData")
       .prop("disabled", true)
-      .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Fetching...');
+      .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + {{ _("Fetching...")|tojson }});
 
     var dateRangeVal = $("#date_range").val();
     var dateRange = dateRangeVal ? dateRangeVal.trim() : "";
@@ -158,8 +158,8 @@ $(document).ready(function() {
     // Require either preset OR both custom dates
     if (!dateRange && (!startDate || !endDate)) {
       $("#loader").removeClass("show");
-      $("#fetchData").prop("disabled", false).html("Fetch Data");
-      $("#response").html("<div class='alert alert-danger text-center'>Please select a date range or enter both start and end dates.</div>");
+      $("#fetchData").prop("disabled", false).html({{ _("Fetch Data")|tojson }});
+      $("#response").html("<div class='alert alert-danger text-center'>" + {{ _("Please select a date range or enter both start and end dates.")|tojson }} + "</div>");
       return;
     }
 
@@ -168,8 +168,8 @@ $(document).ready(function() {
       var dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
       if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
         $("#loader").removeClass("show");
-        $("#fetchData").prop("disabled", false).html("Fetch Data");
-        $("#response").html("<div class='alert alert-danger text-center'>Invalid date format. Please use DD/MM/YYYY.</div>");
+        $("#fetchData").prop("disabled", false).html({{ _("Fetch Data")|tojson }});
+        $("#response").html("<div class='alert alert-danger text-center'>" + {{ _("Invalid date format. Please use DD/MM/YYYY.")|tojson }} + "</div>");
         return;
       }
     }
@@ -187,7 +187,7 @@ $(document).ready(function() {
       dataType: "json",
       success: function(response) {
         $("#loader").removeClass("show");
-        $("#fetchData").prop("disabled", false).html("Fetch Data");
+        $("#fetchData").prop("disabled", false).html({{ _("Fetch Data")|tojson }});
 
         if (response.status === "success") {
           // 2) redirect to same page with GET params so the view applies the window
@@ -207,7 +207,7 @@ $(document).ready(function() {
         }
         alert("AJAX request failed: " + errorMessage);
         $("#loader").removeClass("show");
-        $("#fetchData").prop("disabled", false).html("Fetch Data");
+        $("#fetchData").prop("disabled", false).html({{ _("Fetch Data")|tojson }});
       }
     });
   });

@@ -25,6 +25,9 @@ def create_app():
     from .helpers import get_value
     app.jinja_env.filters["get_value"] = get_value
 
+    from . import i18n
+    i18n.init_app(app)
+
     app.static_folder = "static"
     app.secret_key = os.getenv("FLASK_KEY", "default-secret-key")
 

@@ -3,10 +3,14 @@
   The stats section of /sales_by_location, above the charts: headline
   figures for the selected location and tabs breaking them down by city,
   channel, product and weekday (see services/location_stats.py). Amounts in
-  COP. location_stats is None when the selection has no orders.
+  COP, numbers in the page's language (1.234,5 in Spanish). location_stats
+  is None when the selection has no orders. Printed, every tab shows, one
+  after the other, under its own heading.
 #}
-{% macro cop(v) %}${{ "{:,.0f}".format(v) }}{% endmacro %}
-{% macro pct(v) %}{{ "%.1f"|format(v) }}%{% endmacro %}
+{% macro localize(text) %}{{ text.replace(",", "|").replace(".", ",").replace("|", ".") if lang == "es" else text }}{% endmacro %}
+{% macro cop(v) %}{{ localize("${:,.0f}".format(v)) }}{% endmacro %}
+{% macro num(v) %}{{ localize("{:,}".format(v)) }}{% endmacro %}
+{% macro pct(v) %}{{ localize("%.1f"|format(v)) }}%{% endmacro %}
 
 <style>
   .loc-stats .stat-tile { border: 1px solid rgba(0,0,0,.08); border-radius: .5rem; padding: .85rem 1rem; height: 100%; background: var(--bs-body-bg); }
@@ -15,111 +19,124 @@
   .loc-stats .stat-note { font-size: .8rem; color: var(--bs-secondary-color); }
   .loc-stats table td, .loc-stats table th { white-space: nowrap; }
   .loc-stats table td.num, .loc-stats table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .loc-stats .print-heading { display: none; }
 </style>
 
 <div class="container mt-4 loc-stats">
   <div class="card shadow-sm">
     <div class="card-body">
       <h5 class="card-title text-center mb-1">
-        Stats for {{ location.city or location.state or "every location" }}{% if location.city and location.state %}, {{ location.state }}{% endif %}
+        {{ _("Stats for {place}").format(place=location.city or location.state or _("every location")) }}{% if location.city and location.state %}, {{ location.state }}{% endif %}
       </h5>
-      <p class="text-center text-muted small mb-3">Selected date range, amounts in COP. Repurchases as numbered by the store.</p>
+      <p class="text-center text-muted small mb-3">{{ _("Selected date range, amounts in COP. Repurchases as numbered by the store.") }}</p>
 
       {% if location_stats_error %}
         <div class="alert alert-warning mb-0">{{ location_stats_error }}</div>
       {% elif not location_stats %}
-        <p class="text-center text-muted mb-0">No orders for this selection.</p>
+        <p class="text-center text-muted mb-0">{{ _("No orders for this selection.") }}</p>
       {% else %}
         {% set s = location_stats.summary %}
+        {% set tabs = [
+          ("locStatsSummary", _("Summary")),
+          ("locStatsCities", _("By city")),
+          ("locStatsChannels", _("By channel")),
+          ("locStatsProducts", _("Products")),
+          ("locStatsWeekdays", _("By weekday")),
+        ] %}
 
         <ul class="nav nav-tabs mb-3" role="tablist">
-          <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#locStatsSummary" type="button" role="tab">Summary</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#locStatsCities" type="button" role="tab">By city</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#locStatsChannels" type="button" role="tab">By channel</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#locStatsProducts" type="button" role="tab">Products</button></li>
-          <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#locStatsWeekdays" type="button" role="tab">By weekday</button></li>
+          {% for id, title in tabs %}
+            <li class="nav-item" role="presentation"><button class="nav-link{% if loop.first %} active{% endif %}" data-bs-toggle="tab" data-bs-target="#{{ id }}" type="button" role="tab">{{ title }}</button></li>
+          {% endfor %}
         </ul>
 
         <div class="tab-content">
           <div class="tab-pane fade show active" id="locStatsSummary" role="tabpanel">
+            <h6 class="print-heading">{{ tabs[0][1] }}</h6>
             <div class="row g-3">
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Total sales</div>
+                <div class="stat-label">{{ _("Total sales") }}</div>
                 <div class="stat-value">{{ cop(s.sales) }}</div>
-                <div class="stat-note">{{ cop(s.sales_per_day) }} per day over {{ s.days }} day{{ "s" if s.days != 1 }}</div>
+                <div class="stat-note">{{ (_("{amount} per day over {days} days") if s.days != 1 else _("{amount} per day over 1 day")).format(amount=cop(s.sales_per_day), days=s.days) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Total repurchases</div>
-                <div class="stat-value">{{ "{:,}".format(s.repurchases) }}</div>
-                <div class="stat-note">{{ pct(s.repurchase_rate) }} of orders</div>
+                <div class="stat-label">{{ _("Total repurchases") }}</div>
+                <div class="stat-value">{{ num(s.repurchases) }}</div>
+                <div class="stat-note">{{ _("{pct} of orders").format(pct=pct(s.repurchase_rate)) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Repurchase sales</div>
+                <div class="stat-label">{{ _("Repurchase sales") }}</div>
                 <div class="stat-value">{{ cop(s.repurchase_sales) }}</div>
-                <div class="stat-note">{{ pct(s.repurchase_sales_share) }} of sales</div>
+                <div class="stat-note">{{ _("{pct} of sales").format(pct=pct(s.repurchase_sales_share)) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Orders</div>
-                <div class="stat-value">{{ "{:,}".format(s.orders) }}</div>
-                <div class="stat-note">Avg order {{ cop(s.aov) }}</div>
+                <div class="stat-label">{{ _("Orders") }}</div>
+                <div class="stat-value">{{ num(s.orders) }}</div>
+                <div class="stat-note">{{ _("Avg order {amount}").format(amount=cop(s.aov)) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">New customers</div>
-                <div class="stat-value">{{ "{:,}".format(s.first_purchases) }}</div>
-                <div class="stat-note">First purchases, {{ cop(s.first_purchase_sales) }}</div>
+                <div class="stat-label">{{ _("New customers") }}</div>
+                <div class="stat-value">{{ num(s.first_purchases) }}</div>
+                <div class="stat-note">{{ _("First purchases, {amount}").format(amount=cop(s.first_purchase_sales)) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Avg first order</div>
+                <div class="stat-label">{{ _("Avg first order") }}</div>
                 <div class="stat-value">{{ cop(s.first_purchase_aov) }}</div>
-                <div class="stat-note">vs {{ cop(s.repurchase_aov) }} avg repurchase</div>
+                <div class="stat-note">{{ _("vs {amount} avg repurchase").format(amount=cop(s.repurchase_aov)) }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">3rd+ purchases</div>
-                <div class="stat-value">{{ "{:,}".format(s.third_plus) }}</div>
-                <div class="stat-note">Orders from loyal customers</div>
+                <div class="stat-label">{{ _("3rd+ purchases") }}</div>
+                <div class="stat-value">{{ num(s.third_plus) }}</div>
+                <div class="stat-note">{{ _("Orders from loyal customers") }}</div>
               </div></div>
               <div class="col-6 col-lg-3"><div class="stat-tile">
-                <div class="stat-label">Cities with orders</div>
-                <div class="stat-value">{{ "{:,}".format(s.cities) }}</div>
-                <div class="stat-note">{% if s.unnumbered %}{{ s.unnumbered }} order{{ "s" if s.unnumbered != 1 }} not numbered yet{% else %}Every order numbered{% endif %}</div>
+                <div class="stat-label">{{ _("Cities with orders") }}</div>
+                <div class="stat-value">{{ num(s.cities) }}</div>
+                <div class="stat-note">
+                  {% if s.unnumbered == 1 %}{{ _("1 order not numbered yet") }}
+                  {% elif s.unnumbered %}{{ _("{count} orders not numbered yet").format(count=num(s.unnumbered)) }}
+                  {% else %}{{ _("Every order numbered") }}{% endif %}
+                </div>
               </div></div>
             </div>
           </div>
 
           <div class="tab-pane fade" id="locStatsCities" role="tabpanel">
+            <h6 class="print-heading">{{ tabs[1][1] }}</h6>
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle mb-0">
                 <thead><tr>
-                  <th>City</th><th class="num">Sales</th><th class="num">Share</th><th class="num">Orders</th><th class="num">Avg order</th>
-                  <th class="num">New customers</th><th class="num">Repurchases</th><th class="num">Repurchase sales</th><th class="num">Repurchase rate</th><th>Top channel</th>
+                  <th>{{ _("City") }}</th><th class="num">{{ _("Sales") }}</th><th class="num">{{ _("Share") }}</th><th class="num">{{ _("Orders") }}</th><th class="num">{{ _("Avg order") }}</th>
+                  <th class="num">{{ _("New customers") }}</th><th class="num">{{ _("Repurchases") }}</th><th class="num">{{ _("Repurchase sales") }}</th><th class="num">{{ _("Repurchase rate") }}</th><th>{{ _("Top channel") }}</th>
                 </tr></thead>
                 <tbody>
                   {% for r in location_stats.by_city %}
                     <tr>
-                      <td>{{ r.label }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ r.orders }}</td><td class="num">{{ cop(r.aov) }}</td>
-                      <td class="num">{{ r.first_purchases }}</td><td class="num">{{ r.repurchases }}</td><td class="num">{{ cop(r.repurchase_sales) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td><td>{{ r.top_channel }}</td>
+                      <td>{{ _(r.label) }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ num(r.orders) }}</td><td class="num">{{ cop(r.aov) }}</td>
+                      <td class="num">{{ num(r.first_purchases) }}</td><td class="num">{{ num(r.repurchases) }}</td><td class="num">{{ cop(r.repurchase_sales) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td><td>{{ _(r.top_channel) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
             {% if location_stats.city_count > location_stats.by_city|length %}
-              <p class="text-muted small mt-2 mb-0">Top {{ location_stats.by_city|length }} of {{ location_stats.city_count }} cities by sales.</p>
+              <p class="text-muted small mt-2 mb-0">{{ _("Top {shown} of {total} cities by sales.").format(shown=location_stats.by_city|length, total=location_stats.city_count) }}</p>
             {% endif %}
           </div>
 
           <div class="tab-pane fade" id="locStatsChannels" role="tabpanel">
+            <h6 class="print-heading">{{ tabs[2][1] }}</h6>
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle mb-0">
                 <thead><tr>
-                  <th>Channel (utm_source)</th><th class="num">Sales</th><th class="num">Share</th><th class="num">Orders</th><th class="num">Avg order</th>
-                  <th class="num">New customers</th><th class="num">Repurchases</th><th class="num">Repurchase sales</th><th class="num">Repurchase rate</th>
+                  <th>{{ _("Channel (utm_source)") }}</th><th class="num">{{ _("Sales") }}</th><th class="num">{{ _("Share") }}</th><th class="num">{{ _("Orders") }}</th><th class="num">{{ _("Avg order") }}</th>
+                  <th class="num">{{ _("New customers") }}</th><th class="num">{{ _("Repurchases") }}</th><th class="num">{{ _("Repurchase sales") }}</th><th class="num">{{ _("Repurchase rate") }}</th>
                 </tr></thead>
                 <tbody>
                   {% for r in location_stats.by_channel %}
                     <tr>
-                      <td>{{ r.label }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ r.orders }}</td><td class="num">{{ cop(r.aov) }}</td>
-                      <td class="num">{{ r.first_purchases }}</td><td class="num">{{ r.repurchases }}</td><td class="num">{{ cop(r.repurchase_sales) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
+                      <td>{{ _(r.label) }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ num(r.orders) }}</td><td class="num">{{ cop(r.aov) }}</td>
+                      <td class="num">{{ num(r.first_purchases) }}</td><td class="num">{{ num(r.repurchases) }}</td><td class="num">{{ cop(r.repurchase_sales) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -128,39 +145,41 @@
           </div>
 
           <div class="tab-pane fade" id="locStatsProducts" role="tabpanel">
+            <h6 class="print-heading">{{ tabs[3][1] }}</h6>
             {% if location_stats.by_sku %}
               <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle mb-0">
                   <thead><tr>
-                    <th>SKU</th><th class="num">Orders with it</th><th class="num">% of orders</th><th class="num">In first purchases</th><th class="num">In repurchases</th><th class="num">Repurchase rate</th>
+                    <th>{{ _("SKU") }}</th><th class="num">{{ _("Orders with it") }}</th><th class="num">{{ _("% of orders") }}</th><th class="num">{{ _("In first purchases") }}</th><th class="num">{{ _("In repurchases") }}</th><th class="num">{{ _("Repurchase rate") }}</th>
                   </tr></thead>
                   <tbody>
                     {% for r in location_stats.by_sku %}
                       <tr>
-                        <td>{{ r.label }}</td><td class="num">{{ r.orders }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ r.first_purchases }}</td><td class="num">{{ r.repurchases }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
+                        <td>{{ r.label }}</td><td class="num">{{ num(r.orders) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ num(r.first_purchases) }}</td><td class="num">{{ num(r.repurchases) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
-              <p class="text-muted small mt-2 mb-0">A multi-item order counts once for each SKU it holds, so the rows add up to more than the orders.</p>
+              <p class="text-muted small mt-2 mb-0">{{ _("A multi-item order counts once for each SKU it holds, so the rows add up to more than the orders.") }}</p>
             {% else %}
-              <p class="text-muted mb-0">No SKUs recorded for these orders.</p>
+              <p class="text-muted mb-0">{{ _("No SKUs recorded for these orders.") }}</p>
             {% endif %}
           </div>
 
           <div class="tab-pane fade" id="locStatsWeekdays" role="tabpanel">
+            <h6 class="print-heading">{{ tabs[4][1] }}</h6>
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle mb-0">
                 <thead><tr>
-                  <th>Weekday</th><th class="num">Sales</th><th class="num">Share</th><th class="num">Orders</th><th class="num">Avg order</th>
-                  <th class="num">New customers</th><th class="num">Repurchases</th><th class="num">Repurchase rate</th>
+                  <th>{{ _("Weekday") }}</th><th class="num">{{ _("Sales") }}</th><th class="num">{{ _("Share") }}</th><th class="num">{{ _("Orders") }}</th><th class="num">{{ _("Avg order") }}</th>
+                  <th class="num">{{ _("New customers") }}</th><th class="num">{{ _("Repurchases") }}</th><th class="num">{{ _("Repurchase rate") }}</th>
                 </tr></thead>
                 <tbody>
                   {% for r in location_stats.by_weekday %}
                     <tr>
-                      <td>{{ r.label }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ r.orders }}</td><td class="num">{{ cop(r.aov) }}</td>
-                      <td class="num">{{ r.first_purchases }}</td><td class="num">{{ r.repurchases }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
+                      <td>{{ _(r.label) }}</td><td class="num">{{ cop(r.sales) }}</td><td class="num">{{ pct(r.share) }}</td><td class="num">{{ num(r.orders) }}</td><td class="num">{{ cop(r.aov) }}</td>
+                      <td class="num">{{ num(r.first_purchases) }}</td><td class="num">{{ num(r.repurchases) }}</td><td class="num">{{ pct(r.repurchase_rate) }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>

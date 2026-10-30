@@ -5,6 +5,7 @@ import pandas as pd
 from flask import current_app, render_template, request
 from flask_login import login_required
 
+from app.i18n import request_language
 from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
@@ -163,7 +164,8 @@ def daily_sales():
 @main.route("/sales_by_location")
 @login_required
 def sales_by_location():
-    """/daily_sales for the orders of one department (state) and/or one city."""
+    """/daily_sales for the orders of one department (state) and/or one city, in English or Spanish."""
+    request_language()
     file_name = "sales_by_location_orders.csv"
     state = (request.args.get("state") or "").strip()
     city = (request.args.get("city") or "").strip()
