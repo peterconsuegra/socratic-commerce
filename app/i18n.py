@@ -1283,6 +1283,80 @@ SPANISH = {
     'No orders found for utm_campaign = {value} in the selected date range.': 'No se encontraron pedidos con utm_campaign = {value} en el rango de fechas seleccionado.',
     'No orders found for utm_source = {value} in the selected date range.': 'No se encontraron pedidos con utm_source = {value} en el rango de fechas seleccionado.',
     'No orders found for product = "{product}" in the selected date range.': 'No se encontraron pedidos del producto "{product}" en el rango de fechas seleccionado.',
+
+    # /mcp-settings: connecting Claude to the MCP server
+    "Claude connector (MCP)": "Conector de Claude (MCP)",
+    "Connect Claude to Second Order so you can ask, in a normal conversation, for sales by period, compare months or weeks, and see first-time and repurchase sales. Claude only reads; it cannot change anything on the platform or the store.":
+        "Conecta Claude a Second Order para preguntar, en una conversación normal, por las ventas por periodo, comparar meses o semanas y ver las ventas de primera compra y de recompra. Claude solo lee; no puede cambiar nada en la plataforma ni en la tienda.",
+    "Server address": "Dirección del servidor",
+    "Transport: Streamable HTTP. Authentication: a connector token, in the URL (claude.ai) or in the Authorization header (Claude Code and other clients).":
+        "Transporte: Streamable HTTP. Autenticación: un token de conector, en la URL (claude.ai) o en el header Authorization (Claude Code y otros clientes).",
+    "Connector “{name}” created": "Conector “{name}” creado",
+    "Copy these now: the token is shown only once. If you lose it, revoke it below and create another.":
+        "Cópialos ahora: el token se muestra una sola vez. Si lo pierdes, revócalo abajo y crea otro.",
+    "Connector URL for claude.ai": "URL del conector para claude.ai",
+    "Command for Claude Code": "Comando para Claude Code",
+    "Token only": "Solo el token",
+    "Step 1 · Create a connector token": "Paso 1 · Crea un token de conector",
+    "Create one token per person or per place you connect, so you can revoke one without breaking the others.":
+        "Crea un token por persona o por lugar que conectes, así puedes revocar uno sin romper los demás.",
+    "Connector name": "Nombre del conector",
+    "Create token": "Crear token",
+    "Step 2 · Connect it to Claude": "Paso 2 · Conéctalo a Claude",
+    "Claude conversations": "Conversaciones de Claude",
+    "Other MCP clients": "Otros clientes MCP",
+    "For claude.ai on the web, the Claude desktop app and the mobile app. You add the connector once and it appears everywhere you sign in.":
+        "Para claude.ai en la web, la app de escritorio de Claude y la app móvil. Agregas el conector una vez y aparece en todos lados donde inicies sesión.",
+    "Open claude.ai and go to <strong>Settings → Connectors</strong>.":
+        "Abre claude.ai y ve a <strong>Configuración → Conectores</strong> (Settings → Connectors).",
+    "Click <strong>Add custom connector</strong>. On a Team or Enterprise plan, an owner adds it first under <strong>Organization settings → Connectors</strong>.":
+        "Haz clic en <strong>Agregar conector personalizado</strong> (Add custom connector). En un plan Team o Enterprise, primero lo agrega un owner en <strong>Configuración de la organización → Conectores</strong>.",
+    "Name it <strong>Second Order</strong> and paste the connector URL:":
+        "Ponle de nombre <strong>Second Order</strong> y pega la URL del conector:",
+    "Replace <token> with the token from step 1.": "Reemplaza <token> por el token del paso 1.",
+    "Click <strong>Add</strong>. No sign-in is needed: the token in the URL is the access.":
+        "Haz clic en <strong>Agregar</strong> (Add). No hace falta iniciar sesión: el token en la URL es el acceso.",
+    "In a conversation, open the <strong>+</strong> menu (or the tools icon) next to the message box, go to <strong>Connectors</strong> and turn on <strong>Second Order</strong>.":
+        "En una conversación, abre el menú <strong>+</strong> (o el ícono de herramientas) junto al campo de mensaje, ve a <strong>Conectores</strong> y activa <strong>Second Order</strong>.",
+    "Run this in a terminal once; every Claude Code session on that computer can then use Second Order.":
+        "Ejecuta esto una vez en una terminal; desde ahí todas las sesiones de Claude Code en ese computador pueden usar Second Order.",
+    "Check it with <code>claude mcp list</code>; inside a session, <code>/mcp</code> shows its tools.":
+        "Compruébalo con <code>claude mcp list</code>; dentro de una sesión, <code>/mcp</code> muestra sus herramientas.",
+    "Any client that speaks MCP over Streamable HTTP:": "Cualquier cliente que hable MCP por Streamable HTTP:",
+    "URL": "URL",
+    "Header": "Header",
+    "Or, if the client cannot send headers, the token in the URL:": "O, si el cliente no puede enviar headers, el token en la URL:",
+    "What Claude can look up": "Qué puede consultar Claude",
+    "Today's date in Bogotá, the exact days of each preset (today, last 7, 30, 90 and 180 days), the rules for a custom range and the span of the order history.":
+        "La fecha de hoy en Bogotá, los días exactos de cada periodo predefinido (hoy, últimos 7, 30, 90 y 180 días), las reglas del rango personalizado y el alcance del historial de pedidos.",
+    "Total sales, orders, average order value, first-time and repurchase sales for a preset or any range of up to 366 days, optionally split by day, week or month.":
+        "Ventas totales, pedidos, ticket promedio, ventas de primera compra y de recompra para un periodo predefinido o cualquier rango de hasta 366 días, con desglose opcional por día, semana o mes.",
+    "One range against another, or against the same number of days right before it, with the change in each figure.":
+        "Un rango contra otro, o contra la misma cantidad de días justo antes, con el cambio de cada cifra.",
+    "Amounts are in COP and days are Bogotá calendar days.": "Los montos están en COP y los días son días calendario de Bogotá.",
+    "Try asking": "Prueba preguntando",
+    "How much did we sell in the last 30 days, and what share came from repurchases?":
+        "¿Cuánto vendimos en los últimos 30 días y qué parte vino de recompras?",
+    "Compare October with September, week by week.": "Compara octubre con septiembre, semana a semana.",
+    "Show monthly sales for this year so far.": "Muestra las ventas mensuales de lo que va del año.",
+    "Which day of the last two weeks sold the most?": "¿Qué día de las últimas dos semanas vendió más?",
+    "Connector tokens": "Tokens de conector",
+    "Revoke this connector? Claude will stop reaching Second Order with it.":
+        "¿Revocar este conector? Claude dejará de acceder a Second Order con él.",
+    "No connector tokens yet. Create one in step 1.": "Aún no hay tokens de conector. Crea uno en el paso 1.",
+    "Security": "Seguridad",
+    "Whoever has a connector URL or token can read the store's sales: share it only with people who should see them.":
+        "Quien tenga la URL o el token de un conector puede leer las ventas de la tienda: compártelo solo con quien deba verlas.",
+    "A connector token also opens the JSON API (/api/*), like any API token.":
+        "Un token de conector también abre la API JSON (/api/*), como cualquier token de API.",
+    "If one leaks, revoke it here; the other connectors, ROAS Link and Revive keep working.":
+        "Si uno se filtra, revócalo aquí; los demás conectores, ROAS Link y Revive siguen funcionando.",
+    "Every token is also listed, with the integrations' tokens, on": "Todos los tokens también aparecen, junto a los de las integraciones, en",
+    "Copied": "Copiado",
+    "Give the connector a name.": "Ponle un nombre al conector.",
+    "That token is not a Claude connector token; manage it on API Tokens.":
+        "Ese token no es de un conector de Claude; adminístralo en Tokens de API.",
+    "Connector '{name}' revoked. Claude can no longer use it.": "Conector '{name}' revocado. Claude ya no puede usarlo.",
 }
 
 

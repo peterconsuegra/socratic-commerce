@@ -194,6 +194,7 @@
           {% if current_user.is_authenticated and current_user.role == 'admin' %}
             <li><a href="{{ url_for('main.admin_users_index') }}" class="{% if p == '/admin/users' %}active{% endif %}">{{ _("Users") }}</a></li>
             <li><a href="{{ url_for('main.admin_api_tokens_index') }}" class="{% if p == '/admin/api_tokens' %}active{% endif %}">{{ _("API Tokens") }}</a></li>
+            <li><a href="{{ url_for('main.mcp_settings') }}" class="{% if p.startswith('/mcp-settings') %}active{% endif %}">{{ _("Claude connector (MCP)") }}</a></li>
           {% endif %}
         </ul>
       </div>

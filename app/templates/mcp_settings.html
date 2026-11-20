@@ -1,0 +1,262 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _("Claude connector (MCP)") }}{% endblock %}
+
+{% block head_scripts %}
+<style>
+  .mcp-page { max-width: 1000px; }
+  .mcp-page h2 { font-family: var(--so-font-display); }
+  .mcp-endpoint { display: flex; gap: .5rem; align-items: stretch; flex-wrap: wrap; }
+  .mcp-endpoint code, .mcp-copy-field code {
+    flex: 1 1 260px; display: block; padding: .55rem .75rem; background: var(--so-bg);
+    border: 1px solid var(--so-line); border-radius: var(--so-radius); color: var(--so-ink);
+    word-break: break-all; font-size: .9rem;
+  }
+  .mcp-copy-field { display: flex; gap: .5rem; align-items: stretch; flex-wrap: wrap; margin-bottom: .75rem; }
+  .mcp-steps { counter-reset: step; list-style: none; padding-left: 0; margin-bottom: 0; }
+  .mcp-steps li { counter-increment: step; position: relative; padding-left: 2.25rem; margin-bottom: .75rem; }
+  .mcp-steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0; width: 1.6rem; height: 1.6rem;
+    border-radius: 50%; background: var(--so-teal-tint); color: var(--so-teal-dark);
+    font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center;
+  }
+  .mcp-new-token { border: 2px solid var(--so-teal); }
+  .mcp-tool { border-left: 3px solid var(--so-teal); padding: .25rem 0 .25rem .75rem; margin-bottom: .75rem; }
+  .mcp-prompt { background: var(--so-teal-tint); border-radius: var(--so-radius); padding: .5rem .75rem; margin-bottom: .5rem; }
+  .mcp-page .nav-tabs .nav-link { color: var(--so-ink); }
+  .mcp-page .nav-tabs .nav-link.active { color: var(--so-teal-dark); font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set connector_url = mcp_url ~ "?api_token=" ~ (new_token or "<token>") %}
+{% set code_command = "claude mcp add --transport http " ~ server_name ~ " " ~ mcp_url ~ " --header \"Authorization: Bearer " ~ (new_token or "<token>") ~ "\"" %}
+<div class="container mt-4 mcp-page">
+  <h2 class="mb-1">{{ _("Claude connector (MCP)") }}</h2>
+  <p class="text-muted mb-4">
+    {{ _("Connect Claude to Second Order so you can ask, in a normal conversation, for sales by period, compare months or weeks, and see first-time and repurchase sales. Claude only reads; it cannot change anything on the platform or the store.") }}
+  </p>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">{{ _("Server address") }}</div>
+    <div class="card-body">
+      <div class="mcp-endpoint mb-2">
+        <code id="mcp-url">{{ mcp_url }}</code>
+        <button type="button" class="btn btn-outline-primary btn-sm" data-copy="#mcp-url">{{ _("Copy") }}</button>
+      </div>
+      <p class="small text-muted mb-0">
+        {{ _("Transport: Streamable HTTP. Authentication: a connector token, in the URL (claude.ai) or in the Authorization header (Claude Code and other clients).") }}
+      </p>
+    </div>
+  </div>
+
+  {% if new_token %}
+  <div class="card shadow-sm mb-4 mcp-new-token">
+    <div class="card-header fw-bold">{{ _("Connector “{name}” created").format(name=new_label) }}</div>
+    <div class="card-body">
+      <div class="alert alert-warning small mb-3">
+        {{ _("Copy these now: the token is shown only once. If you lose it, revoke it below and create another.") }}
+      </div>
+      <label class="form-label small text-muted mb-1">{{ _("Connector URL for claude.ai") }}</label>
+      <div class="mcp-copy-field">
+        <code id="new-connector-url">{{ connector_url }}</code>
+        <button type="button" class="btn btn-primary btn-sm" data-copy="#new-connector-url">{{ _("Copy") }}</button>
+      </div>
+      <label class="form-label small text-muted mb-1">{{ _("Command for Claude Code") }}</label>
+      <div class="mcp-copy-field">
+        <code id="new-code-command">{{ code_command }}</code>
+        <button type="button" class="btn btn-outline-primary btn-sm" data-copy="#new-code-command">{{ _("Copy") }}</button>
+      </div>
+      <label class="form-label small text-muted mb-1">{{ _("Token only") }}</label>
+      <div class="mcp-copy-field mb-0">
+        <code id="new-token">{{ new_token }}</code>
+        <button type="button" class="btn btn-outline-primary btn-sm" data-copy="#new-token">{{ _("Copy") }}</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">{{ _("Step 1 · Create a connector token") }}</div>
+    <div class="card-body">
+      <p class="small text-muted">
+        {{ _("Create one token per person or per place you connect, so you can revoke one without breaking the others.") }}
+      </p>
+      <form method="POST" action="{{ url_for('main.mcp_settings_new_token') }}" class="row g-2 align-items-end">
+        <div class="col-sm-8">
+          <label class="form-label small text-muted" for="connector-name">{{ _("Connector name") }}</label>
+          <input type="text" id="connector-name" name="name" class="form-control" value="{{ default_label }}" maxlength="100" required>
+        </div>
+        <div class="col-sm-4">
+          <button type="submit" class="btn btn-primary w-100">{{ _("Create token") }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">{{ _("Step 2 · Connect it to Claude") }}</div>
+    <div class="card-body">
+      <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-claude-ai" type="button" role="tab">{{ _("Claude conversations") }}</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-claude-code" type="button" role="tab">Claude Code</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-other" type="button" role="tab">{{ _("Other MCP clients") }}</button>
+        </li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-claude-ai" role="tabpanel">
+          <p class="small text-muted">{{ _("For claude.ai on the web, the Claude desktop app and the mobile app. You add the connector once and it appears everywhere you sign in.") }}</p>
+          <ol class="mcp-steps">
+            <li>{{ _("Open claude.ai and go to <strong>Settings → Connectors</strong>.")|safe }}</li>
+            <li>{{ _("Click <strong>Add custom connector</strong>. On a Team or Enterprise plan, an owner adds it first under <strong>Organization settings → Connectors</strong>.")|safe }}</li>
+            <li>
+              {{ _("Name it <strong>Second Order</strong> and paste the connector URL:")|safe }}
+              <div class="mcp-copy-field mt-2 mb-0">
+                <code id="connector-url">{{ connector_url }}</code>
+                <button type="button" class="btn btn-outline-primary btn-sm" data-copy="#connector-url">{{ _("Copy") }}</button>
+              </div>
+              {% if not new_token %}<div class="small text-muted mt-1">{{ _("Replace <token> with the token from step 1.") }}</div>{% endif %}
+            </li>
+            <li>{{ _("Click <strong>Add</strong>. No sign-in is needed: the token in the URL is the access.")|safe }}</li>
+            <li>{{ _("In a conversation, open the <strong>+</strong> menu (or the tools icon) next to the message box, go to <strong>Connectors</strong> and turn on <strong>Second Order</strong>.")|safe }}</li>
+          </ol>
+        </div>
+        <div class="tab-pane fade" id="tab-claude-code" role="tabpanel">
+          <p class="small text-muted">{{ _("Run this in a terminal once; every Claude Code session on that computer can then use Second Order.") }}</p>
+          <div class="mcp-copy-field">
+            <code id="code-command">{{ code_command }}</code>
+            <button type="button" class="btn btn-outline-primary btn-sm" data-copy="#code-command">{{ _("Copy") }}</button>
+          </div>
+          <p class="small text-muted mb-0">{{ _("Check it with <code>claude mcp list</code>; inside a session, <code>/mcp</code> shows its tools.")|safe }}</p>
+        </div>
+        <div class="tab-pane fade" id="tab-other" role="tabpanel">
+          <p class="small mb-2">{{ _("Any client that speaks MCP over Streamable HTTP:") }}</p>
+          <ul class="small mb-0">
+            <li>{{ _("URL") }}: <code>{{ mcp_url }}</code></li>
+            <li>{{ _("Header") }}: <code>Authorization: Bearer &lt;token&gt;</code></li>
+            <li>{{ _("Or, if the client cannot send headers, the token in the URL:") }} <code>?api_token=&lt;token&gt;</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold">{{ _("What Claude can look up") }}</div>
+        <div class="card-body">
+          {% set tool_text = {
+            "list_periods": _("Today's date in Bogotá, the exact days of each preset (today, last 7, 30, 90 and 180 days), the rules for a custom range and the span of the order history."),
+            "get_sales_by_period": _("Total sales, orders, average order value, first-time and repurchase sales for a preset or any range of up to 366 days, optionally split by day, week or month."),
+            "compare_periods": _("One range against another, or against the same number of days right before it, with the change in each figure."),
+          } %}
+          {% for tool in tools %}
+          <div class="mcp-tool">
+            <div class="fw-semibold"><code>{{ tool.name }}</code></div>
+            <div class="small text-muted">{{ tool_text.get(tool.name, tool.description) }}</div>
+          </div>
+          {% endfor %}
+          <p class="small text-muted mb-0">{{ _("Amounts are in COP and days are Bogotá calendar days.") }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-bold">{{ _("Try asking") }}</div>
+        <div class="card-body small">
+          <div class="mcp-prompt">{{ _("How much did we sell in the last 30 days, and what share came from repurchases?") }}</div>
+          <div class="mcp-prompt">{{ _("Compare October with September, week by week.") }}</div>
+          <div class="mcp-prompt">{{ _("Show monthly sales for this year so far.") }}</div>
+          <div class="mcp-prompt mb-0">{{ _("Which day of the last two weeks sold the most?") }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">{{ _("Connector tokens") }}</div>
+    <div class="card-body">
+      {% if tokens %}
+      <div class="table-responsive">
+        <table class="table table-striped align-middle mb-0">
+          <thead>
+            <tr>
+              <th>{{ _("Name") }}</th>
+              <th>{{ _("Prefix") }}</th>
+              <th>{{ _("Status") }}</th>
+              <th>{{ _("Created (Bogotá)") }}</th>
+              <th>{{ _("Last used (Bogotá)") }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tokens %}
+            <tr>
+              <td>{{ t.label }}</td>
+              <td><code>{{ t.token_prefix }}…</code></td>
+              <td>
+                {% if t.revoked %}<span class="badge bg-danger">{{ _("Revoked") }}</span>
+                {% else %}<span class="badge bg-success">{{ _("Active") }}</span>{% endif %}
+              </td>
+              <td>{{ t.created_at_bogota.strftime("%Y-%m-%d %H:%M") if t.created_at_bogota else "-" }}</td>
+              <td>{{ t.last_used_at_bogota.strftime("%Y-%m-%d %H:%M") if t.last_used_at_bogota else _("Never") }}</td>
+              <td class="text-end">
+                {% if not t.revoked %}
+                <form method="POST" action="{{ url_for('main.mcp_settings_revoke_token', token_id=t.id) }}" class="d-inline"
+                      onsubmit='return confirm({{ _("Revoke this connector? Claude will stop reaching Second Order with it.")|tojson }});'>
+                  <button class="btn btn-sm btn-outline-danger" type="submit">{{ _("Revoke") }}</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small mb-0">{{ _("No connector tokens yet. Create one in step 1.") }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-5">
+    <div class="card-header fw-bold">{{ _("Security") }}</div>
+    <div class="card-body small">
+      <ul class="mb-0">
+        <li>{{ _("Whoever has a connector URL or token can read the store's sales: share it only with people who should see them.") }}</li>
+        <li>{{ _("A connector token also opens the JSON API (/api/*), like any API token.") }}</li>
+        <li>{{ _("If one leaks, revoke it here; the other connectors, ROAS Link and Revive keep working.") }}</li>
+        <li>{{ _("Every token is also listed, with the integrations' tokens, on") }} <a href="{{ url_for('main.admin_api_tokens_index') }}">{{ _("API Tokens") }}</a>.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var text = document.querySelector(button.dataset.copy).textContent.trim();
+      var label = button.textContent;
+      function done() {
+        button.textContent = {{ _("Copied")|tojson }};
+        setTimeout(function () { button.textContent = label; }, 1500);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done);
+      } else {
+        var area = document.createElement("textarea");
+        area.value = text; document.body.appendChild(area); area.select();
+        document.execCommand("copy"); area.remove(); done();
+      }
+    });
+  });
+</script>
+{% endblock %}

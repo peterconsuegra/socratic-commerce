@@ -66,7 +66,7 @@ sin `WATI_ENCRYPTION_KEY`, todos esos secretos quedan ilegibles.
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-189 tests, ~20 s, todos pasan. Usan SQLite en memoria y un directorio temporal;
+193 tests, ~20 s, todos pasan. Usan SQLite en memoria y un directorio temporal;
 no tocan la tienda. Agrega tests para cada feature nueva (sigue el estilo de
 `tests/test_inventory.py`).
 
@@ -142,7 +142,12 @@ Herramientas (lógica en `app/services/sales_periods.py`, solo lectura):
   recompra por preset, todos (`all`) o `custom`; `breakdown` day/week/month.
 - `compare_periods`: un rango contra otro o contra los mismos días previos.
 
-Conectar Claude Code (token creado en Admin → API tokens o `flask create-api-token`):
+La página `/mcp-settings` (sidebar → Administración, solo admins;
+`app/routes/mcp_settings.py`) explica cómo conectarlo y crea tokens de
+conector (ApiToken con nombre `MCP · …`, mostrados una sola vez), con la URL
+para claude.ai (`/mcp?api_token=…`) y el comando de Claude Code listos para copiar.
+
+Conectar Claude Code a mano (token creado en Admin → API tokens o `flask create-api-token`):
 
 ```bash
 claude mcp add --transport http second-order https://secondorder.saveaplaya.org/mcp --header "Authorization: Bearer <token>"
