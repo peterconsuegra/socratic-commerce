@@ -13,6 +13,11 @@
   {% endif %}
 {%- endmacro %}
 
+{# A rate as "12.3%", or a dash when there are no leads to divide by. #}
+{% macro pct(value) -%}
+  {{ "%.1f"|format(value) ~ '%' if value is not none else '—' }}
+{%- endmacro %}
+
 {% macro breakdown_table(title, rows, first_col) -%}
   <div class="card shadow-sm h-100">
     <div class="card-body">
@@ -52,7 +57,8 @@
 
   <h2 class="text-center mb-1">WATI Stats</h2>
   <p class="text-center text-muted mb-4">
-    Orders tagged <code>utm_campaign=wati</code> (WhatsApp / admin orders): the last 30 days next to the last 7 days.
+    How many new WhatsApp leads become first-time customers: orders tagged <code>utm_campaign=wati</code>
+    against Revive's new leads, the last 7 days next to the last 30.
   </p>
 
   {% if error %}
@@ -61,8 +67,72 @@
     {% set l = stats.long %}
     {% set s = stats.short %}
     {% set c = stats.change %}
+    {% set cv = conversion %}
+    {% set has_cv = cv and not cv.not_configured and not cv.error %}
 
+    {# ---- The KPI: new-customer conversion ---- #}
+    <div class="card shadow-sm mb-3 border-0" style="border-left: 4px solid var(--bs-primary) !important;">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+          <div>
+            <div class="text-uppercase small fw-semibold text-muted" style="letter-spacing:.06em;">KPI · New-customer conversion</div>
+            <div class="text-muted small">First-time WATI orders ÷ new WhatsApp leads</div>
+          </div>
+          {% if has_cv %}
+            <div class="text-end small">{{ change_badge(cv.change.new_customer_rate, ' pp') }} <span class="text-muted">7d vs 30d</span></div>
+          {% endif %}
+        </div>
+
+        {% if not cv or cv.not_configured %}
+          <p class="text-muted mb-0">
+            Add the Revive API token in <a href="{{ url_for('main.list_options') }}">Settings → Roxy integration</a>
+            to see the conversion rate.
+          </p>
+        {% elif cv.error %}
+          <div class="alert alert-warning small mb-0">Couldn't load new leads: {{ cv.error }}</div>
+        {% else %}
+          {% if cv.suspect %}
+            <div class="alert alert-warning small">A rate is above 100%: the windows may not match. Treat these figures with care.</div>
+          {% endif %}
+          <div class="row g-4 align-items-end">
+            <div class="col-sm-6">
+              <div class="text-muted small">{{ s.label }} · {{ s.start_date }} – {{ s.end_date }}</div>
+              <div class="fw-bold lh-1 my-1" style="font-size: 3rem;">{{ pct(cv.short.new_customer_rate) }}</div>
+              <div class="text-muted small">{{ "{:,}".format(s.first_time_orders) }} first-time orders ÷ {{ "{:,}".format(cv.short.new_leads) }} new leads</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted small">{{ l.label }} · {{ l.start_date }} – {{ l.end_date }}</div>
+              <div class="fw-bold lh-1 my-1 text-muted" style="font-size: 2rem;">{{ pct(cv.long.new_customer_rate) }}</div>
+              <div class="text-muted small">{{ "{:,}".format(l.first_time_orders) }} first-time orders ÷ {{ "{:,}".format(cv.long.new_leads) }} new leads</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---- What moves the KPI ---- #}
     <div class="row text-center g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">New leads per day · 7d</div>
+          <div class="fw-bold fs-5">{{ "%.1f"|format(cv.short.new_leads_per_day) if has_cv else '—' }}</div>
+          <div class="small">{% if has_cv %}{{ change_badge(cv.change.new_leads_per_day) }} <span class="text-muted">vs 30d</span>{% else %}<span class="text-muted">needs Revive</span>{% endif %}</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">First-time orders per day · 7d</div>
+          <div class="fw-bold fs-5">{{ "%.1f"|format(s.first_time_orders_per_day) }}</div>
+          <div class="small">{{ change_badge(c.first_time_orders_per_day) }} <span class="text-muted">vs 30d</span></div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">All-arrivals conversion · 7d</div>
+          <div class="fw-bold fs-5">{{ pct(cv.short.all_rate) if has_cv else '—' }}</div>
+          <div class="small">{% if has_cv %}{{ change_badge(cv.change.all_rate, ' pp') }} <span class="text-muted">vs 30d</span>{% else %}<span class="text-muted">needs Revive</span>{% endif %}</div>
+        </div></div>
+      </div>
       <div class="col-6 col-md-3">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
           <div class="text-muted small">Sales · last 7 days</div>
@@ -70,31 +140,80 @@
           <div class="small">{{ change_badge(c.sales_per_day) }} <span class="text-muted">per day vs 30d</span></div>
         </div></div>
       </div>
-      <div class="col-6 col-md-3">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Orders · last 7 days</div>
-          <div class="fw-bold fs-5">{{ "{:,}".format(s.total_orders) }}</div>
-          <div class="small">{{ change_badge(c.orders_per_day) }} <span class="text-muted">per day vs 30d</span></div>
-        </div></div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Avg order value · 7d</div>
-          <div class="fw-bold fs-5">{{ s.avg_order_value | cop }}</div>
-          <div class="small">{{ change_badge(c.avg_order_value) }} <span class="text-muted">vs 30d</span></div>
-        </div></div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Repurchase share of sales · 7d</div>
-          <div class="fw-bold fs-5">{{ "%.1f"|format(s.repurchase_sales_percentage) }}%</div>
-          <div class="small">{{ change_badge(c.repurchase_sales_percentage, ' pp') }} <span class="text-muted">vs 30d</span></div>
-        </div></div>
+    </div>
+
+    {% if has_cv %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="mb-3">Leads and conversion</h6>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr class="text-muted small">
+                <th>Metric</th>
+                <th class="text-end">{{ l.label }}</th>
+                <th class="text-end">{{ s.label }}</th>
+                <th class="text-end">7d vs 30d</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="fw-semibold">
+                <td>New-customer conversion<div class="text-muted small fw-normal">first-time WATI orders ÷ new leads</div></td>
+                <td class="text-end">{{ pct(cv.long.new_customer_rate) }}</td>
+                <td class="text-end">{{ pct(cv.short.new_customer_rate) }}</td>
+                <td class="text-end">{{ change_badge(cv.change.new_customer_rate, ' pp') }}</td>
+              </tr>
+              <tr>
+                <td>New leads</td>
+                <td class="text-end">{{ "{:,}".format(cv.long.new_leads) }}</td>
+                <td class="text-end">{{ "{:,}".format(cv.short.new_leads) }}</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>New leads per day</td>
+                <td class="text-end">{{ "%.1f"|format(cv.long.new_leads_per_day) }}</td>
+                <td class="text-end">{{ "%.1f"|format(cv.short.new_leads_per_day) }}</td>
+                <td class="text-end">{{ change_badge(cv.change.new_leads_per_day) }}</td>
+              </tr>
+              <tr>
+                <td>First-time orders</td>
+                <td class="text-end">{{ "{:,}".format(l.first_time_orders) }}</td>
+                <td class="text-end">{{ "{:,}".format(s.first_time_orders) }}</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>First-time orders per day</td>
+                <td class="text-end">{{ "%.1f"|format(l.first_time_orders_per_day) }}</td>
+                <td class="text-end">{{ "%.1f"|format(s.first_time_orders_per_day) }}</td>
+                <td class="text-end">{{ change_badge(c.first_time_orders_per_day) }}</td>
+              </tr>
+              <tr>
+                <td>All-arrivals conversion<div class="text-muted small">all WATI orders ÷ all arrivals</div></td>
+                <td class="text-end">{{ pct(cv.long.all_rate) }}<div class="text-muted small">{{ "{:,}".format(l.total_orders) }} ÷ {{ "{:,}".format(cv.long.all_arrivals) }}</div></td>
+                <td class="text-end">{{ pct(cv.short.all_rate) }}<div class="text-muted small">{{ "{:,}".format(s.total_orders) }} ÷ {{ "{:,}".format(cv.short.all_arrivals) }}</div></td>
+                <td class="text-end">{{ change_badge(cv.change.all_rate, ' pp') }}</td>
+              </tr>
+              <tr>
+                <td>Returning customers who wrote in</td>
+                <td class="text-end">{{ "{:,}".format(cv.long.returning_customers) }}</td>
+                <td class="text-end">{{ "{:,}".format(cv.short.returning_customers) }}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-muted small mt-2 mb-0">
+          A ratio, not a cohort conversion: orders in the window ÷ leads who arrived in it. It counts orders from
+          people who arrived earlier and misses leads who buy after the window, so the last 7 days read low.
+          Use it as a trend.
+        </p>
       </div>
     </div>
+    {% endif %}
 
     <div class="card shadow-sm mb-3">
       <div class="card-body">
+        <h6 class="mb-3">WATI orders</h6>
         <div class="table-responsive">
           <table class="table align-middle mb-0">
             <thead>
@@ -118,77 +237,6 @@
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
-
-    {% set cv = conversion %}
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h6 class="mb-1">Conversion from new WhatsApp leads</h6>
-        <p class="text-muted small mb-3">
-          Leads from Revive (contacts first seen in each window) next to the WATI orders above.
-        </p>
-        {% if not cv or cv.not_configured %}
-          <p class="text-muted small mb-0">
-            Add the Revive API token in <a href="{{ url_for('main.list_options') }}">Settings → Roxy integration</a>
-            to see the conversion rate.
-          </p>
-        {% elif cv.error %}
-          <div class="alert alert-warning small mb-0">Couldn't load new leads: {{ cv.error }}</div>
-        {% else %}
-          {% if cv.suspect %}
-            <div class="alert alert-warning small">A rate is above 100%: the windows may not match. Treat these figures with care.</div>
-          {% endif %}
-          <div class="table-responsive">
-            <table class="table align-middle mb-0">
-              <thead>
-                <tr class="text-muted small">
-                  <th>Metric</th>
-                  <th class="text-end">{{ l.label }}</th>
-                  <th class="text-end">{{ s.label }}</th>
-                  <th class="text-end">7d vs 30d</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="fw-semibold">
-                  <td>New-customer conversion<div class="text-muted small fw-normal">first-time WATI orders ÷ new leads</div></td>
-                  <td class="text-end">{{ "%.1f"|format(cv.long.new_customer_rate) ~ '%' if cv.long.new_customer_rate is not none else '—' }}<div class="text-muted small fw-normal">{{ "{:,}".format(l.first_time_orders) }} ÷ {{ "{:,}".format(cv.long.new_leads) }}</div></td>
-                  <td class="text-end">{{ "%.1f"|format(cv.short.new_customer_rate) ~ '%' if cv.short.new_customer_rate is not none else '—' }}<div class="text-muted small fw-normal">{{ "{:,}".format(s.first_time_orders) }} ÷ {{ "{:,}".format(cv.short.new_leads) }}</div></td>
-                  <td class="text-end">{{ change_badge(cv.change.new_customer_rate, ' pp') }}</td>
-                </tr>
-                <tr>
-                  <td>All-arrivals conversion<div class="text-muted small">all WATI orders ÷ all arrivals</div></td>
-                  <td class="text-end">{{ "%.1f"|format(cv.long.all_rate) ~ '%' if cv.long.all_rate is not none else '—' }}<div class="text-muted small">{{ "{:,}".format(l.total_orders) }} ÷ {{ "{:,}".format(cv.long.all_arrivals) }}</div></td>
-                  <td class="text-end">{{ "%.1f"|format(cv.short.all_rate) ~ '%' if cv.short.all_rate is not none else '—' }}<div class="text-muted small">{{ "{:,}".format(s.total_orders) }} ÷ {{ "{:,}".format(cv.short.all_arrivals) }}</div></td>
-                  <td class="text-end">{{ change_badge(cv.change.all_rate, ' pp') }}</td>
-                </tr>
-                <tr>
-                  <td>New leads</td>
-                  <td class="text-end">{{ "{:,}".format(cv.long.new_leads) }}</td>
-                  <td class="text-end">{{ "{:,}".format(cv.short.new_leads) }}</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td>New leads per day</td>
-                  <td class="text-end">{{ "%.1f"|format(cv.long.new_leads_per_day) }}</td>
-                  <td class="text-end">{{ "%.1f"|format(cv.short.new_leads_per_day) }}</td>
-                  <td class="text-end">{{ change_badge(cv.change.new_leads_per_day) }}</td>
-                </tr>
-                <tr>
-                  <td>Returning customers who wrote in</td>
-                  <td class="text-end">{{ "{:,}".format(cv.long.returning_customers) }}</td>
-                  <td class="text-end">{{ "{:,}".format(cv.short.returning_customers) }}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="text-muted small mt-2 mb-0">
-            A ratio, not a cohort conversion: orders in the window ÷ leads who arrived in it. It counts orders from
-            people who arrived earlier and misses leads who buy after the window, so the last 7 days read low.
-            Use it as a trend.
-          </p>
-        {% endif %}
       </div>
     </div>
 

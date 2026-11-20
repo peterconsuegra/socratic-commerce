@@ -195,6 +195,24 @@ class WatiStatsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("401", response.get_json()["message"])
 
+    def test_first_time_orders_per_day(self):
+        stats = build_wati_stats(self.path)
+        self.assertAlmostEqual(stats["short"]["first_time_orders_per_day"], 1 / 7)
+        expected = (1 / 7 - 3 / 30) / (3 / 30) * 100
+        self.assertAlmostEqual(stats["change"]["first_time_orders_per_day"], expected)
+
+    def test_conversion_kpi_leads_the_page(self):
+        set_secret("roxy_api_token", "test-token")
+        with mock.patch("app.routes.wati_stats.refresh_all_orders_if_needed"), \
+                mock.patch("app.routes.wati_stats.fetch_new_leads",
+                           side_effect=lambda a, b, token, base: self.leads(a, b)):
+            html = self.client.get("/wati_stats").get_data(as_text=True)
+        kpi = html.index("KPI · New-customer conversion")
+        self.assertLess(kpi, html.index("New leads per day · 7d"))
+        self.assertLess(kpi, html.index("WATI orders</h6>"))
+        # 7 days: 1 first-time order over 10 new leads.
+        self.assertIn("1 first-time orders ÷ 10 new leads", html)
+
     def test_requires_login(self):
         anon = self.app.test_client()
         self.assertNotEqual(anon.get("/wati_stats").status_code, 200)

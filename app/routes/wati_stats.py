@@ -46,6 +46,7 @@ def _period_stats(period: dict, days: int) -> dict:
         "first_time_sales": round(sales - t["repurchase_sales"], 2),
         "sales_per_day": sales / days,
         "orders_per_day": orders / days,
+        "first_time_orders_per_day": first_orders / days,
         "avg_order_value": sales / orders if orders else 0.0,
     }
 
@@ -92,7 +93,7 @@ def build_wati_stats(orders_csv_path: str) -> dict:
     # Rates are compared per day, so a 7-day window can be read against a 30-day one.
     comparisons = {
         k: _pct_change(s7[k], s30[k])
-        for k in ("sales_per_day", "orders_per_day")
+        for k in ("sales_per_day", "orders_per_day", "first_time_orders_per_day")
     }
     # Order value and shares only mean something when both windows have orders;
     # an empty week would otherwise read as a -100% order value.
