@@ -66,7 +66,7 @@ sin `WATI_ENCRYPTION_KEY`, todos esos secretos quedan ilegibles.
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-171 tests, ~20 s, todos pasan. Usan SQLite en memoria y un directorio temporal;
+189 tests, ~20 s, todos pasan. Usan SQLite en memoria y un directorio temporal;
 no tocan la tienda. Agrega tests para cada feature nueva (sigue el estilo de
 `tests/test_inventory.py`).
 
@@ -127,6 +127,30 @@ incluidos, máx. 366) con respuesta bajo `periods.custom` y
 debe coincidir con `_normalize_campaign_key` de ROAS Link. Verifica con
 `tests/test_api_periods.py` antes de tocar estos endpoints. Los acuerdos entre
 proyectos se escriben como notas markdown de handoff (pídeselas a Pedro).
+
+## Servidor MCP (`/mcp`)
+
+`app/routes/mcp.py` expone un servidor MCP para que un agente de Claude
+consulte ventas por periodo. Streamable HTTP sin estado, JSON-RPC escrito a
+mano en Flask (sin dependencia `mcp`): cada POST a `/mcp` recibe un JSON; GET
+da 405. Auth con los mismos API tokens de `/api/*`.
+
+Herramientas (lógica en `app/services/sales_periods.py`, solo lectura):
+- `list_periods`: hoy en Bogotá, fechas exactas de cada preset, reglas del
+  rango custom, primer/último pedido del historial.
+- `get_sales_by_period`: ventas, pedidos, ticket promedio, primera compra y
+  recompra por preset, todos (`all`) o `custom`; `breakdown` day/week/month.
+- `compare_periods`: un rango contra otro o contra los mismos días previos.
+
+Conectar Claude Code (token creado en Admin → API tokens o `flask create-api-token`):
+
+```bash
+claude mcp add --transport http second-order https://secondorder.saveaplaya.org/mcp --header "Authorization: Bearer <token>"
+```
+
+Para agregar una herramienta: añádela a `TOOLS` y a `_run_tool` en
+`mcp.py`, con su lógica en un servicio y tests en `tests/test_mcp.py`.
+claude.ai (conectores web) exige OAuth, que este servidor aún no tiene.
 
 ## Convenciones
 
