@@ -25,4 +25,5 @@ from . import email_templates  # noqa: E402,F401
 from . import lapsed  # noqa: E402,F401
 from . import wati_customers  # noqa: E402,F401
 from . import stats  # noqa: E402,F401
+from . import inventory  # noqa: E402,F401
 from . import wati_stats  # noqa: E402,F401

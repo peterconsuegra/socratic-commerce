@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+
+{% block title %}Inventory · Tubes Sold{% endblock %}
+
+{% from "partials/stat_macros.html" import num, tile %}
+
+{% block content %}
+
+{% set custom_date_range_options = [
+  {"value": "", "label": "--Select--"},
+  {"value": "yesterday", "label": "Yesterday"},
+  {"value": "last_7_days", "label": "Last 7 days"},
+  {"value": "last_14_days", "label": "Last 14 days"},
+  {"value": "last_30_days", "label": "Last 30 days"},
+  {"value": "current_month", "label": "Current month"},
+  {"value": "last_month", "label": "Last month"},
+  {"value": "last_quarter", "label": "Last 90 days"},
+  {"value": "year_to_date", "label": "Year to date"},
+  {"value": "last_year", "label": "Last year"},
+  {"value": "lifetime", "label": "Lifetime"}
+] %}
+
+{% include "partials/daterange_selector.html" %}
+
+<div class="container mt-4" style="max-width: 1100px;">
+  <h2 class="text-center mb-1">Tubes Sold</h2>
+  <p class="text-center text-muted mb-4">
+    {% if start_date and end_date %}
+      From {{ start_date }} to {{ end_date }}: every pack sold times the tubes it holds.
+    {% else %}
+      Every pack sold times the tubes it holds.
+    {% endif %}
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif not has_orders_file %}
+    <div class="alert alert-info text-center">Pick a date range above and press <strong>Fetch Data</strong> to count the tubes sold.</div>
+  {% elif not inventory %}
+    <div class="alert alert-warning text-center">No orders in the selected date range.</div>
+  {% else %}
+    {% set s = inventory.summary %}
+
+    <div class="row g-2 mb-4">
+      {{ tile("Tubes sold", num(s.tubes), num(s.packs) ~ " packs", cols="col-6 col-lg-3") }}
+      {{ tile("Orders", num(s.orders), s.first_day ~ " to " ~ s.last_day, cols="col-6 col-lg-3") }}
+      {{ tile("Tubes per order", "%.2f"|format(s.tubes_per_order), "average", cols="col-6 col-lg-3") }}
+      {{ tile("Tubes per day", "%.1f"|format(s.tubes_per_day), "over " ~ s.days ~ (" day" if s.days == 1 else " days"), cols="col-6 col-lg-3") }}
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-header fw-bold">Tubes by pack</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle" style="font-variant-numeric: tabular-nums;">
+            <thead>
+              <tr>
+                <th class="ps-3">Pack</th>
+                <th class="text-end">Tubes per pack</th>
+                <th class="text-end">Packs sold</th>
+                <th class="text-end">Tubes</th>
+                <th class="text-end pe-3">Share of tubes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in inventory.packs %}
+                <tr>
+                  <td class="ps-3">
+                    {% if p.source == "sku" %}
+                      <code>{{ p.pack }}</code>
+                    {% else %}
+                      {{ p.pack }} <span class="badge text-bg-light border" title="An order without a SKU, counted from its product name">no SKU</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">{{ num(p.tubes_per_pack) }}</td>
+                  <td class="text-end">{{ num(p.packs) }}</td>
+                  <td class="text-end fw-semibold">{{ num(p.tubes) }}</td>
+                  <td class="text-end pe-3">{{ "%.1f"|format(p.share) }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr class="fw-bold">
+                <td class="ps-3">Total</td>
+                <td></td>
+                <td class="text-end">{{ num(s.packs) }}</td>
+                <td class="text-end">{{ num(s.tubes) }}</td>
+                <td class="text-end pe-3">100%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {% if inventory.unmatched %}
+      <div class="alert alert-warning">
+        <strong>{{ num(s.unmatched_packs) }} {{ "pack" if s.unmatched_packs == 1 else "packs" }} not counted:</strong>
+        the tubes they hold are unknown. Add their SKU to <code>TUBES_PER_SKU</code> in
+        <code>app/services/inventory.py</code> to count them.
+        <ul class="mb-0 mt-2">
+          {% for u in inventory.unmatched %}
+            <li>{% if u.source == "sku" %}<code>{{ u.pack }}</code>{% else %}{{ u.pack }}{% endif %}: {{ num(u.packs) }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <p class="text-muted small">
+      Each pack in an order counts once: the orders API sends no line-item quantity, so an order with two of the same pack
+      counts as one pack. Orders from before the store used SKUs are counted from the tubes their product name states.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
