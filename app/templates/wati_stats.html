@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+
+{% block title %}WATI Stats{% endblock %}
+
+{# A % change badge: green up, red down, muted when there is nothing to compare. #}
+{% macro change_badge(value, suffix='%') -%}
+  {% if value is none %}
+    <span class="text-muted">—</span>
+  {% else %}
+    <span class="fw-semibold {% if value > 0.05 %}text-success{% elif value < -0.05 %}text-danger{% else %}text-muted{% endif %}">
+      {{ '+' if value > 0 else '' }}{{ "%.1f"|format(value) }}{{ suffix }}
+    </span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro breakdown_table(title, rows, first_col) -%}
+  <div class="card shadow-sm h-100">
+    <div class="card-body">
+      <h6 class="mb-3">{{ title }}</h6>
+      {% if rows %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr class="text-muted small">
+                <th>{{ first_col }}</th>
+                <th class="text-end">30 days</th>
+                <th class="text-end">7 days</th>
+                <th class="text-end">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+                <tr>
+                  <td class="text-nowrap">{{ r.label }}</td>
+                  <td class="text-end">{{ "%.1f"|format(r.long_share) }}%<div class="text-muted small text-nowrap">{{ r.long_sales | cop }}</div></td>
+                  <td class="text-end">{{ "%.1f"|format(r.short_share) }}%<div class="text-muted small text-nowrap">{{ r.short_sales | cop }}</div></td>
+                  <td class="text-end text-nowrap">{{ change_badge(r.delta_pp, ' pp') }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted small mb-0">No WATI sales in these windows.</p>
+      {% endif %}
+    </div>
+  </div>
+{%- endmacro %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+
+  <h2 class="text-center mb-1">WATI Stats</h2>
+  <p class="text-center text-muted mb-4">
+    Orders tagged <code>utm_campaign=wati</code> (WhatsApp / admin orders): the last 30 days next to the last 7 days.
+  </p>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif stats %}
+    {% set l = stats.long %}
+    {% set s = stats.short %}
+    {% set c = stats.change %}
+
+    <div class="row text-center g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Sales · last 7 days</div>
+          <div class="fw-bold fs-5">{{ s.total_sales | cop }}</div>
+          <div class="small">{{ change_badge(c.sales_per_day) }} <span class="text-muted">per day vs 30d</span></div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Orders · last 7 days</div>
+          <div class="fw-bold fs-5">{{ "{:,}".format(s.total_orders) }}</div>
+          <div class="small">{{ change_badge(c.orders_per_day) }} <span class="text-muted">per day vs 30d</span></div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Avg order value · 7d</div>
+          <div class="fw-bold fs-5">{{ s.avg_order_value | cop }}</div>
+          <div class="small">{{ change_badge(c.avg_order_value) }} <span class="text-muted">vs 30d</span></div>
+        </div></div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card shadow-sm h-100"><div class="card-body py-2">
+          <div class="text-muted small">Repurchase share of sales · 7d</div>
+          <div class="fw-bold fs-5">{{ "%.1f"|format(s.repurchase_sales_percentage) }}%</div>
+          <div class="small">{{ change_badge(c.repurchase_sales_percentage, ' pp') }} <span class="text-muted">vs 30d</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr class="text-muted small">
+                <th>Metric</th>
+                <th class="text-end">{{ l.label }}<div class="fw-normal">{{ l.start_date }} – {{ l.end_date }}</div></th>
+                <th class="text-end">{{ s.label }}<div class="fw-normal">{{ s.start_date }} – {{ s.end_date }}</div></th>
+                <th class="text-end">7d vs 30d</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Sales</td><td class="text-end">{{ l.total_sales | cop }}</td><td class="text-end">{{ s.total_sales | cop }}</td><td></td></tr>
+              <tr><td>Sales per day</td><td class="text-end">{{ l.sales_per_day | cop }}</td><td class="text-end">{{ s.sales_per_day | cop }}</td><td class="text-end">{{ change_badge(c.sales_per_day) }}</td></tr>
+              <tr><td>Orders</td><td class="text-end">{{ "{:,}".format(l.total_orders) }}</td><td class="text-end">{{ "{:,}".format(s.total_orders) }}</td><td></td></tr>
+              <tr><td>Orders per day</td><td class="text-end">{{ "%.2f"|format(l.orders_per_day) }}</td><td class="text-end">{{ "%.2f"|format(s.orders_per_day) }}</td><td class="text-end">{{ change_badge(c.orders_per_day) }}</td></tr>
+              <tr><td>Avg order value</td><td class="text-end">{{ l.avg_order_value | cop }}</td><td class="text-end">{{ s.avg_order_value | cop }}</td><td class="text-end">{{ change_badge(c.avg_order_value) }}</td></tr>
+              <tr><td>First-time orders</td><td class="text-end">{{ "{:,}".format(l.first_time_orders) }} <span class="text-muted small">({{ l.first_time_sales | cop }})</span></td><td class="text-end">{{ "{:,}".format(s.first_time_orders) }} <span class="text-muted small">({{ s.first_time_sales | cop }})</span></td><td></td></tr>
+              <tr><td>Repurchase orders</td><td class="text-end">{{ "{:,}".format(l.repurchase_orders) }} <span class="text-muted small">({{ l.repurchase_sales | cop }})</span></td><td class="text-end">{{ "{:,}".format(s.repurchase_orders) }} <span class="text-muted small">({{ s.repurchase_sales | cop }})</span></td><td></td></tr>
+              <tr><td>Repurchase % of orders</td><td class="text-end">{{ "%.1f"|format(l.repurchase_orders_percentage) }}%</td><td class="text-end">{{ "%.1f"|format(s.repurchase_orders_percentage) }}%</td><td class="text-end">{{ change_badge(c.repurchase_orders_percentage, ' pp') }}</td></tr>
+              <tr><td>Repurchase % of sales</td><td class="text-end">{{ "%.1f"|format(l.repurchase_sales_percentage) }}%</td><td class="text-end">{{ "%.1f"|format(s.repurchase_sales_percentage) }}%</td><td class="text-end">{{ change_badge(c.repurchase_sales_percentage, ' pp') }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6">{{ breakdown_table("Share of sales by gender", stats.gender, "Gender") }}</div>
+      <div class="col-lg-6">{{ breakdown_table("Share of sales by time of day", stats.time_slots, "Time slot") }}</div>
+      <div class="col-12">{{ breakdown_table("Share of sales by city", stats.cities, "City") }}</div>
+    </div>
+
+    <p class="text-muted small">
+      Windows run from N days ago through now, today's orders included, Bogotá time — the same windows as
+      <code>/api/wati_summary</code> and ROAS Link. Per-day rates divide by 30 and 7 so the two can be compared;
+      share changes are in percentage points (pp).
+      Orders as of {{ stats.orders_as_of or "—" }}.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}
