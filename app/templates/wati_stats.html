@@ -121,6 +121,77 @@
       </div>
     </div>
 
+    {% set cv = conversion %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="mb-1">Conversion from new WhatsApp leads</h6>
+        <p class="text-muted small mb-3">
+          Leads from Revive (contacts first seen in each window) next to the WATI orders above.
+        </p>
+        {% if not cv or cv.not_configured %}
+          <p class="text-muted small mb-0">
+            Add the Revive API token in <a href="{{ url_for('main.list_options') }}">Settings → Roxy integration</a>
+            to see the conversion rate.
+          </p>
+        {% elif cv.error %}
+          <div class="alert alert-warning small mb-0">Couldn't load new leads: {{ cv.error }}</div>
+        {% else %}
+          {% if cv.suspect %}
+            <div class="alert alert-warning small">A rate is above 100%: the windows may not match. Treat these figures with care.</div>
+          {% endif %}
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr class="text-muted small">
+                  <th>Metric</th>
+                  <th class="text-end">{{ l.label }}</th>
+                  <th class="text-end">{{ s.label }}</th>
+                  <th class="text-end">7d vs 30d</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="fw-semibold">
+                  <td>New-customer conversion<div class="text-muted small fw-normal">first-time WATI orders ÷ new leads</div></td>
+                  <td class="text-end">{{ "%.1f"|format(cv.long.new_customer_rate) ~ '%' if cv.long.new_customer_rate is not none else '—' }}<div class="text-muted small fw-normal">{{ "{:,}".format(l.first_time_orders) }} ÷ {{ "{:,}".format(cv.long.new_leads) }}</div></td>
+                  <td class="text-end">{{ "%.1f"|format(cv.short.new_customer_rate) ~ '%' if cv.short.new_customer_rate is not none else '—' }}<div class="text-muted small fw-normal">{{ "{:,}".format(s.first_time_orders) }} ÷ {{ "{:,}".format(cv.short.new_leads) }}</div></td>
+                  <td class="text-end">{{ change_badge(cv.change.new_customer_rate, ' pp') }}</td>
+                </tr>
+                <tr>
+                  <td>All-arrivals conversion<div class="text-muted small">all WATI orders ÷ all arrivals</div></td>
+                  <td class="text-end">{{ "%.1f"|format(cv.long.all_rate) ~ '%' if cv.long.all_rate is not none else '—' }}<div class="text-muted small">{{ "{:,}".format(l.total_orders) }} ÷ {{ "{:,}".format(cv.long.all_arrivals) }}</div></td>
+                  <td class="text-end">{{ "%.1f"|format(cv.short.all_rate) ~ '%' if cv.short.all_rate is not none else '—' }}<div class="text-muted small">{{ "{:,}".format(s.total_orders) }} ÷ {{ "{:,}".format(cv.short.all_arrivals) }}</div></td>
+                  <td class="text-end">{{ change_badge(cv.change.all_rate, ' pp') }}</td>
+                </tr>
+                <tr>
+                  <td>New leads</td>
+                  <td class="text-end">{{ "{:,}".format(cv.long.new_leads) }}</td>
+                  <td class="text-end">{{ "{:,}".format(cv.short.new_leads) }}</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td>New leads per day</td>
+                  <td class="text-end">{{ "%.1f"|format(cv.long.new_leads_per_day) }}</td>
+                  <td class="text-end">{{ "%.1f"|format(cv.short.new_leads_per_day) }}</td>
+                  <td class="text-end">{{ change_badge(cv.change.new_leads_per_day) }}</td>
+                </tr>
+                <tr>
+                  <td>Returning customers who wrote in</td>
+                  <td class="text-end">{{ "{:,}".format(cv.long.returning_customers) }}</td>
+                  <td class="text-end">{{ "{:,}".format(cv.short.returning_customers) }}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-muted small mt-2 mb-0">
+            A ratio, not a cohort conversion: orders in the window ÷ leads who arrived in it. It counts orders from
+            people who arrived earlier and misses leads who buy after the window, so the last 7 days read low.
+            Use it as a trend.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="row g-3 mb-3">
       <div class="col-lg-6">{{ breakdown_table("Share of sales by gender", stats.gender, "Gender") }}</div>
       <div class="col-lg-6">{{ breakdown_table("Share of sales by time of day", stats.time_slots, "Time slot") }}</div>

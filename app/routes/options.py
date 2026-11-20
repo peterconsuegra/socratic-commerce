@@ -63,6 +63,11 @@ def list_options():
             "channel_number": get_option_value_raw(WATI_CHANNEL_KEY, ""),
         },
         sendgrid=sendgrid_settings_for_display(),
+        roxy={
+            "configured": has_secret(ROXY_TOKEN_KEY),
+            "token_masked": mask_secret(get_secret(ROXY_TOKEN_KEY)),
+            "base_url": get_option_value_raw(ROXY_URL_KEY, ""),
+        },
     )
 
 
@@ -78,10 +83,81 @@ SENDGRID_FROM_NAME_KEY = "sendgrid_from_name"
 SENDGRID_REPLY_TO_KEY = "sendgrid_reply_to"
 SENDGRID_ASM_GROUP_KEY = "sendgrid_unsubscribe_group_id"
 
+# Revive (roxy): the reporting token for /api/new_leads, stored encrypted;
+# the base URL is a plain option.
+ROXY_TOKEN_KEY = "roxy_api_token"
+ROXY_URL_KEY = "roxy_api_url"
+
 # Options holding encrypted secrets. Each is set in its own section of the
 # page; the generic options table shows them masked and will not edit them,
 # since a value typed there would be stored unencrypted and stop working.
-SECRET_OPTION_KEYS = {ORDERS_API_KEY_KEY, WATI_TOKEN_KEY, SENDGRID_API_KEY_KEY}
+SECRET_OPTION_KEYS = {ORDERS_API_KEY_KEY, WATI_TOKEN_KEY, SENDGRID_API_KEY_KEY, ROXY_TOKEN_KEY}
+
+
+def get_roxy_config() -> dict:
+    """The Revive base URL (default when unset) and the decrypted token, or None."""
+    from app.services.roxy_leads import DEFAULT_BASE_URL
+    return {
+        "base_url": (get_option_value_raw(ROXY_URL_KEY, "") or "").strip() or DEFAULT_BASE_URL,
+        "token": get_secret(ROXY_TOKEN_KEY),
+    }
+
+
+@main.route("/options/roxy", methods=["POST"])
+@login_required
+def options_roxy_save():
+    """Save the Revive new-leads API settings. The token is stored encrypted."""
+    base_url = (request.form.get("base_url", "") or "").strip()
+    if base_url and not base_url.startswith("https://"):
+        flash("The Revive URL must start with https://.", "danger")
+        return redirect(url_for("main.list_options"))
+    _set_plain_option(ROXY_URL_KEY, base_url)
+    db.session.commit()
+
+    # Empty keeps the stored token, as for WATI; removing it is explicit.
+    token = (request.form.get("api_token", "") or "").strip()
+    if request.form.get("clear_token"):
+        set_secret(ROXY_TOKEN_KEY, "")
+        flash("Revive API token removed.", "success")
+    elif token:
+        set_secret(ROXY_TOKEN_KEY, token)
+        flash("Revive settings saved. The token is stored encrypted.", "success")
+    else:
+        flash("Revive settings saved.", "success")
+    return redirect(url_for("main.list_options"))
+
+
+@main.route("/options/roxy/reveal", methods=["POST"])
+@login_required
+def options_roxy_reveal():
+    """Return the decrypted Revive token so the UI can show it on demand."""
+    token = get_secret(ROXY_TOKEN_KEY)
+    if not token:
+        return jsonify({"status": "error", "message": "No token stored."}), 404
+    return jsonify({"status": "success", "token": token}), 200
+
+
+@main.route("/options/roxy/test", methods=["POST"])
+@login_required
+def options_roxy_test():
+    """Verify the stored Revive token with a read-only call: new leads, last 7 days."""
+    from app.services.periods import resolve_windows
+    from app.services.roxy_leads import RoxyLeadsError, fetch_new_leads
+
+    cfg = get_roxy_config()
+    if not cfg["token"]:
+        return jsonify({"ok": False, "message": "No API token stored. Save one first."}), 400
+
+    w = resolve_windows("last_7d")[0].describe()
+    try:
+        leads = fetch_new_leads(w["start_date"], w["end_date"], cfg["token"], cfg["base_url"], use_cache=False)
+    except RoxyLeadsError as e:
+        return jsonify({"ok": False, "message": str(e)}), 400
+    return jsonify({
+        "ok": True,
+        "message": (f"Connected to {cfg['base_url']}. Last 7 days ({leads['date_from']} – {leads['date_to']}): "
+                    f"{leads['new_leads']:,} new leads, {leads['returning_customers']:,} returning customers."),
+    }), 200
 
 
 def get_option_value_raw(meta_key: str, default=""):

@@ -11,10 +11,12 @@ import logging
 from flask import current_app, render_template
 from flask_login import login_required
 
+from app.services.roxy_leads import RoxyLeadsError, fetch_new_leads
 from app.services.utm_campaign_summary import get_wati_summary
 
 from . import main
 from .common import refresh_all_orders_if_needed
+from .options import get_roxy_config
 
 logger = logging.getLogger(__name__)
 
@@ -113,15 +115,64 @@ def build_wati_stats(orders_csv_path: str) -> dict:
     }
 
 
+def _rate(orders: int, leads: int) -> float | None:
+    return orders / leads * 100 if leads else None
+
+
+def conversion_rates(stats: dict, fetch_leads) -> dict:
+    """
+    The WhatsApp conversion ratios for both windows, from Revive's new leads.
+
+    Like over like, per Revive's handoff: first-time WATI orders over new
+    leads, and all WATI orders over all arrivals (new leads + returning
+    customers). These are orders in the window over leads who arrived in it,
+    a trend ratio rather than a cohort conversion.
+
+    fetch_leads(since, until) returns Revive's counts for those Bogotá days.
+    Returns {"long": {...}, "short": {...}, "change": {...}}, or {"error": msg}.
+    """
+    out: dict = {}
+    for key in ("long", "short"):
+        s = stats[key]
+        try:
+            leads = fetch_leads(s["start_date"], s["end_date"])
+        except RoxyLeadsError as e:
+            return {"error": str(e)}
+        out[key] = {
+            **leads,
+            "new_customer_rate": _rate(s["first_time_orders"], leads["new_leads"]),
+            "all_rate": _rate(s["total_orders"], leads["all_arrivals"]),
+            "new_leads_per_day": leads["new_leads"] / s["days"],
+        }
+    out["change"] = {
+        k: (out["short"][k] - out["long"][k])
+        if out["short"][k] is not None and out["long"][k] is not None else None
+        for k in ("new_customer_rate", "all_rate")
+    }
+    out["change"]["new_leads_per_day"] = _pct_change(out["short"]["new_leads_per_day"],
+                                                     out["long"]["new_leads_per_day"])
+    # Above 100% means mismatched windows or repurchases in the numerator.
+    out["suspect"] = any((out[k][r] or 0) > 100 for k in ("long", "short") for r in ("new_customer_rate", "all_rate"))
+    return out
+
+
 @main.route("/wati_stats")
 @login_required
 def wati_stats():
     """WATI (utm_campaign=wati) orders: last 30 days vs last 7 days."""
-    error, stats = None, None
+    error, stats, conversion = None, None, None
     try:
         refresh_all_orders_if_needed()
         stats = build_wati_stats(current_app.config["ALL_ORDERS_CSV"])
     except Exception as e:
         logger.exception("Failed to build WATI stats")
         error = str(e)
-    return render_template("wati_stats.html", error=error, stats=stats)
+
+    if stats:
+        roxy = get_roxy_config()
+        if not roxy["token"]:
+            conversion = {"not_configured": True}
+        else:
+            conversion = conversion_rates(
+                stats, lambda since, until: fetch_new_leads(since, until, roxy["token"], roxy["base_url"]))
+    return render_template("wati_stats.html", error=error, stats=stats, conversion=conversion)
