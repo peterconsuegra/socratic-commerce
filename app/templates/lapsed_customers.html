@@ -1,8 +1,7 @@
 {% extends "lapsed_customers_base.html" %}
 
 {% block subtitle %}
-  Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose
-  last order (UTC) was more than {{ months_label }} ago — a win-back list.
+  {{ (_("Customers whose <strong>last purchase</strong> was one of the selected SKUs and whose last order (UTC) was more than {months} ago — a win-back list.")|safe).format(months=months_label) }}
 {% endblock %}
 
 {% block action_panel %}
@@ -10,45 +9,44 @@
     <div class="card shadow-sm mt-3">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
-          <h6 class="mb-0">Tag selected customers in WATI</h6>
+          <h6 class="mb-0">{{ _("Tag selected customers in WATI") }}</h6>
           <span class="text-muted small">
-            Creates or updates contacts, sets the remarketing label and resets
-            <code>{{ wati_purchase_attribute }}</code> to <code>{{ wati_purchase_value }}</code>.
-            <strong>No WhatsApp messages are sent.</strong>
+            {{ (_("Creates or updates contacts, sets the remarketing label and resets {attribute} to {value}.")|e).format(attribute='<code>'|safe ~ wati_purchase_attribute ~ '</code>'|safe, value='<code>'|safe ~ wati_purchase_value ~ '</code>'|safe) }}
+            <strong>{{ _("No WhatsApp messages are sent.") }}</strong>
           </span>
         </div>
 
         {% if not wati_ready %}
           <div class="alert alert-warning mb-2 py-2 small">
-            WATI is not configured yet — add the tenant URL and API token in
-            <a href="{{ url_for('main.list_options') }}">Settings</a>.
+            {{ _("WATI is not configured yet — add the tenant URL and API token in") }}
+            <a href="{{ url_for('main.list_options') }}">{{ _("Settings") }}</a>.
           </div>
         {% endif %}
 
         <div class="row g-2 align-items-end">
           <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Attribute</label>
+            <label class="form-label small text-muted mb-1">{{ _("Attribute") }}</label>
             <input type="text" class="form-control" value="{{ wati_attribute }}" disabled
-                   title="Fixed in code so every campaign writes the same attribute name">
+                   title="{{ _('Fixed in code so every campaign writes the same attribute name') }}">
             <input type="hidden" id="watiAttribute" value="{{ wati_attribute }}">
           </div>
           <div class="col-sm-4">
-            <label class="form-label small text-muted mb-1">Remarketing label <span class="text-danger">*</span></label>
+            <label class="form-label small text-muted mb-1">{{ _("Remarketing label") }} <span class="text-danger">*</span></label>
             <input type="text" id="watiLabel" class="form-control" maxlength="{{ wati_max_value }}"
-                   placeholder="e.g. winback_sept_2026">
+                   placeholder="{{ _('e.g. {example}').format(example='winback_sept_2026') }}">
           </div>
           <div class="col-sm-5 d-flex align-items-end gap-2">
             <button type="button" id="watiSendBtn" class="btn btn-success" {% if not wati_ready %}disabled{% endif %}>
-              Tag <span id="watiCount">0</span> selected in WATI
+              {{ (_("Tag {count} selected in WATI")|e).format(count='<span id="watiCount">0</span>'|safe) }}
             </button>
             <span id="watiStatus" class="small"></span>
           </div>
         </div>
 
         <div class="form-text mt-2">
-          Every tagged contact also gets <code>{{ wati_purchase_attribute }} = {{ wati_purchase_value }}</code>.
-          Only customers on this page can be selected, up to {{ wati_max }} per run.
-          Rows without a valid phone are skipped and listed in the result.
+          {{ (_("Every tagged contact also gets {setting}.")|e).format(setting='<code>'|safe ~ wati_purchase_attribute ~ ' = ' ~ wati_purchase_value ~ '</code>'|safe) }}
+          {{ _("Only customers on this page can be selected, up to {max} per run.").format(max=wati_max) }}
+          {{ _("Rows without a valid phone are skipped and listed in the result.") }}
         </div>
 
         <div id="watiResult" class="mt-3"></div>
@@ -59,6 +57,27 @@
 {% block action_scripts %}
 <script>
 (function () {
+  var T = {
+    selectOne: {{ _("Select at least one customer.")|tojson }},
+    overLimit: {{ _("{count} selected; the limit is {max} per run.")|tojson }},
+    enterLabel: {{ _("Enter a remarketing label.")|tojson }},
+    confirmTag: {{ _("Tag {count} customer(s) in WATI with {attribute} = \"{label}\" and {purchase_attribute} = \"{purchase_value}\"?")|tojson }},
+    noPhone: {{ _("{count} have no phone and will be skipped.")|tojson }},
+    confirmNote: {{ _("This creates or updates contacts. No WhatsApp messages are sent.")|tojson }},
+    sending: {{ _("Sending…")|tojson }},
+    done: {{ _("Done")|tojson }},
+    taggedWith: {{ _("{count} tagged with {setting} and {purchase}")|tojson }},
+    skipped: {{ _("{count} skipped")|tojson }},
+    failed: {{ _("{count} failed")|tojson }},
+    logged: {{ _("{count} logged as contacted")|tojson }},
+    endpointBase: {{ _("endpoint base: {base} · configured: {tenant}")|tojson }},
+    called: {{ _("called: {url}")|tojson }},
+    skippedTitle: {{ _("Skipped ({count})")|tojson }},
+    failedTitle: {{ _("Failed ({count})")|tojson }},
+    requestFailed: {{ _("Request failed.")|tojson }},
+    networkError: {{ _("Network error")|tojson }}
+  };
+  function fill(s, vals) { return s.replace(/\{(\w+)\}/g, function (m, k) { return k in vals ? vals[k] : m; }); }
   var countEl   = document.getElementById("watiCount");
   var btn       = document.getElementById("watiSendBtn");
   var statusEl  = document.getElementById("watiStatus");
@@ -74,19 +93,20 @@
     var label = document.getElementById("watiLabel").value.trim();
     var attribute = document.getElementById("watiAttribute").value.trim() || "remarketing";
 
-    if (!chosen.length) { statusEl.innerHTML = '<span class="text-danger">Select at least one customer.</span>'; return; }
-    if (chosen.length > {{ wati_max }}) { statusEl.innerHTML = '<span class="text-danger">' + chosen.length + ' selected; the limit is {{ wati_max }} per run.</span>'; return; }
-    if (!label) { statusEl.innerHTML = '<span class="text-danger">Enter a remarketing label.</span>'; return; }
+    if (!chosen.length) { statusEl.innerHTML = '<span class="text-danger">' + esc(T.selectOne) + '</span>'; return; }
+    if (chosen.length > {{ wati_max }}) { statusEl.innerHTML = '<span class="text-danger">' + esc(fill(T.overLimit, { count: chosen.length, max: {{ wati_max }} })) + '</span>'; return; }
+    if (!label) { statusEl.innerHTML = '<span class="text-danger">' + esc(T.enterLabel) + '</span>'; return; }
 
     var noPhone = chosen.filter(function (r) { return !r.dataset.phone; }).length;
-    var msg = "Tag " + chosen.length + " customer(s) in WATI with " + attribute + " = \"" + label + "\""
-            + " and {{ wati_purchase_attribute }} = \"{{ wati_purchase_value }}\"?"
-            + (noPhone ? "\n\n" + noPhone + " have no phone and will be skipped." : "")
-            + "\n\nThis creates or updates contacts. No WhatsApp messages are sent.";
+    var msg = fill(T.confirmTag, { count: chosen.length, attribute: attribute, label: label,
+                                   purchase_attribute: {{ wati_purchase_attribute|tojson }},
+                                   purchase_value: {{ wati_purchase_value|tojson }} })
+            + (noPhone ? "\n\n" + fill(T.noPhone, { count: noPhone }) : "")
+            + "\n\n" + T.confirmNote;
     if (!window.confirm(msg)) return;
 
     btn.disabled = true;
-    statusEl.innerHTML = '<span class="text-primary">Sending…</span>';
+    statusEl.innerHTML = '<span class="text-primary">' + esc(T.sending) + '</span>';
     resultEl.innerHTML = "";
     try {
       var resp = await fetch("{{ url_for('main.lapsed_customers_wati_remarketing') }}", {
@@ -100,16 +120,16 @@
       });
       var data = await resp.json();
       if (resp.ok && data.status === "success") {
-        statusEl.innerHTML = '<span class="text-success">Done</span>';
+        statusEl.innerHTML = '<span class="text-success">' + esc(T.done) + '</span>';
         var html = '<div class="alert alert-success mb-2 py-2">'
-                 + '<strong>' + data.tagged + '</strong> tagged with <code>'
-                 + esc(data.attribute) + ' = ' + esc(data.label) + '</code>'
-                 + ' and <code>' + esc(data.purchase_attribute) + ' = ' + esc(data.purchase_value) + '</code>'
-                 + ' · <strong>' + data.skipped + '</strong> skipped'
-                 + ' · <strong>' + data.failed + '</strong> failed'
-                 + (data.logged !== undefined ? ' · <strong>' + data.logged + '</strong> logged as contacted' : '')
-                 + (data.v3_base ? '<br><small class="text-muted">endpoint base: ' + esc(data.v3_base)
-                                   + ' · configured: ' + esc(data.tenant_url || "") + '</small>' : "")
+                 + fill(esc(T.taggedWith), { count: '<strong>' + data.tagged + '</strong>',
+                                             setting: '<code>' + esc(data.attribute) + ' = ' + esc(data.label) + '</code>',
+                                             purchase: '<code>' + esc(data.purchase_attribute) + ' = ' + esc(data.purchase_value) + '</code>' })
+                 + ' · ' + fill(esc(T.skipped), { count: '<strong>' + data.skipped + '</strong>' })
+                 + ' · ' + fill(esc(T.failed), { count: '<strong>' + data.failed + '</strong>' })
+                 + (data.logged !== undefined ? ' · ' + fill(esc(T.logged), { count: '<strong>' + data.logged + '</strong>' }) : '')
+                 + (data.v3_base ? '<br><small class="text-muted">' + fill(esc(T.endpointBase), { base: esc(data.v3_base),
+                                   tenant: esc(data.tenant_url || "") }) + '</small>' : "")
                  + '</div>';
         function list(title, items, kind) {
           if (!items || !items.length) return "";
@@ -118,19 +138,19 @@
                    var who = x.phone ? esc(x.phone) + (x.email ? ' <span class="text-muted">(' + esc(x.email) + ")</span>" : "")
                                      : esc(x.email || "?");
                    var line = who + " — " + esc(x.reason || x.error || "");
-                   if (x.url) line += '<br><small class="text-muted">called: ' + esc(x.url) + "</small>";
+                   if (x.url) line += '<br><small class="text-muted">' + fill(esc(T.called), { url: esc(x.url) }) + "</small>";
                    return "<li>" + line + "</li>";
                  }).join("") + "</ul></details>";
         }
-        html += list("Skipped (" + data.skipped + ")", data.skipped_detail);
-        html += list("Failed (" + data.failed + ")", data.failed_detail);
+        html += list(esc(fill(T.skippedTitle, { count: data.skipped })), data.skipped_detail);
+        html += list(esc(fill(T.failedTitle, { count: data.failed })), data.failed_detail);
         resultEl.innerHTML = html;
       } else {
         statusEl.innerHTML = '<span class="text-danger">' + resp.status + '</span>';
-        resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + esc(data.message || "Request failed.") + '</div>';
+        resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + esc(data.message || T.requestFailed) + '</div>';
       }
     } catch (e) {
-      statusEl.innerHTML = '<span class="text-danger">Network error</span>';
+      statusEl.innerHTML = '<span class="text-danger">' + esc(T.networkError) + '</span>';
       resultEl.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + esc(String(e)) + '</div>';
     } finally { btn.disabled = false; }
   });

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ lang | default('en') }}">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -49,10 +49,10 @@
 
   <!-- Header -->
   <header class="app-header">
-    <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="Second Order home">
+    <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="{{ _('Second Order home') }}">
       {% include 'partials/brand_mark.html' %}
       <span class="brand-word">second order</span>
-      <span class="brand-tag">Retention &amp; forecasting</span>
+      <span class="brand-tag">{{ _("Retention & forecasting") }}</span>
     </a>
     <div class="app-header-right">
       {% if current_user.is_authenticated %}
@@ -60,7 +60,7 @@
       {% endif %}
       <button id="nav-toggle" type="button" class="nav-toggle-btn" aria-controls="nav-sidebar" aria-expanded="false">
         <span class="material-icons" aria-hidden="true">menu</span>
-        Menu
+        {{ _("Menu") }}
       </button>
     </div>
   </header>
@@ -74,7 +74,7 @@
             {% for category, message in messages %}
               <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
                 {{ message | safe }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ _('Close') }}"></button>
               </div>
             {% endfor %}
           </div>
@@ -87,7 +87,7 @@
   <div id="response" class="container mt-4"></div>
 
   <!-- Loader: the loop mark, turning -->
-  <div class="loader-container" id="loader" aria-live="polite" aria-label="Loading">
+  <div class="loader-container" id="loader" aria-live="polite" aria-label="{{ _('Loading') }}">
     <div class="loader" role="status" aria-hidden="true">
       {% include 'partials/brand_mark.html' %}
     </div>
@@ -97,13 +97,13 @@
   <div id="nav-backdrop" class="nav-backdrop"></div>
 
   <!-- Sidebar -->
-  <nav id="nav-sidebar" class="nav-sidebar" aria-label="Main menu">
+  <nav id="nav-sidebar" class="nav-sidebar" aria-label="{{ _('Main menu') }}">
     <div class="nav-sidebar-header">
-      <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="Second Order home">
+      <a class="brand" href="{{ url_for('main.rankings') }}" aria-label="{{ _('Second Order home') }}">
         {% include 'partials/brand_mark.html' %}
         <span class="brand-word">second order</span>
       </a>
-      <button id="nav-close" type="button" class="nav-close-btn" aria-label="Close menu">
+      <button id="nav-close" type="button" class="nav-close-btn" aria-label="{{ _('Close menu') }}">
         <span class="material-icons" aria-hidden="true">close</span>
       </button>
     </div>
@@ -112,87 +112,87 @@
     <div class="nav-sidebar-body">
 
       <div class="nav-group">
-        <div class="nav-group-label">Sales</div>
+        <div class="nav-group-label">{{ _("Sales") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/" class="{% if p == '/' %}active{% endif %}">Monthly Sales</a></li>
-          <li><a href="/daily_sales" class="{% if p == '/daily_sales' %}active{% endif %}">Daily Sales</a></li>
-          <li><a href="/sales_by_location" class="{% if p == '/sales_by_location' %}active{% endif %}">Sales by Location</a></li>
-          <li><a href="/first-time-orders" class="{% if p == '/first-time-orders' %}active{% endif %}">First-Time Orders</a></li>
-          <li><a href="/repurchase-orders" class="{% if p == '/repurchase-orders' %}active{% endif %}">Repurchase Orders</a></li>
-          <li><a href="/stats" class="{% if p == '/stats' %}active{% endif %}">Repurchase Stats</a></li>
-          <li><a href="/rankings" class="{% if p == '/rankings' %}active{% endif %}">Sales Rankings</a></li>
-          <li><a href="/ads_rankings" class="{% if p == '/ads_rankings' %}active{% endif %}">Ads Rankings</a></li>
-          <li><a href="/performance" class="{% if p == '/performance' %}active{% endif %}">Performance</a></li>
+          <li><a href="/" class="{% if p == '/' %}active{% endif %}">{{ _("Monthly Sales") }}</a></li>
+          <li><a href="/daily_sales" class="{% if p == '/daily_sales' %}active{% endif %}">{{ _("Daily Sales") }}</a></li>
+          <li><a href="/sales_by_location" class="{% if p == '/sales_by_location' %}active{% endif %}">{{ _("Sales by Location") }}</a></li>
+          <li><a href="/first-time-orders" class="{% if p == '/first-time-orders' %}active{% endif %}">{{ _("First-Time Orders") }}</a></li>
+          <li><a href="/repurchase-orders" class="{% if p == '/repurchase-orders' %}active{% endif %}">{{ _("Repurchase Orders") }}</a></li>
+          <li><a href="/stats" class="{% if p == '/stats' %}active{% endif %}">{{ _("Repurchase Stats") }}</a></li>
+          <li><a href="/rankings" class="{% if p == '/rankings' %}active{% endif %}">{{ _("Sales Rankings") }}</a></li>
+          <li><a href="/ads_rankings" class="{% if p == '/ads_rankings' %}active{% endif %}">{{ _("Ads Rankings") }}</a></li>
+          <li><a href="/performance" class="{% if p == '/performance' %}active{% endif %}">{{ _("Performance") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">Retention</div>
+        <div class="nav-group-label">{{ _("Retention") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/monthly_repurchases" class="{% if p == '/monthly_repurchases' %}active{% endif %}">Monthly Repurchases</a></li>
-          <li><a href="/daily_repurchases" class="{% if p == '/daily_repurchases' %}active{% endif %}">Daily Repurchases</a></li>
-          <li><a href="/recurrent-customers" class="{% if p == '/recurrent-customers' %}active{% endif %}">Recurrent Customers</a></li>
-          <li><a href="/lapsed-customers" class="{% if p == '/lapsed-customers' %}active{% endif %}">Lapsed Customers</a></li>
-          <li><a href="/lapsed-customers-all" class="{% if p == '/lapsed-customers-all' %}active{% endif %}">All Lapsed Customers</a></li>
-          <li><a href="/reconnect-lapsed-customers-by-email" class="{% if p == '/reconnect-lapsed-customers-by-email' %}active{% endif %}">Reconnect by Email</a></li>
-          <li><a href="/export-lapsed-customers" class="{% if p == '/export-lapsed-customers' %}active{% endif %}">Export Lapsed Customers</a></li>
-          <li><a href="/wati-customers" class="{% if p == '/wati-customers' %}active{% endif %}">Export WATI Customers</a></li>
-          <li><a href="/email-templates" class="{% if p.startswith('/email-templates') %}active{% endif %}">Email Templates</a></li>
+          <li><a href="/monthly_repurchases" class="{% if p == '/monthly_repurchases' %}active{% endif %}">{{ _("Monthly Repurchases") }}</a></li>
+          <li><a href="/daily_repurchases" class="{% if p == '/daily_repurchases' %}active{% endif %}">{{ _("Daily Repurchases") }}</a></li>
+          <li><a href="/recurrent-customers" class="{% if p == '/recurrent-customers' %}active{% endif %}">{{ _("Recurrent Customers") }}</a></li>
+          <li><a href="/lapsed-customers" class="{% if p == '/lapsed-customers' %}active{% endif %}">{{ _("Lapsed Customers") }}</a></li>
+          <li><a href="/lapsed-customers-all" class="{% if p == '/lapsed-customers-all' %}active{% endif %}">{{ _("All Lapsed Customers") }}</a></li>
+          <li><a href="/reconnect-lapsed-customers-by-email" class="{% if p == '/reconnect-lapsed-customers-by-email' %}active{% endif %}">{{ _("Reconnect by Email") }}</a></li>
+          <li><a href="/export-lapsed-customers" class="{% if p == '/export-lapsed-customers' %}active{% endif %}">{{ _("Export Lapsed Customers") }}</a></li>
+          <li><a href="/wati-customers" class="{% if p == '/wati-customers' %}active{% endif %}">{{ _("Export WATI Customers") }}</a></li>
+          <li><a href="/email-templates" class="{% if p.startswith('/email-templates') %}active{% endif %}">{{ _("Email Templates") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">Channels</div>
+        <div class="nav-group-label">{{ _("Channels") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/facebook_insights" class="{% if p == '/facebook_insights' %}active{% endif %}">Facebook Insights</a></li>
-          <li><a href="/google_insights" class="{% if p == '/google_insights' %}active{% endif %}">Google Insights</a></li>
-          <li><a href="/wati_insights" class="{% if p == '/wati_insights' %}active{% endif %}">WATI Insights</a></li>
-          <li><a href="/wati_stats" class="{% if p == '/wati_stats' %}active{% endif %}">WATI Stats</a></li>
-          <li><a href="/checkout_insights" class="{% if p == '/checkout_insights' %}active{% endif %}">Checkout Insights</a></li>
+          <li><a href="/facebook_insights" class="{% if p == '/facebook_insights' %}active{% endif %}">{{ _("Facebook Insights") }}</a></li>
+          <li><a href="/google_insights" class="{% if p == '/google_insights' %}active{% endif %}">{{ _("Google Insights") }}</a></li>
+          <li><a href="/wati_insights" class="{% if p == '/wati_insights' %}active{% endif %}">{{ _("WATI Insights") }}</a></li>
+          <li><a href="/wati_stats" class="{% if p == '/wati_stats' %}active{% endif %}">{{ _("WATI Stats") }}</a></li>
+          <li><a href="/checkout_insights" class="{% if p == '/checkout_insights' %}active{% endif %}">{{ _("Checkout Insights") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">Bogotá</div>
+        <div class="nav-group-label">{{ _("Bogotá") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/bogota_insights" class="{% if p == '/bogota_insights' %}active{% endif %}">Bogotá Insights</a></li>
-          <li><a href="/bogota_insights_female" class="{% if p == '/bogota_insights_female' %}active{% endif %}">Bogotá Insights · Female</a></li>
-          <li><a href="/bogota_insights_male" class="{% if p == '/bogota_insights_male' %}active{% endif %}">Bogotá Insights · Male</a></li>
+          <li><a href="/bogota_insights" class="{% if p == '/bogota_insights' %}active{% endif %}">{{ _("Bogotá Insights") }}</a></li>
+          <li><a href="/bogota_insights_female" class="{% if p == '/bogota_insights_female' %}active{% endif %}">{{ _("Bogotá Insights · Female") }}</a></li>
+          <li><a href="/bogota_insights_male" class="{% if p == '/bogota_insights_male' %}active{% endif %}">{{ _("Bogotá Insights · Male") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">Top Cities</div>
+        <div class="nav-group-label">{{ _("Top Cities") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/top_cities" class="{% if p == '/top_cities' %}active{% endif %}">All Customers</a></li>
-          <li><a href="/top_cities_female" class="{% if p == '/top_cities_female' %}active{% endif %}">Female</a></li>
-          <li><a href="/top_cities_male" class="{% if p == '/top_cities_male' %}active{% endif %}">Male</a></li>
-          <li><a href="/top_cities_wati" class="{% if p == '/top_cities_wati' %}active{% endif %}">WATI</a></li>
-          <li><a href="/top_cities_facebook" class="{% if p == '/top_cities_facebook' %}active{% endif %}">Facebook</a></li>
-          <li><a href="/top_cities_google" class="{% if p == '/top_cities_google' %}active{% endif %}">Google</a></li>
-          <li><a href="/top_cities_ecostand" class="{% if p == '/top_cities_ecostand' %}active{% endif %}">Ecostand</a></li>
-          <li><a href="/top_cities_ecohotel" class="{% if p == '/top_cities_ecohotel' %}active{% endif %}">Ecohotel</a></li>
+          <li><a href="/top_cities" class="{% if p == '/top_cities' %}active{% endif %}">{{ _("All Customers") }}</a></li>
+          <li><a href="/top_cities_female" class="{% if p == '/top_cities_female' %}active{% endif %}">{{ _("Female") }}</a></li>
+          <li><a href="/top_cities_male" class="{% if p == '/top_cities_male' %}active{% endif %}">{{ _("Male") }}</a></li>
+          <li><a href="/top_cities_wati" class="{% if p == '/top_cities_wati' %}active{% endif %}">{{ _("WATI") }}</a></li>
+          <li><a href="/top_cities_facebook" class="{% if p == '/top_cities_facebook' %}active{% endif %}">{{ _("Facebook") }}</a></li>
+          <li><a href="/top_cities_google" class="{% if p == '/top_cities_google' %}active{% endif %}">{{ _("Google") }}</a></li>
+          <li><a href="/top_cities_ecostand" class="{% if p == '/top_cities_ecostand' %}active{% endif %}">{{ _("Ecostand") }}</a></li>
+          <li><a href="/top_cities_ecohotel" class="{% if p == '/top_cities_ecohotel' %}active{% endif %}">{{ _("Ecohotel") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">API Tests</div>
+        <div class="nav-group-label">{{ _("API Tests") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/api_test/utm_source_summary" class="nav-muted {% if p == '/api_test/utm_source_summary' %}active{% endif %}">UTM Source</a></li>
-          <li><a href="/api_test/utm_campaign_insights" class="nav-muted {% if p == '/api_test/utm_campaign_insights' %}active{% endif %}">UTM Campaign</a></li>
-          <li><a href="/api_test/utm_campaign_summary" class="nav-muted {% if p == '/api_test/utm_campaign_summary' %}active{% endif %}">UTM Campaign Sales</a></li>
-          <li><a href="/api_test/utm_content_summary" class="nav-muted {% if p == '/api_test/utm_content_summary' %}active{% endif %}">UTM Content Sales</a></li>
-          <li><a href="/api_test/wati_summary" class="nav-muted {% if p == '/api_test/wati_summary' %}active{% endif %}">WATI</a></li>
+          <li><a href="/api_test/utm_source_summary" class="nav-muted {% if p == '/api_test/utm_source_summary' %}active{% endif %}">{{ _("UTM Source") }}</a></li>
+          <li><a href="/api_test/utm_campaign_insights" class="nav-muted {% if p == '/api_test/utm_campaign_insights' %}active{% endif %}">{{ _("UTM Campaign") }}</a></li>
+          <li><a href="/api_test/utm_campaign_summary" class="nav-muted {% if p == '/api_test/utm_campaign_summary' %}active{% endif %}">{{ _("UTM Campaign Sales") }}</a></li>
+          <li><a href="/api_test/utm_content_summary" class="nav-muted {% if p == '/api_test/utm_content_summary' %}active{% endif %}">{{ _("UTM Content Sales") }}</a></li>
+          <li><a href="/api_test/wati_summary" class="nav-muted {% if p == '/api_test/wati_summary' %}active{% endif %}">{{ _("WATI") }}</a></li>
         </ul>
       </div>
 
       <div class="nav-group">
-        <div class="nav-group-label">Administration</div>
+        <div class="nav-group-label">{{ _("Administration") }}</div>
         <ul class="nav-sidebar-links">
-          <li><a href="/options" class="{% if p == '/options' %}active{% endif %}">Settings</a></li>
+          <li><a href="/options" class="{% if p == '/options' %}active{% endif %}">{{ _("Settings") }}</a></li>
           {% if current_user.is_authenticated and current_user.role == 'admin' %}
-            <li><a href="{{ url_for('main.admin_users_index') }}" class="{% if p == '/admin/users' %}active{% endif %}">Users</a></li>
-            <li><a href="{{ url_for('main.admin_api_tokens_index') }}" class="{% if p == '/admin/api_tokens' %}active{% endif %}">API Tokens</a></li>
+            <li><a href="{{ url_for('main.admin_users_index') }}" class="{% if p == '/admin/users' %}active{% endif %}">{{ _("Users") }}</a></li>
+            <li><a href="{{ url_for('main.admin_api_tokens_index') }}" class="{% if p == '/admin/api_tokens' %}active{% endif %}">{{ _("API Tokens") }}</a></li>
           {% endif %}
         </ul>
       </div>
@@ -202,7 +202,7 @@
     {% if current_user.is_authenticated %}
     <div class="nav-sidebar-footer">
       <span>{{ current_user.username }}</span>
-      <a href="{{ url_for('main.logout') }}">Log out</a>
+      <a href="{{ url_for('main.logout') }}">{{ _("Log out") }}</a>
     </div>
     {% endif %}
   </nav>

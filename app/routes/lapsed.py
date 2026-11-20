@@ -9,6 +9,7 @@ from flask import Response, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
 from app import db
+from app.i18n import translate as _
 from app.models import CustomerContact, CustomerInterview, EmailTemplate
 from app.services.recurrent_customers import (
     DEFAULT_PER_PAGE,
@@ -49,6 +50,14 @@ def inactivity_label(months: int) -> str:
         return f"{months // 12} years"
     return f"{months} months"
 
+
+def inactivity_label_ui(months: int) -> str:
+    """inactivity_label in the site language, for display only (the CSV
+    filename keeps the English inactivity_label)."""
+    if months >= 24 and months % 12 == 0:
+        return _("{n} years").format(n=months // 12)
+    return _("{n} months").format(n=months)
+
 # key -> label and the (min_orders, max_orders) bounds it maps to.
 CUSTOMER_TYPES = {
     "all":        {"label": "All customers",        "bounds": (1, None)},
@@ -83,6 +92,12 @@ CHANNEL_WORDING = {
                                    "column": "WATI contacts"},
     CustomerContact.CHANNEL_EMAIL: {"past": "emailed", "noun": "email", "plural": "emails", "column": "Emails"},
 }
+
+def channel_wording(channel: str | None) -> dict | None:
+    """CHANNEL_WORDING for the page's channel, in the site language."""
+    wording = CHANNEL_WORDING.get(channel)
+    return {k: _(v) for k, v in wording.items()} if wording else None
+
 
 # "Max contacts without a repurchase": customers contacted this many times
 # since their last order are hidden until they buy again. 0 = no limit.
@@ -331,10 +346,10 @@ def _segment_page(channel: str | None, hide_contacted: bool = True) -> dict:
         error=error,
         result=result,
         per_page_choices=PER_PAGE_CHOICES,
-        months_choices=[(m, inactivity_label(m)) for m in MONTHS_CHOICES],
+        months_choices=[(m, inactivity_label_ui(m)) for m in MONTHS_CHOICES],
         selected_skus=skus,
         months=months,
-        months_label=inactivity_label(months),
+        months_label=inactivity_label_ui(months),
         customer_type=customer_type,
         customer_types=CUSTOMER_TYPES,
         exclude_days=exclude_days,
@@ -343,7 +358,7 @@ def _segment_page(channel: str | None, hide_contacted: bool = True) -> dict:
         max_contacts_choices=MAX_CONTACTS_CHOICES,
         contact_filters=contact_filters,
         channel=channel,
-        wording=CHANNEL_WORDING.get(channel),
+        wording=channel_wording(channel),
     )
 
 
@@ -353,8 +368,8 @@ def export_lapsed_customers():
     """The lapsed segment with no contact filtering: every matching customer, for export."""
     return render_template(
         "export_lapsed_customers.html",
-        page_title="Export Lapsed Customers",
-        page_heading="Export Lapsed Customers",
+        page_title=_("Export Lapsed Customers"),
+        page_heading=_("Export Lapsed Customers"),
         endpoint="main.export_lapsed_customers",
         **_segment_page(None),
     )
@@ -404,8 +419,8 @@ def lapsed_customers():
     """Customers whose last purchase was a given SKU and who have since lapsed."""
     return render_template(
         "lapsed_customers.html",
-        page_title="Lapsed Customers",
-        page_heading="Lapsed Customers",
+        page_title=_("Lapsed Customers"),
+        page_heading=_("Lapsed Customers"),
         endpoint="main.lapsed_customers",
         **_wati_action_context(),
         **_segment_page(CustomerContact.CHANNEL_WATI),
@@ -422,8 +437,8 @@ def lapsed_customers_all():
     """
     return render_template(
         "lapsed_customers_all.html",
-        page_title="All Lapsed Customers",
-        page_heading="All Lapsed Customers",
+        page_title=_("All Lapsed Customers"),
+        page_heading=_("All Lapsed Customers"),
         endpoint="main.lapsed_customers_all",
         **_wati_action_context(),
         **_segment_page(CustomerContact.CHANNEL_WATI, hide_contacted=False),
@@ -443,8 +458,8 @@ def reconnect_lapsed_customers_by_email():
     cfg = get_sendgrid_config()
     return render_template(
         "reconnect_lapsed_customers_by_email.html",
-        page_title="Reconnect by Email",
-        page_heading="Reconnect Lapsed Customers by Email",
+        page_title=_("Reconnect by Email"),
+        page_heading=_("Reconnect Lapsed Customers by Email"),
         endpoint="main.reconnect_lapsed_customers_by_email",
         email_templates=templates,
         selected_template_id=selected_template_id,

@@ -1,18 +1,18 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Monthly Data
+    {{ _("Monthly Data") }}
 {% endblock %}
 
 {% block content %}
   <!-- Fetch JSON and Create CSV -->
 <form id="fetch-form" method="post">
     <div class="mb-3">
-        <label>Get WooCommerce order JSON <br /><i>http://saveaplaya.petetesting.com/wp-json/wc-last-orders-json/v1/orders</i></label>
+        <label>{{ _("Get WooCommerce order JSON") }} <br /><i>http://saveaplaya.petetesting.com/wp-json/wc-last-orders-json/v1/orders</i></label>
         <input type="url" class="form-control" id="json_url" name="json_url" 
                placeholder="https://api.example.com/data" required>
     </div>
-    <button type="submit" class="btn btn-primary">Generate orders.csv</button>
+    <button type="submit" class="btn btn-primary">{{ _("Generate orders.csv") }}</button>
 </form>
 
 {% endblock %}
@@ -27,7 +27,7 @@
           e.preventDefault();
           const jsonUrl = $('#json_url').val();
           if (!jsonUrl) {
-              displayAlert('danger', 'Please enter a valid JSON URL.');
+              displayAlert('danger', {{ _("Please enter a valid JSON URL.")|tojson }});
               return;
           }
           loader.show();
@@ -40,7 +40,7 @@
               },
               error: function (xhr) {
                   displayAlert('danger',
-                     xhr.responseJSON ? xhr.responseJSON.message : 'An unexpected error occurred.'
+                     xhr.responseJSON ? xhr.responseJSON.message : {{ _("An unexpected error occurred.")|tojson }}
                   );
               },
               complete: function () {

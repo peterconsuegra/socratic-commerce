@@ -5,7 +5,7 @@ import pandas as pd
 from flask import current_app, render_template, request
 from flask_login import login_required
 
-from app.i18n import request_language
+from app.i18n import request_language, translate as _
 from app.models import Option
 from app.services.daily_repurchases import get_daily_repurchases_trend
 from app.services.daily_sales import build_daily_sales_dashboard_context
@@ -133,7 +133,7 @@ def _render_daily_sales(file_name: str, state: str | None = None, city: str | No
             # Without sales nothing is charted, so there is nothing to draw over.
             if context["daily_sales_trend"]:
                 if not os.path.exists(all_orders_file):
-                    raise FileNotFoundError(f"{all_orders_file} not found. Please generate all orders first.")
+                    raise FileNotFoundError(_("{file} not found. Please generate all orders first.").format(file=all_orders_file))
                 trend, forecast = get_daily_repurchases_trend(
                     forecast_periods=30,
                     return_forecast=True,
@@ -150,6 +150,11 @@ def _render_daily_sales(file_name: str, state: str | None = None, city: str | No
         context[f"{prefix}_repurchases_trend"] = trend
         context[f"{prefix}_repurchases_forecast_data"] = forecast
         context[f"{prefix}_repurchases_error"] = error
+
+    # The services' "no file yet" message, in the page's language.
+    orders_file = f"data/{file_name}"
+    if context.get("error") == f"{orders_file} not found. Use the date selector above to fetch data first.":
+        context["error"] = _("{file} not found. Use the date selector above to fetch data first.").format(file=orders_file)
 
     context.update(date_range=date_range, start_date=start_date, end_date=end_date, file_name=file_name, **page)
     return render_template("daily_sales.html", **context)
@@ -253,7 +258,7 @@ def daily_repurchases():
         current_app.logger.exception("Reading date range options failed (daily_repurchases)")
 
     if not os.path.exists(input_file):
-        error = f"{input_file} not found. Please generate all orders first."
+        error = _("{file} not found. Please generate all orders first.").format(file=input_file)
         return render_template(
             "daily_repurchases.html",
             daily_repurchases_trend=daily_repurchases_trend,

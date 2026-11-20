@@ -51,9 +51,9 @@
     {# /sales_by_location has the exchange rate in its toolbar (partials/report_toolbar.html). #}
     {% if not location %}
       <div class="text-center mb-3">
-        <label for="exchangeRateDailySales">USD Exchange Rate (COP):</label>
+        <label for="exchangeRateDailySales">{{ _("USD Exchange Rate (COP):") }}</label>
         <input type="number" id="exchangeRateDailySales" value="4000" step="50" min="3000" max="6000">
-        <button onclick="toggleCurrencyDailySales()" class="btn btn-primary">Switch Currency</button>
+        <button onclick="toggleCurrencyDailySales()" class="btn btn-primary">{{ _("Switch Currency") }}</button>
       </div>
     {% endif %}
 

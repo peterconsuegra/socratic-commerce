@@ -6,6 +6,7 @@ import pandas as pd
 from flask import abort, current_app, jsonify, render_template, request, send_file
 from flask_login import login_required
 
+from app.i18n import translate as _
 from app.models import Option
 from app.services.bogota_insights import (
     build_city_filtered_csv,
@@ -65,7 +66,7 @@ def wati_insights():
     wati_product_values = []
 
     if not os.path.exists(input_file):
-        error = f"{input_file} not found. Use the date selector above to fetch data first."
+        error = _("{file} not found. Use the date selector above to fetch data first.").format(file=input_file)
 
         return render_template(
             "wati_insights.html",
@@ -152,7 +153,7 @@ def wati_insights():
         wati_city_values = [float(v) for v in city_top.values]
 
         if city_other > 0:
-            wati_city_labels.append("Other cities")
+            wati_city_labels.append(_("Other cities"))
             wati_city_values.append(city_other)
 
         time_counts = (
@@ -178,7 +179,7 @@ def wati_insights():
         wati_product_values = [float(v) for v in product_top.values]
 
         if product_other > 0:
-            wati_product_labels.append("Other products")
+            wati_product_labels.append(_("Other products"))
             wati_product_values.append(product_other)
 
     except Exception as e:
@@ -269,7 +270,7 @@ def checkout_insights():
 
     if not os.path.exists(input_file):
         empty_context["error"] = (
-            f"{input_file} not found. Use the date selector above to fetch data first."
+            _("{file} not found. Use the date selector above to fetch data first.").format(file=input_file)
         )
         return render_template("checkout_insights.html", **empty_context)
 
@@ -349,7 +350,7 @@ def _render_bogota_insights_by_gender(gender: str):
         if not os.path.exists(source_file):
             return render_template(
                 template_name,
-                error=f"{source_file} not found. Use the date selector above to fetch data first.",
+                error=_("{file} not found. Use the date selector above to fetch data first.").format(file=source_file),
                 date_range=None,
                 start_date=None,
                 end_date=None,
@@ -491,7 +492,7 @@ def _render_ad_platform_insights(
         logger.exception("Reading date range options failed (%s_insights)", platform)
 
     if not os.path.exists(input_file):
-        error = f"{input_file} not found. Use the date selector above to fetch data first."
+        error = _("{file} not found. Use the date selector above to fetch data first.").format(file=input_file)
 
         return render_template(
             template_name,

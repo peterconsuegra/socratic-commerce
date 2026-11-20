@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Daily Sales Data
+    {{ _("Daily Sales Data") }}
 {% endblock %}
 
 {% block head_scripts %}
@@ -17,18 +17,18 @@
  <!-- Daily Repurchases Table with Value Columns -->
  <div class="full-screen my-4">
   <div class="col-md-12">
-    <h2 class="text-center">Daily Sales Trend</h2>
+    <h2 class="text-center">{{ _("Daily Sales Trend") }}</h2>
     {% if daily_sales_trend %}
       <table class="table table-bordered table-striped">
         <thead class="table-header-brand">
           <tr>
-            <th>Day</th>
-            <th>Day Name</th>  <!-- New Column Header for the weekday name -->
-            <th>Total Orders</th>
-            <th>Repurchases #</th>
-            <th>Repurchases $</th>
-            <th>Repurchases %</th>
-            <th>Total Sales</th>
+            <th>{{ _("Day") }}</th>
+            <th>{{ _("Weekday") }}</th>  <!-- New Column Header for the weekday name -->
+            <th>{{ _("Total Orders") }}</th>
+            <th>{{ _("Repurchases #") }}</th>
+            <th>{{ _("Repurchases $") }}</th>
+            <th>{{ _("Repurchases %") }}</th>
+            <th>{{ _("Total Sales") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -47,7 +47,7 @@
       </table>
     {% else %}
       <div class="alert alert-warning" role="alert">
-        No daily repurchase data available.
+        {{ _("No daily repurchase data available.") }}
       </div>
     {% endif %}
   </div>
@@ -56,13 +56,13 @@
 <!-- Daily Sales Forecast Table -->
 {% if forecast_data %}
 <div class="full-screen my-4">
-  <h2 class="text-center">Daily Sales Forecast</h2>
+  <h2 class="text-center">{{ _("Daily Sales Forecast") }}</h2>
   <div class="table-responsive">
     <table class="table table-bordered table-striped">
       <thead class="table-header-brand">
          <tr>
-             <th>Day</th>
-             <th>Projected Sales</th>
+             <th>{{ _("Day") }}</th>
+             <th>{{ _("Projected Sales") }}</th>
          </tr>
       </thead>
       <tbody>
@@ -78,17 +78,17 @@
 </div>
 {% else %}
   <div class="alert alert-warning text-center">
-    No forecast data available.
+    {{ _("No forecast data available.") }}
   </div>
 {% endif %}
 
 <!-- Daily Sales Trend & Forecast Chart -->
 <div class="container mt-5">
-  <h2 class="text-center">Daily Sales Trend & Forecast</h2>
+  <h2 class="text-center">{{ _("Daily Sales Trend & Forecast") }}</h2>
   <div class="text-center">
-      <label for="dailyExchangeRate">USD Exchange Rate (COP):</label>
+      <label for="dailyExchangeRate">{{ _("USD Exchange Rate (COP):") }}</label>
       <input type="number" id="dailyExchangeRate" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleDailyCurrency()" class="btn btn-primary">Switch Currency</button>
+      <button onclick="toggleDailyCurrency()" class="btn btn-primary">{{ _("Switch Currency") }}</button>
   </div>
   <canvas id="dailySalesChart"></canvas>
 </div>
@@ -98,6 +98,10 @@ document.addEventListener("DOMContentLoaded", function() {
     var ctx = document.getElementById("dailySalesChart").getContext("2d");
     var dailyExchangeRate = parseFloat(document.getElementById("dailyExchangeRate").value);
     var useUSD = false;
+    var T = {
+        historical: {{ _("Historical Sales")|tojson }},
+        forecasted: {{ _("Forecasted Sales")|tojson }}
+    };
     
     // Extract labels from historical daily data and forecast data
     var historicalLabels = [
@@ -143,14 +147,14 @@ document.addEventListener("DOMContentLoaded", function() {
             labels: labels,
             datasets: [
                 {
-                    label: "Historical Sales (COP)",
+                    label: T.historical + " (COP)",
                     data: historicalSales,
                     borderColor: "blue",
                     backgroundColor: "rgba(0, 0, 255, 0.2)",
                     fill: true
                 },
                 {
-                    label: "Forecasted Sales (COP)",
+                    label: T.forecasted + " (COP)",
                     // Prepend historical period with nulls so that the forecast begins right after
                     data: new Array(historicalSales.length).fill(null).concat(forecastedSales),
                     borderColor: "red",
@@ -191,8 +195,8 @@ document.addEventListener("DOMContentLoaded", function() {
             ? new Array(historicalSalesCOP.length).fill(null).concat(convertToUSD(forecastedSalesCOP))
             : new Array(historicalSalesCOP.length).fill(null).concat(forecastedSalesCOP);
                                                     
-        dailyChart.data.datasets[0].label = useUSD ? "Historical Sales (USD)" : "Historical Sales (COP)";
-        dailyChart.data.datasets[1].label = useUSD ? "Forecasted Sales (USD)" : "Forecasted Sales (COP)";
+        dailyChart.data.datasets[0].label = T.historical + (useUSD ? " (USD)" : " (COP)");
+        dailyChart.data.datasets[1].label = T.forecasted + (useUSD ? " (USD)" : " (COP)");
         
         dailyChart.update();
     };

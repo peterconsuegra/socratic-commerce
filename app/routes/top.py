@@ -7,6 +7,7 @@ import pandas as pd
 from flask import abort, current_app, render_template, request, send_file
 from flask_login import login_required
 
+from app.i18n import translate as _
 from app.models import Option
 from app.services.localidades import LOCALIDADES_ESTRATOS, find_localidad
 from app.services.top_cities import get_top_cities_daily_trend_with_forecast
@@ -71,7 +72,7 @@ def _build_top_cities_response(
     error = None
 
     if not os.path.exists(input_file):
-        error = missing_message or f"{input_file} not found. Generate the report first."
+        error = missing_message or _("{file} not found. Generate the report first.").format(file=input_file)
         current_app.logger.warning(error)
 
         return render_template(
@@ -110,7 +111,7 @@ def _build_top_cities_response(
         pie_values = [totals_map.get(city, 0.0) for city in top_cities_list]
 
         if others > 0:
-            pie_labels.append("Other cities")
+            pie_labels.append(_("Other cities"))
             pie_values.append(others)
 
         if grand_total == 0 and zero_message:
@@ -157,7 +158,7 @@ def _render_gender_top_cities(gender: str):
     error = None
 
     if not os.path.exists(input_file):
-        error = f"{input_file} not found. Generate the report first."
+        error = _("{file} not found. Generate the report first.").format(file=input_file)
         current_app.logger.warning(error)
 
         return render_template(
@@ -204,7 +205,7 @@ def _render_gender_top_cities(gender: str):
         pie_values = [totals_map.get(city, 0.0) for city in top_cities_list]
 
         if others > 0:
-            pie_labels.append("Other cities")
+            pie_labels.append(_("Other cities"))
             pie_values.append(others)
 
     except Exception as e:
@@ -407,7 +408,7 @@ def top_cities_wati():
         option_file_name="top_cities_wati.csv",
         top_n=top_n,
         service_kwargs={"utm_campaign_filter": "wati"},
-        zero_message="No orders found for utm_campaign = wati in the selected date range.",
+        zero_message=_("No orders found for utm_campaign = {value} in the selected date range.").format(value="wati"),
     )
 
 
@@ -422,7 +423,7 @@ def top_cities_facebook():
         option_file_name="top_cities_facebook.csv",
         top_n=top_n,
         service_kwargs={"utm_source_filter": "facebook"},
-        zero_message="No orders found for utm_source = facebook in the selected date range.",
+        zero_message=_("No orders found for utm_source = {value} in the selected date range.").format(value="facebook"),
     )
 
 
@@ -437,7 +438,7 @@ def top_cities_google():
         option_file_name="top_cities_google.csv",
         top_n=top_n,
         service_kwargs={"utm_source_filter": "google"},
-        zero_message="No orders found for utm_source = google in the selected date range.",
+        zero_message=_("No orders found for utm_source = {value} in the selected date range.").format(value="google"),
     )
 
 
@@ -452,7 +453,7 @@ def top_cities_tiktok():
         option_file_name="top_cities_tiktok.csv",
         top_n=top_n,
         service_kwargs={"utm_source_filter": "tiktok"},
-        zero_message="No orders found for utm_source = tiktok in the selected date range.",
+        zero_message=_("No orders found for utm_source = {value} in the selected date range.").format(value="tiktok"),
     )
 
 
@@ -468,7 +469,7 @@ def top_cities_ecostand():
         option_file_name="top_cities_ecostand.csv",
         top_n=top_n,
         service_kwargs={"product_filter": product_name},
-        zero_message=f'No orders found for product = "{product_name}" in the selected date range.',
+        zero_message=_('No orders found for product = "{product}" in the selected date range.').format(product=product_name),
     )
 
 
@@ -484,5 +485,5 @@ def top_cities_ecohotel():
         option_file_name="top_cities_ecohotel.csv",
         top_n=top_n,
         service_kwargs={"product_filter": product_name},
-        zero_message=f'No orders found for product = "{product_name}" in the selected date range.',
+        zero_message=_('No orders found for product = "{product}" in the selected date range.').format(product=product_name),
     )

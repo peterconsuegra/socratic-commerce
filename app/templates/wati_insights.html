@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Wati Insights
+{{ _("Wati Insights") }}
 {% endblock %}
 
 {% block content %}
@@ -33,7 +33,7 @@ Wati Insights
 
   {% if not wati_sales_trend %}
     <div class="alert alert-warning mt-3">
-      No Wati data available to display for this selection.
+      {{ _("No Wati data available to display for this selection.") }}
     </div>
   {% else %}
 
@@ -42,13 +42,13 @@ Wati Insights
       <div class="card shadow-sm h-100">
         <div class="card-body text-center">
           <div class="text-muted" style="font-size: 0.95rem;">
-            MTD Sales (up to yesterday)
+            {{ _("MTD Sales (up to yesterday)") }}
           </div>
           <div style="font-size: 1.4rem; font-weight: 700;">
             {{ (kpis.mtd_sales or 0)|cop }}
           </div>
           <div class="text-muted" style="font-size: 0.85rem;">
-            Days counted: {{ kpis.days_elapsed_mtd or 0 }}
+            {{ _("Days counted: {days}").format(days=kpis.days_elapsed_mtd or 0) }}
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@ Wati Insights
       <div class="card shadow-sm h-100">
         <div class="card-body text-center">
           <div class="text-muted" style="font-size: 0.95rem;">
-            Avg per day (MTD)
+            {{ _("Avg per day (MTD)") }}
           </div>
           <div style="font-size: 1.4rem; font-weight: 700;">
             {{ (kpis.avg_per_day_mtd or 0)|cop }}
@@ -71,7 +71,7 @@ Wati Insights
       <div class="card shadow-sm h-100">
         <div class="card-body text-center">
           <div class="text-muted" style="font-size: 0.95rem;">
-            Last 7 days Sales
+            {{ _("Last 7 days Sales") }}
           </div>
           <div style="font-size: 1.4rem; font-weight: 700;">
             {{ (kpis.last_7_days_sales or 0)|cop }}
@@ -86,7 +86,7 @@ Wati Insights
     <div class="col-lg-4">
       <div class="card shadow-sm h-100">
         <div class="card-body">
-          <h5 class="text-center mb-3">Wati Sales by City</h5>
+          <h5 class="text-center mb-3">{{ _("Wati Sales by City") }}</h5>
           <div style="height: 320px;">
             <canvas id="watiCityPie"></canvas>
           </div>
@@ -97,7 +97,7 @@ Wati Insights
     <div class="col-lg-4">
       <div class="card shadow-sm h-100">
         <div class="card-body">
-          <h5 class="text-center mb-3">Wati Orders by Purchase Time (3h buckets)</h5>
+          <h5 class="text-center mb-3">{{ _("Wati Orders by Purchase Time (3h buckets)") }}</h5>
           <div style="height: 320px;">
             <canvas id="watiTimePie"></canvas>
           </div>
@@ -108,7 +108,7 @@ Wati Insights
     <div class="col-lg-4">
       <div class="card shadow-sm h-100">
         <div class="card-body">
-          <h5 class="text-center mb-3">Wati Sales by Product</h5>
+          <h5 class="text-center mb-3">{{ _("Wati Sales by Product") }}</h5>
           <div style="height: 320px;">
             <canvas id="watiProductPie"></canvas>
           </div>
@@ -119,16 +119,16 @@ Wati Insights
   </div>
 
   <div class="text-center mb-3">
-    <label for="exchangeRateWati">USD Exchange Rate (COP):</label>
+    <label for="exchangeRateWati">{{ _("USD Exchange Rate (COP):") }}</label>
     <input type="number" id="exchangeRateWati" value="4000" step="50" min="3000" max="6000">
     <button onclick="toggleCurrencyWati()" class="btn btn-primary">
-      Switch Currency
+      {{ _("Switch Currency") }}
     </button>
   </div>
 
-  <h2 class="text-center">Wati Daily Total Sales Trend and Forecast</h2>
+  <h2 class="text-center">{{ _("Wati Daily Total Sales Trend and Forecast") }}</h2>
   <p class="text-center text-muted mb-3">
-    Includes only orders where utm_source is wati and respects the selected date range above.
+    {{ _("Includes only orders where utm_source is wati and respects the selected date range above.") }}
   </p>
 
   <div style="height: 520px;">
@@ -275,7 +275,7 @@ document.addEventListener("DOMContentLoaded", function() {
       : formatCOP(value);
   }
 
-  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, histLabel, fcstLabel) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -287,12 +287,12 @@ document.addEventListener("DOMContentLoaded", function() {
         labels: labels,
         datasets: [
           {
-            label: titlePrefix + " (COP)",
+            label: histLabel + " (COP)",
             data: histCOP,
             fill: true
           },
           {
-            label: "Forecasted " + titlePrefix + " (COP)",
+            label: fcstLabel + " (COP)",
             data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
             borderDash: [5, 5],
             fill: true
@@ -322,7 +322,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._rawHistCOP = histCOP;
     chart._rawForecastCOP = fcstCOP;
     chart._histLen = histCOP.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -345,7 +346,8 @@ document.addEventListener("DOMContentLoaded", function() {
     labels,
     hist,
     fcst,
-    "Historical Wati Total Sales"
+    {{ _("Historical {name} Total Sales").format(name="Wati")|tojson }},
+    {{ _("Forecasted {name} Total Sales").format(name="Wati")|tojson }}
   );
 
   window.toggleCurrencyWati = function() {
@@ -361,13 +363,9 @@ document.addEventListener("DOMContentLoaded", function() {
     watiSalesChart.data.datasets[1].data =
       [].concat(new Array(watiSalesChart._histLen).fill(null), newFcst);
 
-    watiSalesChart.data.datasets[0].label = useUSD
-      ? watiSalesChart._titlePrefix + " (USD)"
-      : watiSalesChart._titlePrefix + " (COP)";
+    watiSalesChart.data.datasets[0].label = watiSalesChart._histLabel + (useUSD ? " (USD)" : " (COP)");
 
-    watiSalesChart.data.datasets[1].label = useUSD
-      ? "Forecasted " + watiSalesChart._titlePrefix.replace("Historical ", "") + " (USD)"
-      : "Forecasted " + watiSalesChart._titlePrefix.replace("Historical ", "") + " (COP)";
+    watiSalesChart.data.datasets[1].label = watiSalesChart._fcstLabel + (useUSD ? " (USD)" : " (COP)");
 
     watiSalesChart.update();
   };

@@ -2,7 +2,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Google Insights
+{{ _("Google Insights") }}
 {% endblock %}
 
 {% block content %}
@@ -34,20 +34,20 @@ Google Insights
 
   {% if not total_daily_trend %}
     <div class="alert alert-warning mt-3">
-      No data available to display for this selection.
+      {{ _("No data available to display for this selection.") }}
     </div>
   {% else %}
 
     <div class="text-center mb-3">
-      <label for="exchangeRateGoogle">USD Exchange Rate (COP):</label>
+      <label for="exchangeRateGoogle">{{ _("USD Exchange Rate (COP):") }}</label>
       <input type="number" id="exchangeRateGoogle" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleCurrencyGoogle()" class="btn btn-primary">Switch Currency</button>
+      <button onclick="toggleCurrencyGoogle()" class="btn btn-primary">{{ _("Switch Currency") }}</button>
     </div>
 
-    <h2 class="text-center">Google Campaign Distribution (utm_campaign)</h2>
+    <h2 class="text-center">{{ _("{platform} Campaign Distribution (utm_campaign)").format(platform="Google") }}</h2>
     <p class="text-center text-muted mb-3">
-      Based on the selected date range, filtered to utm_source = google.
-      Campaigns are grouped by removing "+" from utm_campaign.
+      {{ _("Based on the selected date range, filtered to utm_source = {source}.").format(source="google") }}
+      {{ _('Campaigns are grouped by removing "+" from utm_campaign.') }}
     </p>
 
     <div style="height: 420px;">
@@ -56,16 +56,16 @@ Google Insights
 
     {% if other_campaigns_labels and other_campaigns_pct and other_campaigns_pct > 0 %}
       <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
-        Other campaigns (&lt;2%): {{ other_campaigns_labels|join(", ") }} ({{ "%.1f"|format(other_campaigns_pct) }}%)
+        {{ _("Other campaigns (<2%): {campaigns} ({pct}%)").format(campaigns=other_campaigns_labels|join(", "), pct="%.1f"|format(other_campaigns_pct)) }}
       </p>
     {% endif %}
 
     <hr class="my-5">
 
-    <h2 class="text-center">Total Google Sales Distribution</h2>
+    <h2 class="text-center">{{ _("Total {platform} Sales Distribution").format(platform="Google") }}</h2>
     <p class="text-center text-muted mb-3">
-      Four pies: sales by hour (3h buckets), gender distribution (by sales value), city share (by sales value), and utm_content share (by sales value).
-      Hover any slice to see the percentage.
+      {{ _("Four pies: sales by hour (3h buckets), gender distribution (by sales value), city share (by sales value), and utm_content share (by sales value).") }}
+      {{ _("Hover any slice to see the percentage.") }}
     </p>
 
     <div class="row">
@@ -85,18 +85,18 @@ Google Insights
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Google Sales Trend and Forecast</h2>
+    <h2 class="text-center">{{ _("Daily {platform} Sales Trend and Forecast").format(platform="Google") }}</h2>
     <div style="height: 520px;">
       <canvas id="googleTotalSalesChart"></canvas>
     </div>
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Sales Trend and Forecast by Google Campaign</h2>
+    <h2 class="text-center">{{ _("Daily Sales Trend and Forecast by {platform} Campaign").format(platform="Google") }}</h2>
 
     {% if not campaign_charts %}
       <div class="alert alert-warning mt-3">
-        No per-campaign charts available for this selection.
+        {{ _("No per-campaign charts available for this selection.") }}
       </div>
     {% else %}
       {% for c in campaign_charts %}
@@ -106,8 +106,8 @@ Google Insights
             <h3 class="text-center">{{ c.label }}</h3>
 
             <p class="text-center text-muted mb-3">
-              Four pies: hour buckets, gender distribution, city share, and utm_content share.
-              Hover any slice to see the percentage.
+              {{ _("Four pies: hour buckets, gender distribution, city share, and utm_content share.") }}
+              {{ _("Hover any slice to see the percentage.") }}
             </p>
 
             <div class="row">
@@ -131,9 +131,9 @@ Google Insights
 
             <hr class="my-4">
 
-            <h5 class="text-center mb-2">Strategic Prompt for Google Campaign Optimization</h5>
+            <h5 class="text-center mb-2">{{ _("Strategic Prompt for {platform} Campaign Optimization").format(platform="Google") }}</h5>
             <p class="text-center text-muted mb-3">
-              Analyze the full Google campaign using all available data and generate an advanced optimization plan.
+              {{ _("Analyze the full Google campaign using all available data and generate an advanced optimization plan.") }}
             </p>
 
             <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -142,7 +142,7 @@ Google Insights
                 class="btn btn-outline-dark btn-sm"
                 onclick="copyCampaignStrategicPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
               >
-                Copy strategic prompt
+                {{ _("Copy strategic prompt") }}
               </button>
             </div>
 
@@ -156,9 +156,9 @@ Google Insights
 
             <hr class="my-4">
 
-            <h5 class="text-center mb-2">Prompt for Automatic Budget Reallocation (Google)</h5>
+            <h5 class="text-center mb-2">{{ _("Prompt for Automatic Budget Reallocation ({platform})").format(platform="Google") }}</h5>
             <p class="text-center text-muted mb-3">
-              Generate automatic budget reallocation rules using real Google campaign data.
+              {{ _("Generate automatic budget reallocation rules using real Google campaign data.") }}
             </p>
 
             <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -167,7 +167,7 @@ Google Insights
                 class="btn btn-outline-success btn-sm"
                 onclick="copyBudgetPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
               >
-                Copy budget prompt
+                {{ _("Copy budget prompt") }}
               </button>
             </div>
 
@@ -181,9 +181,9 @@ Google Insights
 
             <hr class="my-4">
 
-            <h5 class="text-center mb-2">Prompt for Scalability Prediction (Google)</h5>
+            <h5 class="text-center mb-2">{{ _("Prompt for Scalability Prediction ({platform})").format(platform="Google") }}</h5>
             <p class="text-center text-muted mb-3">
-              Estimate whether this Google campaign can scale and with what probability, using only the available data.
+              {{ _("Estimate whether this Google campaign can scale and with what probability, using only the available data.") }}
             </p>
 
             <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -192,7 +192,7 @@ Google Insights
                 class="btn btn-outline-warning btn-sm"
                 onclick="copyScalabilityPromptGoogle('{{ c.key|replace('\'', '\\\'') }}')"
               >
-                Copy scalability prompt
+                {{ _("Copy scalability prompt") }}
               </button>
             </div>
 
@@ -644,13 +644,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
   var totalGenderPie = buildPieChart(
     "googleTotalGenderPieChart",
-    [{% for l in total_gender_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for l in total_gender_pie_labels %}{{ _(l)|tojson }},{% endfor %}],
     [{% for v in total_gender_pie_values %}{{ v }},{% endfor %}]
   );
 
   var totalCityPie = buildPieChart(
     "googleTotalCityPieChart",
-    [{% for l in total_city_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+    [{% for l in total_city_pie_labels %}{{ (_(l) if l == "Other" else l)|tojson }},{% endfor %}],
     [{% for v in total_city_pie_values %}{{ v }},{% endfor %}]
   );
 
@@ -660,7 +660,7 @@ document.addEventListener("DOMContentLoaded", function() {
     [{% for v in total_content_pie_values %}{{ v }},{% endfor %}]
   );
 
-  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix, hexColor) {
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, histLabel, fcstLabel, hexColor) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -675,14 +675,14 @@ document.addEventListener("DOMContentLoaded", function() {
         labels: labels,
         datasets: [
           {
-            label: titlePrefix + " (COP)",
+            label: histLabel + " (COP)",
             data: histCOP,
             fill: true,
             borderColor: lineColor,
             backgroundColor: fillColor
           },
           {
-            label: "Forecasted " + titlePrefix + " (COP)",
+            label: fcstLabel + " (COP)",
             data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
             borderDash: [5, 5],
             fill: true,
@@ -702,7 +702,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._rawHistCOP = histCOP;
     chart._rawForecastCOP = fcstCOP;
     chart._histLen = histCOP.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -715,7 +716,8 @@ document.addEventListener("DOMContentLoaded", function() {
     ],
     [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
     [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
-    "Historical Google Total Sales",
+    {{ _("Historical {name} Total Sales").format(name="Google")|tojson }},
+    {{ _("Forecasted {name} Total Sales").format(name="Google")|tojson }},
     null
   );
 
@@ -736,14 +738,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
       var gp = buildPieChart(
         "{{ c.gender_pie_canvas_id }}",
-        [{% for l in c.gender_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for l in c.gender_pie_labels %}{{ _(l)|tojson }},{% endfor %}],
         [{% for v in c.gender_pie_values %}{{ v }},{% endfor %}]
       );
       if (gp) campaignGenderPies.push(gp);
 
       var cp = buildPieChart(
         "{{ c.city_pie_canvas_id }}",
-        [{% for l in c.city_pie_labels %}"{{ l|replace('"','\\"') }}",{% endfor %}],
+        [{% for l in c.city_pie_labels %}{{ (_(l) if l == "Other" else l)|tojson }},{% endfor %}],
         [{% for v in c.city_pie_values %}{{ v }},{% endfor %}]
       );
       if (cp) campaignCityPies.push(cp);
@@ -771,7 +773,8 @@ document.addEventListener("DOMContentLoaded", function() {
         labels,
         hist,
         fcst,
-        "Historical {{ c.label|replace('"','\\"') }} Sales",
+        {{ _("Historical {channel} Sales").format(channel=c.label)|tojson }},
+        {{ _("Forecasted {channel} Sales").format(channel=c.label)|tojson }},
         color
       );
       if (ch) campaignCharts.push(ch);
@@ -856,13 +859,9 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.data.datasets[0].data = hist;
       chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-      chart.data.datasets[0].label = useUSD
-        ? chart._titlePrefix + " (USD)"
-        : chart._titlePrefix + " (COP)";
+      chart.data.datasets[0].label = chart._histLabel + (useUSD ? " (USD)" : " (COP)");
 
-      chart.data.datasets[1].label = useUSD
-        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+      chart.data.datasets[1].label = chart._fcstLabel + (useUSD ? " (USD)" : " (COP)");
 
       chart.update();
     }

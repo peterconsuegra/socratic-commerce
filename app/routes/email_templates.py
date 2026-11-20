@@ -14,6 +14,7 @@ from flask_login import current_user, login_required
 from markupsafe import escape
 
 from app import db
+from app.i18n import translate as _
 from app.models import EmailAsset, EmailTemplate
 from app.services.email_assets import (
     MAX_BYTES as HERO_MAX_BYTES,
@@ -122,9 +123,10 @@ def _form_values() -> dict:
 def _validate(values: dict, exclude_id: int | None = None) -> list[str]:
     errors = []
     if not values["name"]:
-        errors.append("A template name is required.")
+        errors.append(_("A template name is required."))
     elif len(values["name"]) > MAX_NAME_CHARS:
-        errors.append(f"The name is {len(values['name'])} characters; the limit is {MAX_NAME_CHARS}.")
+        errors.append(_("The name is {count} characters; the limit is {limit}.").format(
+            count=len(values["name"]), limit=MAX_NAME_CHARS))
     else:
         clash = EmailTemplate.query.filter(
             db.func.lower(EmailTemplate.name) == values["name"].lower()
@@ -132,17 +134,19 @@ def _validate(values: dict, exclude_id: int | None = None) -> list[str]:
         if exclude_id is not None:
             clash = clash.filter(EmailTemplate.id != exclude_id)
         if clash.first():
-            errors.append("Another template already uses that name.")
+            errors.append(_("Another template already uses that name."))
 
     if not values["subject"]:
-        errors.append("A subject is required.")
+        errors.append(_("A subject is required."))
     elif len(values["subject"]) > MAX_SUBJECT_CHARS:
-        errors.append(f"The subject is {len(values['subject'])} characters; the limit is {MAX_SUBJECT_CHARS}.")
+        errors.append(_("The subject is {count} characters; the limit is {limit}.").format(
+            count=len(values["subject"]), limit=MAX_SUBJECT_CHARS))
 
     if not values["html_body"]:
-        errors.append("The HTML body is required.")
+        errors.append(_("The HTML body is required."))
     elif len(values["html_body"]) > MAX_HTML_CHARS:
-        errors.append(f"The HTML body is {len(values['html_body']):,} characters; the limit is {MAX_HTML_CHARS:,}.")
+        errors.append(_("The HTML body is {count} characters; the limit is {limit}.").format(
+            count=f"{len(values['html_body']):,}", limit=f"{MAX_HTML_CHARS:,}"))
     return errors
 
 
@@ -212,7 +216,7 @@ def email_templates_new():
         db.session.add(template)
         db.session.commit()
         logger.info("%s created email template %r", template.updated_by, template.name)
-        flash(f"Template '{escape(template.name)}' created.", "success")
+        flash(_("Template '{name}' created.").format(name=escape(template.name)), "success")
         return redirect(url_for("main.email_templates_edit", template_id=template.id))
 
     return _render_form(None, values)
@@ -237,7 +241,7 @@ def email_templates_edit(template_id):
         template.updated_by = getattr(current_user, "username", None)
         db.session.commit()
         logger.info("%s updated email template %r", template.updated_by, template.name)
-        flash(f"Template '{escape(template.name)}' saved.", "success")
+        flash(_("Template '{name}' saved.").format(name=escape(template.name)), "success")
         return redirect(url_for("main.email_templates_edit", template_id=template.id))
 
     return _render_form(template, values)
@@ -251,7 +255,7 @@ def email_templates_delete(template_id):
     db.session.delete(template)
     db.session.commit()
     logger.info("%s deleted email template %r", getattr(current_user, "username", "unknown"), name)
-    flash(f"Template '{escape(name)}' deleted.", "success")
+    flash(_("Template '{name}' deleted.").format(name=escape(name)), "success")
     return redirect(url_for("main.email_templates_index"))
 
 
@@ -368,7 +372,7 @@ def email_templates_clone(template_id):
         db.session.add(asset.copy_for(clone))
     db.session.commit()
     logger.info("%s cloned email template %r as %r", who, source.name, clone.name)
-    flash(f"Template '{escape(source.name)}' cloned as '{escape(clone.name)}'.", "success")
+    flash(_("Template '{name}' cloned as '{copy}'.").format(name=escape(source.name), copy=escape(clone.name)), "success")
     return redirect(url_for("main.email_templates_edit", template_id=clone.id))
 
 
@@ -404,11 +408,14 @@ def email_templates_hero_upload(template_id):
 
     dims = f"{info['width']} × {info['height']} px" if info["width"] else "size unknown"
     note = ("" if info["recommended"]
-            else f" Note: the recommended size is {RECOMMENDED_WIDTH} × {RECOMMENDED_HEIGHT} px; "
-                 "the template scales it, but a 2:1 image keeps the headline above the fold.")
+            else " " + _("Note: the recommended size is {width} × {height} px; the template scales it, "
+                         "but a 2:1 image keeps the headline above the fold.").format(
+                width=RECOMMENDED_WIDTH, height=RECOMMENDED_HEIGHT))
     logger.info("%s uploaded a hero image for template %r (%s, %d bytes)",
                 who, template.name, dims, info["size_bytes"])
-    flash(f"Hero image uploaded ({dims}, {info['size_bytes'] // 1024} KB).{note}", "success")
+    shown_dims = dims if info["width"] else _("size unknown")
+    flash(_("Hero image uploaded ({dims}, {kb} KB).").format(dims=shown_dims, kb=info["size_bytes"] // 1024) + note,
+          "success")
     return redirect(url_for("main.email_templates_edit", template_id=template.id))
 
 
@@ -423,7 +430,7 @@ def email_templates_hero_delete(template_id):
     if removed:
         template.updated_by = getattr(current_user, "username", None)
         db.session.commit()
-        flash("Hero image removed.", "success")
+        flash(_("Hero image removed."), "success")
     return redirect(url_for("main.email_templates_edit", template_id=template.id))
 
 

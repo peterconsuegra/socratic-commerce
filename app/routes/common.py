@@ -12,6 +12,7 @@ from flask_login import current_user
 
 from app.models import ApiToken, Option
 from app import db
+from app.i18n import translate as _
 from app.services.get_data import BOGOTA, fetch_orders_and_write_csv, orders_file_is_current
 from app.services.secrets import get_secret
 
@@ -308,7 +309,7 @@ def admin_required(view_func):
             return redirect(url_for("main.login"))
 
         if getattr(current_user, "role", "user") != "admin":
-            flash("You do not have permission to access that page.", "danger")
+            flash(_("You do not have permission to access that page."), "danger")
             return redirect(url_for("main.monthly_sales"))
 
         return view_func(*args, **kwargs)

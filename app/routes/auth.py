@@ -5,6 +5,7 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app import db
+from app.i18n import translate as _
 from app.models import User
 
 from . import main
@@ -20,13 +21,13 @@ def login():
         password = request.form.get("password") or ""
 
         if not username or not password:
-            flash("Please enter both username and password.", "danger")
+            flash(_("Please enter both username and password."), "danger")
             return redirect(url_for("main.login"))
 
         user = User.query.filter_by(username=username).first()
 
         if not user or not user.check_password(password):
-            flash("Invalid username or password.", "danger")
+            flash(_("Invalid username or password."), "danger")
             return redirect(url_for("main.login"))
 
         login_user(user)
@@ -34,7 +35,7 @@ def login():
         user.last_login = datetime.now(timezone.utc)
         db.session.commit()
 
-        flash("Logged in successfully.", "success")
+        flash(_("Logged in successfully."), "success")
         return redirect(url_for("main.monthly_sales"))
 
     return render_template("login.html")
@@ -44,7 +45,7 @@ def login():
 @login_required
 def logout():
     logout_user()
-    flash("You have been logged out.", "success")
+    flash(_("You have been logged out."), "success")
     return redirect(url_for("main.login"))
 
 
@@ -53,7 +54,7 @@ def register():
     existing_any_user = User.query.first()
 
     if existing_any_user:
-        flash("There is an admin user already created. Please log in.", "warning")
+        flash(_("There is an admin user already created. Please log in."), "warning")
         return redirect(url_for("main.login"))
 
     if request.method == "POST":
@@ -61,7 +62,7 @@ def register():
         password = request.form.get("password") or ""
 
         if not username or not password:
-            flash("Username and password are required.", "danger")
+            flash(_("Username and password are required."), "danger")
             return redirect(url_for("main.register"))
 
         new_user = User(username=username)
@@ -70,7 +71,7 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        flash("Registration successful. Please log in.", "success")
+        flash(_("Registration successful. Please log in."), "success")
         return redirect(url_for("main.login"))
 
     return render_template("register.html")

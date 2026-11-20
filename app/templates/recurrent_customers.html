@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Recurrent Customers{% endblock %}
+{% block title %}{{ _("Recurrent Customers") }}{% endblock %}
 
 {% macro page_url(page=None, sort=None, direction=None) -%}
 {{ url_for('main.recurrent_customers',
@@ -23,9 +23,9 @@
 {% block content %}
 <div class="container mt-2" style="max-width: 1100px;">
 
-  <h2 class="text-center mb-1">Recurrent Customers</h2>
+  <h2 class="text-center mb-1">{{ _("Recurrent Customers") }}</h2>
   <p class="text-center text-muted mb-4">
-    Customers who have bought more than once, as the store counts purchases. One row per email.
+    {{ _("Customers who have bought more than once, as the store counts purchases. One row per email.") }}
   </p>
 
   {% if error %}
@@ -38,13 +38,13 @@
     <div class="row text-center g-2 mb-3">
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Recurrent customers</div>
+          <div class="text-muted small">{{ _("Recurrent customers") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.recurrent_customers) }}</div>
         </div></div>
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Of all customers</div>
+          <div class="text-muted small">{{ _("Of all customers") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.total_customers) }}
             <span class="text-muted small">({{ "%.1f"|format(s.recurrent_customers / s.total_customers * 100 if s.total_customers else 0) }}%)</span>
           </div>
@@ -52,13 +52,13 @@
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Their orders</div>
+          <div class="text-muted small">{{ _("Their orders") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.recurrent_orders) }}</div>
         </div></div>
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Their revenue</div>
+          <div class="text-muted small">{{ _("Their revenue") }}</div>
           <div class="fw-bold">{{ s.recurrent_revenue | cop }}</div>
         </div></div>
       </div>
@@ -69,11 +69,11 @@
       <input type="hidden" name="sort" value="{{ result.sort.key }}">
       <input type="hidden" name="direction" value="{{ result.sort.direction }}">
       <div class="col-sm-6">
-        <label class="form-label small text-muted mb-1">Search name or email</label>
-        <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="e.g. maria or @gmail.com">
+        <label class="form-label small text-muted mb-1">{{ _("Search name or email") }}</label>
+        <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="{{ _('e.g. maria or @gmail.com') }}">
       </div>
       <div class="col-sm-3">
-        <label class="form-label small text-muted mb-1">Per page</label>
+        <label class="form-label small text-muted mb-1">{{ _("Per page") }}</label>
         <select name="per_page" class="form-select" onchange="this.form.submit()">
           {% for n in per_page_choices %}
             <option value="{{ n }}" {% if n == p.per_page %}selected{% endif %}>{{ n }}</option>
@@ -81,9 +81,9 @@
         </select>
       </div>
       <div class="col-sm-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary w-100">Search</button>
+        <button type="submit" class="btn btn-primary w-100">{{ _("Search") }}</button>
         {% if result.search %}
-          <a href="{{ url_for('main.recurrent_customers', per_page=p.per_page) }}" class="btn btn-outline-secondary">Clear</a>
+          <a href="{{ url_for('main.recurrent_customers', per_page=p.per_page) }}" class="btn btn-outline-secondary">{{ _("Clear") }}</a>
         {% endif %}
       </div>
     </form>
@@ -91,12 +91,12 @@
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
       <span class="text-muted small">
         {% if p.total_rows %}
-          Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
+          {{ _("Showing {start}–{end} of {total}").format(start="{:,}".format(p.start), end="{:,}".format(p.end), total="{:,}".format(p.total_rows)) }}
         {% else %}
-          No matching customers
+          {{ _("No matching customers") }}
         {% endif %}
       </span>
-      <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+      <span class="text-muted small">{{ _("Page {page} of {pages}").format(page=p.page, pages=p.total_pages) }}</span>
     </div>
 
     <div class="table-responsive">
@@ -104,13 +104,13 @@
         <thead class="table-light">
           <tr>
             <th style="width:70px;">#</th>
-            <th>{{ sort_link('name', 'Name') }}</th>
-            <th>Phone</th>
-            <th>{{ sort_link('email', 'Email') }}</th>
-            <th class="text-end" title="Paid purchases as the store counts them, including any made under another email or phone">{{ sort_link('orders', 'Number of orders') }}</th>
-            <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
-            <th>Last purchase (SKU)</th>
-            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
+            <th>{{ sort_link('name', _('Name')) }}</th>
+            <th>{{ _("Phone") }}</th>
+            <th>{{ sort_link('email', _('Email')) }}</th>
+            <th class="text-end" title="{{ _('Paid purchases as the store counts them, including any made under another email or phone') }}">{{ sort_link('orders', _('Number of orders')) }}</th>
+            <th class="text-end">{{ sort_link('spent', _('Money spent')) }}</th>
+            <th>{{ _("Last purchase (SKU)") }}</th>
+            <th>{{ sort_link('last_order_utc', _('Last order (UTC)')) }}</th>
           </tr>
         </thead>
         <tbody>
@@ -133,7 +133,7 @@
               <td class="text-muted small">{{ c.last_order_utc }}</td>
             </tr>
           {% else %}
-            <tr><td colspan="8" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted">{{ _("No customers found.") }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -144,10 +144,10 @@
       <nav class="mt-3">
         <ul class="pagination pagination-sm justify-content-center flex-wrap">
           <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=1) }}">&laquo; First</a>
+            <a class="page-link" href="{{ page_url(page=1) }}">&laquo; {{ _("First") }}</a>
           </li>
           <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page - 1) }}">Prev</a>
+            <a class="page-link" href="{{ page_url(page=p.page - 1) }}">{{ _("Prev") }}</a>
           </li>
 
           {% set win_start = [1, p.page - 2] | max %}
@@ -159,10 +159,10 @@
           {% endfor %}
 
           <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page + 1) }}">Next</a>
+            <a class="page-link" href="{{ page_url(page=p.page + 1) }}">{{ _("Next") }}</a>
           </li>
           <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.total_pages) }}">Last &raquo;</a>
+            <a class="page-link" href="{{ page_url(page=p.total_pages) }}">{{ _("Last") }} &raquo;</a>
           </li>
         </ul>
       </nav>

@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}WATI Customers{% endblock %}
+{% block title %}{{ _("WATI Customers") }}{% endblock %}
 
 {% macro page_url(page=None, sort=None, direction=None) -%}
 {{ url_for('main.wati_customers',
@@ -25,10 +25,10 @@
 {% block content %}
 <div class="container mt-2" style="max-width: 1200px;">
 
-  <h2 class="text-center mb-1">WATI Customers</h2>
+  <h2 class="text-center mb-1">{{ _("WATI Customers") }}</h2>
   <p class="text-center text-muted mb-4">
-    Every customer with at least one order tagged <code>utm_campaign=wati</code> (WhatsApp / admin orders).
-    Export them as a CSV for a Meta Ads custom audience.
+    {{ _("Every customer with at least one order tagged <code>utm_campaign=wati</code> (WhatsApp / admin orders).")|safe }}
+    {{ _("Export them as a CSV for a Meta Ads custom audience.") }}
   </p>
 
   {% if error %}
@@ -44,13 +44,13 @@
     <div class="row text-center g-2 mb-3">
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">WATI customers</div>
+          <div class="text-muted small">{{ _("WATI customers") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.recurrent_customers) }}</div>
         </div></div>
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Of all customers</div>
+          <div class="text-muted small">{{ _("Of all customers") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.total_customers) }}
             <span class="text-muted small">({{ "%.1f"|format(s.recurrent_customers / s.total_customers * 100 if s.total_customers else 0) }}%)</span>
           </div>
@@ -58,13 +58,13 @@
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Their orders (all channels)</div>
+          <div class="text-muted small">{{ _("Their orders (all channels)") }}</div>
           <div class="fw-bold">{{ "{:,}".format(s.recurrent_orders) }}</div>
         </div></div>
       </div>
       <div class="col">
         <div class="card shadow-sm h-100"><div class="card-body py-2">
-          <div class="text-muted small">Their lifetime revenue</div>
+          <div class="text-muted small">{{ _("Their lifetime revenue") }}</div>
           <div class="fw-bold">{{ s.recurrent_revenue | cop }}</div>
         </div></div>
       </div>
@@ -74,19 +74,19 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-sm-3">
-            <label class="form-label small text-muted mb-1">Customers</label>
+            <label class="form-label small text-muted mb-1">{{ _("Customers") }}</label>
             <select name="customer_type" class="form-select">
               {% for key, cfg in customer_types.items() %}
-                <option value="{{ key }}" {% if key == customer_type %}selected{% endif %}>{{ cfg.label }}</option>
+                <option value="{{ key }}" {% if key == customer_type %}selected{% endif %}>{{ _(cfg.label) }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="col-sm-5">
-            <label class="form-label small text-muted mb-1">Search name or email</label>
-            <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="e.g. maria">
+            <label class="form-label small text-muted mb-1">{{ _("Search name or email") }}</label>
+            <input type="text" name="q" class="form-control" value="{{ result.search }}" placeholder="{{ _('e.g. {example}').format(example='maria') }}">
           </div>
           <div class="col-sm-2">
-            <label class="form-label small text-muted mb-1">Per page</label>
+            <label class="form-label small text-muted mb-1">{{ _("Per page") }}</label>
             <select name="per_page" class="form-select">
               {% for n in per_page_choices %}
                 <option value="{{ n }}" {% if n == p.per_page %}selected{% endif %}>{{ n }}</option>
@@ -94,7 +94,7 @@
             </select>
           </div>
           <div class="col-sm-2 d-flex align-items-end justify-content-end">
-            <button type="submit" class="btn btn-primary px-4">Apply</button>
+            <button type="submit" class="btn btn-primary px-4">{{ _("Apply") }}</button>
           </div>
         </div>
       </div>
@@ -103,17 +103,17 @@
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
       <span class="text-muted small">
         {% if p.total_rows %}
-          Showing {{ "{:,}".format(p.start) }}–{{ "{:,}".format(p.end) }} of {{ "{:,}".format(p.total_rows) }}
+          {{ _("Showing {start}–{end} of {total}").format(start="{:,}".format(p.start), end="{:,}".format(p.end), total="{:,}".format(p.total_rows)) }}
         {% else %}
-          No customers match these filters
+          {{ _("No customers match these filters") }}
         {% endif %}
       </span>
       <span class="d-flex align-items-center gap-3">
         <a class="btn btn-outline-success btn-sm" href="{{ export_url }}"
-           title="Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO">
-          Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
+           title="{{ _('Downloads every customer matching the current filters (all pages), formatted for Meta Ads custom audiences with country=CO') }}">
+          {{ _("Export CSV for Meta ({count})").format(count="{:,}".format(p.total_rows)) }}
         </a>
-        <span class="text-muted small">Page {{ p.page }} of {{ p.total_pages }}</span>
+        <span class="text-muted small">{{ _("Page {page} of {pages}").format(page=p.page, pages=p.total_pages) }}</span>
       </span>
     </div>
 
@@ -122,16 +122,16 @@
         <thead class="table-light">
           <tr>
             <th style="width:70px;">#</th>
-            <th>{{ sort_link('name', 'Name') }}</th>
-            <th>Phone</th>
-            <th>{{ sort_link('email', 'Email') }}</th>
-            <th class="text-end" title="Orders tagged utm_campaign=wati under this email">WATI orders</th>
-            <th class="text-end" title="Revenue from those WATI orders">WATI spent</th>
-            <th class="text-end" title="Paid purchases as the store counts them, on any channel">{{ sort_link('orders', 'Orders') }}</th>
-            <th class="text-end">{{ sort_link('spent', 'Money spent') }}</th>
-            <th>Last purchase (SKU)</th>
-            <th>Last WATI order (UTC)</th>
-            <th>{{ sort_link('last_order_utc', 'Last order (UTC)') }}</th>
+            <th>{{ sort_link('name', _('Name')) }}</th>
+            <th>{{ _("Phone") }}</th>
+            <th>{{ sort_link('email', _('Email')) }}</th>
+            <th class="text-end" title="{{ _('Orders tagged utm_campaign=wati under this email') }}">{{ _("WATI orders") }}</th>
+            <th class="text-end" title="{{ _('Revenue from those WATI orders') }}">{{ _("WATI spent") }}</th>
+            <th class="text-end" title="{{ _('Paid purchases as the store counts them, on any channel') }}">{{ sort_link('orders', _('Orders')) }}</th>
+            <th class="text-end">{{ sort_link('spent', _('Money spent')) }}</th>
+            <th>{{ _("Last purchase (SKU)") }}</th>
+            <th>{{ _("Last WATI order (UTC)") }}</th>
+            <th>{{ sort_link('last_order_utc', _('Last order (UTC)')) }}</th>
           </tr>
         </thead>
         <tbody>
@@ -154,7 +154,7 @@
               <td class="text-muted small">{{ c.last_order_utc }}</td>
             </tr>
           {% else %}
-            <tr><td colspan="11" class="text-center text-muted">No customers found.</td></tr>
+            <tr><td colspan="11" class="text-center text-muted">{{ _("No customers found.") }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -164,11 +164,11 @@
       <nav class="d-flex justify-content-center my-3">
         <ul class="pagination pagination-sm mb-0">
           <li class="page-item {% if not p.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page - 1) if p.has_prev else '#' }}">Previous</a>
+            <a class="page-link" href="{{ page_url(page=p.page - 1) if p.has_prev else '#' }}">{{ _("Previous") }}</a>
           </li>
           <li class="page-item disabled"><span class="page-link">{{ p.page }} / {{ p.total_pages }}</span></li>
           <li class="page-item {% if not p.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ page_url(page=p.page + 1) if p.has_next else '#' }}">Next</a>
+            <a class="page-link" href="{{ page_url(page=p.page + 1) if p.has_next else '#' }}">{{ _("Next") }}</a>
           </li>
         </ul>
       </nav>
@@ -178,14 +178,13 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
-            <h6 class="mb-1">Export this list</h6>
+            <h6 class="mb-1">{{ _("Export this list") }}</h6>
             <span class="text-muted small">
-              Every customer matching the filters above, all pages, as a CSV shaped for Meta Ads custom
-              audiences (fn, ln, email, phone, country=CO, ct, gen, value = lifetime spend). Nothing is sent and nothing is logged.
+              {{ _("Every customer matching the filters above, all pages, as a CSV shaped for Meta Ads custom audiences (fn, ln, email, phone, country=CO, ct, gen, value = lifetime spend). Nothing is sent and nothing is logged.") }}
             </span>
           </div>
           <a class="btn btn-success" href="{{ export_url }}">
-            Export CSV for Meta ({{ "{:,}".format(p.total_rows) }})
+            {{ _("Export CSV for Meta ({count})").format(count="{:,}".format(p.total_rows)) }}
           </a>
         </div>
       </div>

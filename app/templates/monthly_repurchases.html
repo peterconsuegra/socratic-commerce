@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-  Repurchases by Month
+  {{ _("Repurchases by Month") }}
 {% endblock %}
 
 {% block content %}
@@ -12,37 +12,37 @@
       {{ error }}
     </div>
   {% else %}
-    <h2 class="text-center">Monthly Repurchases Trend & Forecast</h2>
+    <h2 class="text-center">{{ _("Monthly Repurchases Trend & Forecast") }}</h2>
 
     <div class="text-center mb-3">
-      <label for="exchangeRateRepurchase">USD Exchange Rate (COP):</label>
+      <label for="exchangeRateRepurchase">{{ _("USD Exchange Rate (COP):") }}</label>
       <input type="number" id="exchangeRateRepurchase" value="4000" step="50" min="3000" max="6000">
-      <button id="toggleCurrencyAllBtn" class="btn btn-primary">Switch Currency (All)</button>
-      <span id="currencyModeLabel" class="ms-2 text-muted">Mode: COP</span>
+      <button id="toggleCurrencyAllBtn" class="btn btn-primary">{{ _("Switch Currency (All)") }}</button>
+      <span id="currencyModeLabel" class="ms-2 text-muted">{{ _("Mode: {currency}").format(currency="COP") }}</span>
     </div>
 
     <div class="mb-4">
-      <h5 class="text-center mb-2">Repurchase Sales by Channel (utm_source) up to end of previous month</h5>
+      <h5 class="text-center mb-2">{{ _("Repurchase Sales by Channel (utm_source) up to end of previous month") }}</h5>
       <div style="max-width: 620px; margin: 0 auto; height: 420px;">
         <canvas id="salesByChannelPie"></canvas>
       </div>
 
       {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
         <p class="text-center text-muted mt-2" style="font-size: 0.95rem;">
-          Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
+          {{ _("Other channels (<2%)") }}: {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
         </p>
       {% endif %}
     </div>
 
     <div class="mb-5">
-      <h5 class="text-center mb-2">Total Repurchases</h5>
+      <h5 class="text-center mb-2">{{ _("Total Repurchases") }}</h5>
 
       {% if forecast_includes_current_month_mtd %}
         <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
-          Forecast uses current month projection (method: {{ projection_method|default("weekday_weighted") }}).
-          MTD (through yesterday): {{ current_month_mtd_sales|cop }}.
-          Remaining days projected: {{ current_month_remaining_days }}.
-          Projected full month used for forecast: {{ current_month_projected_sales|cop }}.
+          {{ _("Forecast uses current month projection (method: {method}).").format(method=projection_method|default("weekday_weighted")) }}
+          {{ _("MTD (through yesterday): {amount}.").format(amount=current_month_mtd_sales|cop) }}
+          {{ _("Remaining days projected: {days}.").format(days=current_month_remaining_days) }}
+          {{ _("Projected full month used for forecast: {amount}.").format(amount=current_month_projected_sales|cop) }}
         </p>
       {% endif %}
 
@@ -53,31 +53,31 @@
 
     <hr class="my-4">
 
-    <h5 class="text-center">Repurchases by Channel (ranked by total sales)</h5>
+    <h5 class="text-center">{{ _("Repurchases by Channel (ranked by total sales)") }}</h5>
 
     {% if not channel_charts %}
       <div class="alert alert-warning mt-3">
-        No channel charts available for this selection.
+        {{ _("No channel charts available for this selection.") }}
       </div>
     {% else %}
       {% for ch in channel_charts %}
         <div class="mb-5 mt-4">
-          <h5 class="text-center mb-2">{{ ch.label }} Repurchases</h5>
+          <h5 class="text-center mb-2">{{ _("{channel} Repurchases").format(channel=ch.label) }}</h5>
 
           <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
-            Ranked by total number of repurchase orders: {{ ch.count }}
+            {{ _("Ranked by total number of repurchase orders: {count}").format(count=ch.count) }}
           </p>
 
           {% if ch.forecast_includes_current_month_mtd %}
             <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-              Forecast uses current month projection (method: {{ ch.projection_method|default("weekday_weighted") }}).
-              MTD (through yesterday): {{ ch.current_month_mtd_sales|cop }}.
-              Remaining days projected: {{ ch.current_month_remaining_days }}.
-              Projected full month used for forecast: {{ ch.current_month_projected_sales|cop }}.
+              {{ _("Forecast uses current month projection (method: {method}).").format(method=ch.projection_method|default("weekday_weighted")) }}
+              {{ _("MTD (through yesterday): {amount}.").format(amount=ch.current_month_mtd_sales|cop) }}
+              {{ _("Remaining days projected: {days}.").format(days=ch.current_month_remaining_days) }}
+              {{ _("Projected full month used for forecast: {amount}.").format(amount=ch.current_month_projected_sales|cop) }}
             </p>
           {% else %}
             <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-              Not enough current-month data yet to project this channel.
+              {{ _("Not enough current-month data yet to project this channel.") }}
             </p>
           {% endif %}
 
@@ -98,6 +98,10 @@ document.addEventListener("DOMContentLoaded", function() {
   var modeLabel = document.getElementById("currencyModeLabel");
 
   var currencyMode = "COP";
+  var T = {
+    projectedCurrentMonth: {{ _("Projected Current Month")|tojson }},
+    mode: {{ _("Mode: {currency}")|tojson }}
+  };
   var pieChart = null;
 
   function getExchangeRate() {
@@ -213,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // ----------------------------
   // Line chart builder with optional bridge point (projected current month)
   // ----------------------------
-  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, titlePrefix, hexColor, bridgeLabel, bridgeValueCOP) {
+  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, histLabel, fcstLabel, hexColor, bridgeLabel, bridgeValueCOP) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -244,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var datasets = [
       {
-        label: titlePrefix + " (COP)",
+        label: histLabel + " (COP)",
         data: histCOP.map(function(v){ return Number(v) || 0; }),
         fill: true,
         borderColor: lineColor,
@@ -254,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (hasBridge) {
       datasets.push({
-        label: "Projected Current Month (COP)",
+        label: T.projectedCurrentMonth + " (COP)",
         data: bridgeSeries,
         showLine: false,
         pointRadius: 5,
@@ -265,7 +269,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     datasets.push({
-      label: "Forecasted " + titlePrefix + " (COP)",
+      label: fcstLabel + " (COP)",
       data: forecastSeries,
       borderDash: [5, 5],
       fill: true,
@@ -298,7 +302,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._hasBridge = hasBridge;
     chart._bridgeValueCOP = hasBridge ? (Number(bridgeValueCOP) || 0) : null;
     chart._labelsForecastLen = labelsForecast.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -322,19 +327,14 @@ document.addEventListener("DOMContentLoaded", function() {
         new Array(chart._labelsForecastLen).fill(null)
       );
       chart.data.datasets[1].data = bridgeSeries;
-      chart.data.datasets[1].label = (currencyMode === "USD") ? "Projected Current Month (USD)" : "Projected Current Month (COP)";
+      chart.data.datasets[1].label = T.projectedCurrentMonth + " (" + currencyMode + ")";
     }
 
     var padLen = chart._histLen + (chart._hasBridge ? 1 : 0);
     chart.data.datasets[dsIndexForecast].data = [].concat(new Array(padLen).fill(null), fcst);
 
-    chart.data.datasets[0].label = (currencyMode === "USD")
-      ? chart._titlePrefix + " (USD)"
-      : chart._titlePrefix + " (COP)";
-
-    chart.data.datasets[dsIndexForecast].label = (currencyMode === "USD")
-      ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-      : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+    chart.data.datasets[0].label = chart._histLabel + " (" + currencyMode + ")";
+    chart.data.datasets[dsIndexForecast].label = chart._fcstLabel + " (" + currencyMode + ")";
 
     chart.update();
   }
@@ -360,7 +360,8 @@ document.addEventListener("DOMContentLoaded", function() {
     totalForecastLabels,
     totalHist,
     totalFcst,
-    "Historical Total Repurchase Sales",
+    {{ _("Historical Total Repurchase Sales")|tojson }},
+    {{ _("Forecasted Total Repurchase Sales")|tojson }},
     null,
     totalBridgeLabel,
     totalBridgeValue
@@ -394,7 +395,8 @@ document.addEventListener("DOMContentLoaded", function() {
         forecastLabels,
         hist,
         fcst,
-        "Historical {{ ch.label }} Repurchase Sales",
+        {{ _("Historical {channel} Repurchase Sales").format(channel=ch.label)|tojson }},
+        {{ _("Forecasted {channel} Repurchase Sales").format(channel=ch.label)|tojson }},
         color,
         bridgeLabel,
         bridgeValue
@@ -411,7 +413,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   toggleBtn.addEventListener("click", function() {
     currencyMode = (currencyMode === "COP") ? "USD" : "COP";
-    modeLabel.textContent = "Mode: " + currencyMode;
+    modeLabel.textContent = T.mode.replace("{currency}", currencyMode);
 
     renderOrUpdatePie();
     applyCurrencyToLineChart(totalChart);

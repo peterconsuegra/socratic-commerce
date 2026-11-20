@@ -5,6 +5,7 @@ import pandas as pd
 from flask import current_app, render_template
 from flask_login import login_required
 
+from app.i18n import translate as _
 from app.services.get_data import load_orders
 from app.services.monthly_repurchases import get_monthly_repurchases_trend
 from app.services.monthly_sales import get_monthly_sales_trend
@@ -41,7 +42,7 @@ def monthly_sales():
         refresh_all_orders_if_needed()
 
         if not os.path.exists(all_orders):
-            raise FileNotFoundError(f"{all_orders} not found. Auto-generation failed.")
+            raise FileNotFoundError(_("{file} not found. Auto-generation failed.").format(file=all_orders))
 
         monthly_sales_trend, forecast_data, meta = get_monthly_sales_trend(
             forecast_periods=6,
@@ -74,7 +75,7 @@ def monthly_sales():
 
         if missing:
             raise ValueError(
-                f"Orders file is missing required columns for pie chart: {sorted(missing)}"
+                _("Orders file is missing required columns for pie chart: {columns}").format(columns=sorted(missing))
             )
 
         df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce")
@@ -250,7 +251,7 @@ def monthly_repurchases_by_month():
 
     try:
         if not os.path.exists(all_orders):
-            raise FileNotFoundError(f"{all_orders} not found. Please generate all orders first.")
+            raise FileNotFoundError(_("{file} not found. Please generate all orders first.").format(file=all_orders))
 
         monthly_repurchases_trend, forecast_data, meta = get_monthly_repurchases_trend(
             forecast_periods=12,

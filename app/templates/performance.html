@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-  Dashboard
+  {{ _("Dashboard") }}
 {% endblock %}
 
 {% block content %}
@@ -24,18 +24,18 @@
 
 {% if not weekly_stats %}
     <div class="alert alert-info mt-4">
-      No weekly data available.
+      {{ _("No weekly data available.") }}
     </div>
   {% else %}
-    <h2>Weekly Performance Statistics</h2>
+    <h2>{{ _("Weekly Performance Statistics") }}</h2>
     <table class="table table-striped mt-4">
       <thead>
         <tr>
-          <th>Week Start</th>
-          <th>Week End</th>
-          <th>Order Count</th>
-          <th>Avg Up To Week</th>
-          <th>Avg Daily</th>
+          <th>{{ _("Week Start") }}</th>
+          <th>{{ _("Week End") }}</th>
+          <th>{{ _("Order Count") }}</th>
+          <th>{{ _("Avg Up To Week") }}</th>
+          <th>{{ _("Avg Daily") }}</th>
         </tr>
       </thead>
       <tbody>

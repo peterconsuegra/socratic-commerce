@@ -3,8 +3,8 @@
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Users</h2>
-    <a class="btn btn-primary" href="{{ url_for('main.admin_users_new') }}">New user</a>
+    <h2>{{ _("Users") }}</h2>
+    <a class="btn btn-primary" href="{{ url_for('main.admin_users_new') }}">{{ _("New user") }}</a>
   </div>
 
   {% if users %}
@@ -13,10 +13,10 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Last login (Bogotá)</th>
-            <th style="width: 220px;">Actions</th>
+            <th>{{ _("Username") }}</th>
+            <th>{{ _("Role") }}</th>
+            <th>{{ _("Last login (Bogotá)") }}</th>
+            <th style="width: 220px;">{{ _("Actions") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -34,18 +34,18 @@
             </td>
             <td>
               <a class="btn btn-sm btn-secondary" href="{{ url_for('main.admin_users_edit', user_id=u.id) }}">
-                Edit
+                {{ _("Edit") }}
               </a>
 
               <form method="POST"
                     action="{{ url_for('main.admin_users_delete', user_id=u.id) }}"
                     style="display:inline;"
-                    onsubmit="return confirm('Delete this user?');">
-                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                    onsubmit='return confirm({{ _("Delete this user?")|tojson }});'>
+                <button class="btn btn-sm btn-danger" type="submit">{{ _("Delete") }}</button>
               </form>
 
               {% if current_user.id == u.id %}
-                <span class="badge bg-info text-dark ms-2">You</span>
+                <span class="badge bg-info text-dark ms-2">{{ _("You") }}</span>
               {% endif %}
             </td>
           </tr>
@@ -54,7 +54,7 @@
       </table>
     </div>
   {% else %}
-    <p>No users found.</p>
+    <p>{{ _("No users found.") }}</p>
   {% endif %}
 </div>
 {% endblock %}

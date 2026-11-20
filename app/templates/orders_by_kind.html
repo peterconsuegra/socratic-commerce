@@ -1,82 +1,86 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ page.title }}{% endblock %}
+{% block title %}{{ _(page.title) }}{% endblock %}
 
 {% from "partials/stat_macros.html" import pct, num, money, tile %}
 
 {# A change between period B and period A: "▲ 11.6%", "▼ 15.3%", "new", "no change". #}
 {% macro change(x) -%}
-  {%- if not x.b -%}{{ "new" if x.a else "—" }}
+  {%- if not x.b -%}{{ _("new") if x.a else "—" }}
   {%- elif x.pct > 0 -%}▲ {{ "%.1f"|format(x.pct * 100) }}%
   {%- elif x.pct < 0 -%}▼ {{ "%.1f"|format(-x.pct * 100) }}%
-  {%- else -%}no change{%- endif -%}
+  {%- else -%}{{ _("no change") }}{%- endif -%}
 {%- endmacro %}
 
 {% block content %}
 <div class="container mt-2" style="max-width: 1200px;">
-  <h2 class="text-center mb-1">{{ page.title }}</h2>
+  {# The page's words come from ORDER_PAGES (routes/stats.py) in English; dates
+     built by the report keep their format, only its "(to date)" is translated. #}
+  {% set to_date = " (" ~ _("to date") ~ ")" %}
+  {% set noun = _(page.noun) %}
+  <h2 class="text-center mb-1">{{ _(page.title) }}</h2>
   <p class="text-center text-muted mb-4">
-    {{ page.intro }}
+    {{ _(page.intro) }}
   </p>
 
   {% if error %}
     <div class="alert alert-danger">{{ error }}</div>
   {% elif not report or not report.selected %}
-    <div class="alert alert-warning">No {{ page.noun }} on record yet.</div>
+    <div class="alert alert-warning">{{ _("No {noun} on record yet.").format(noun=noun) }}</div>
   {% else %}
     {% set k = report.kpis %}
-    {% set month_label = report.selected.month ~ (" (to date)" if report.selected.partial else "") %}
+    {% set month_label = report.selected.month ~ (to_date if report.selected.partial else "") %}
 
     {% set c = compare %}
     {% if c %}
     <div class="card shadow-sm mb-4" id="compare">
-      <div class="card-header fw-bold">Compare periods
-        <span class="text-muted small fw-normal">· {{ page.noun }}, period A against period B · complete days up to {{ c.through }}</span></div>
+      <div class="card-header fw-bold">{{ _("Compare periods") }}
+        <span class="text-muted small fw-normal">· {{ _("{noun}, period A against period B · complete days up to {date}").format(noun=noun, date=c.through) }}</span></div>
       <div class="card-body">
         <form method="get" action="{{ url_for(page.endpoint) }}#compare" class="row g-2 align-items-end mb-3">
           <input type="hidden" name="month" value="{{ report.selected.month }}">
           <div class="col-auto">
-            <label class="form-label small text-muted mb-1" for="vs">Compare</label>
+            <label class="form-label small text-muted mb-1" for="vs">{{ _("Compare") }}</label>
             <select name="vs" id="vs" class="form-select form-select-sm" onchange="this.form.submit()">
-              <option value="week" {% if c.mode == "week" %}selected{% endif %}>Week vs the week before</option>
-              <option value="month" {% if c.mode == "month" %}selected{% endif %}>Month vs the month before</option>
-              <option value="custom" {% if c.mode == "custom" %}selected{% endif %}>Custom periods</option>
+              <option value="week" {% if c.mode == "week" %}selected{% endif %}>{{ _("Week vs the week before") }}</option>
+              <option value="month" {% if c.mode == "month" %}selected{% endif %}>{{ _("Month vs the month before") }}</option>
+              <option value="custom" {% if c.mode == "custom" %}selected{% endif %}>{{ _("Custom periods") }}</option>
             </select>
           </div>
           {% if c.mode == "week" %}
             <div class="col-auto">
-              <label class="form-label small text-muted mb-1" for="vs_week">Week (A)</label>
+              <label class="form-label small text-muted mb-1" for="vs_week">{{ _("Week (A)") }}</label>
               <select name="vs_week" id="vs_week" class="form-select form-select-sm" onchange="this.form.submit()">
-                {% for w in c.weeks %}<option value="{{ w.value }}" {% if w.value == c.week %}selected{% endif %}>{{ w.label }}</option>{% endfor %}
+                {% for w in c.weeks %}<option value="{{ w.value }}" {% if w.value == c.week %}selected{% endif %}>{{ w.label | replace(" (to date)", to_date) }}</option>{% endfor %}
               </select>
             </div>
           {% elif c.mode == "month" %}
             <div class="col-auto">
-              <label class="form-label small text-muted mb-1" for="vs_month">Month (A)</label>
+              <label class="form-label small text-muted mb-1" for="vs_month">{{ _("Month (A)") }}</label>
               <select name="vs_month" id="vs_month" class="form-select form-select-sm" onchange="this.form.submit()">
-                {% for m in c.months %}<option value="{{ m.value }}" {% if m.value == c.month %}selected{% endif %}>{{ m.label }}</option>{% endfor %}
+                {% for m in c.months %}<option value="{{ m.value }}" {% if m.value == c.month %}selected{% endif %}>{{ m.label | replace(" (to date)", to_date) }}</option>{% endfor %}
               </select>
             </div>
           {% else %}
             <div class="col-auto">
-              <span class="form-label small text-muted mb-1 d-block">Period A</span>
+              <span class="form-label small text-muted mb-1 d-block">{{ _("Period A") }}</span>
               <div class="input-group input-group-sm">
-                <input type="date" name="a_start" class="form-control" value="{{ c.custom.a_start }}" aria-label="Period A from" required>
-                <span class="input-group-text">to</span>
-                <input type="date" name="a_end" class="form-control" value="{{ c.custom.a_end }}" aria-label="Period A to" required>
+                <input type="date" name="a_start" class="form-control" value="{{ c.custom.a_start }}" aria-label="{{ _('Period A from') }}" required>
+                <span class="input-group-text">{{ _("to") }}</span>
+                <input type="date" name="a_end" class="form-control" value="{{ c.custom.a_end }}" aria-label="{{ _('Period A to') }}" required>
               </div>
             </div>
             <div class="col-auto">
-              <span class="form-label small text-muted mb-1 d-block">Period B</span>
+              <span class="form-label small text-muted mb-1 d-block">{{ _("Period B") }}</span>
               <div class="input-group input-group-sm">
-                <input type="date" name="b_start" class="form-control" value="{{ c.custom.b_start }}" aria-label="Period B from" required>
-                <span class="input-group-text">to</span>
-                <input type="date" name="b_end" class="form-control" value="{{ c.custom.b_end }}" aria-label="Period B to" required>
+                <input type="date" name="b_start" class="form-control" value="{{ c.custom.b_start }}" aria-label="{{ _('Period B from') }}" required>
+                <span class="input-group-text">{{ _("to") }}</span>
+                <input type="date" name="b_end" class="form-control" value="{{ c.custom.b_end }}" aria-label="{{ _('Period B to') }}" required>
               </div>
             </div>
           {% endif %}
           <div class="col-auto">
-            <label class="form-label small text-muted mb-1" for="vs_by">By</label>
+            <label class="form-label small text-muted mb-1" for="vs_by">{{ _("By") }}</label>
             <select name="vs_by" id="vs_by" class="form-select form-select-sm" onchange="this.form.submit()">
               <option value="source" {% if c.by == "source" %}selected{% endif %}>utm_source</option>
               <option value="campaign" {% if c.by == "campaign" %}selected{% endif %}>utm_campaign</option>
@@ -84,37 +88,37 @@
             </select>
           </div>
           {% if c.mode == "custom" %}
-            <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Compare</button></div>
+            <div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">{{ _("Compare") }}</button></div>
           {% else %}
-            <noscript><div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">Compare</button></div></noscript>
+            <noscript><div class="col-auto"><button type="submit" class="btn btn-sm btn-primary">{{ _("Compare") }}</button></div></noscript>
           {% endif %}
         </form>
 
         {% if c.error %}
-          <div class="alert alert-warning py-2 mb-0">{{ c.error }}</div>
+          <div class="alert alert-warning py-2 mb-0">{{ _(c.error) }}</div>
         {% else %}
           <p class="small mb-2">
-            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.a }};"></span><strong>A</strong> {{ c.a.label }}
+            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.a }};"></span><strong>A</strong> {{ c.a.label | replace(" (to date)", to_date) }}
             <span class="text-muted mx-2">vs</span>
-            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.b }};"></span><strong>B</strong> {{ c.b.label }}
+            <span class="d-inline-block rounded-circle align-middle me-1" style="width:9px; height:9px; background: {{ compare_colors.b }};"></span><strong>B</strong> {{ c.b.label | replace(" (to date)", to_date) }}
           </p>
           <div class="row g-2 mb-3">
-            {{ tile(page.noun | capitalize, num(c.kpis.orders.a), "vs " ~ num(c.kpis.orders.b) ~ " · " ~ change(c.kpis.orders), cols="col-12 col-md-4") }}
-            {{ tile(page.revenue, money(c.kpis.revenue.a), "vs " ~ money(c.kpis.revenue.b) ~ " · " ~ change(c.kpis.revenue), cols="col-12 col-md-4") }}
-            {{ tile(page.average, c.kpis.avg_value.a | cop, "vs " ~ (c.kpis.avg_value.b | cop) ~ " · " ~ change(c.kpis.avg_value), cols="col-12 col-md-4") }}
+            {{ tile(noun | capitalize, num(c.kpis.orders.a), "vs " ~ num(c.kpis.orders.b) ~ " · " ~ change(c.kpis.orders), cols="col-12 col-md-4") }}
+            {{ tile(_(page.revenue), money(c.kpis.revenue.a), "vs " ~ money(c.kpis.revenue.b) ~ " · " ~ change(c.kpis.revenue), cols="col-12 col-md-4") }}
+            {{ tile(_(page.average), c.kpis.avg_value.a | cop, "vs " ~ (c.kpis.avg_value.b | cop) ~ " · " ~ change(c.kpis.avg_value), cols="col-12 col-md-4") }}
           </div>
           {% if c.rows %}
             <div style="position:relative; height: {{ 70 + 36 * (c.rows | length) }}px;"><canvas id="compareChart"></canvas></div>
             <details class="small mt-2">
-              <summary class="text-muted">Table view</summary>
+              <summary class="text-muted">{{ _("Table view") }}</summary>
               <div class="table-responsive mt-2">
                 <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
                   <thead><tr><th>{{ {"source": "utm_source", "campaign": "utm_campaign", "content": "utm_content"}[c.by] }}</th>
-                    <th class="text-end">A · {{ c.a.label }}</th><th class="text-end">B · {{ c.b.label }}</th>
-                    <th class="text-end">Difference</th><th class="text-end">Change</th></tr></thead>
+                    <th class="text-end">A · {{ c.a.label | replace(" (to date)", to_date) }}</th><th class="text-end">B · {{ c.b.label | replace(" (to date)", to_date) }}</th>
+                    <th class="text-end">{{ _("Difference") }}</th><th class="text-end">{{ _("Change") }}</th></tr></thead>
                   <tbody>
                   {% for r in c.rows %}
-                    <tr{% if r.other %} class="text-muted"{% endif %}><td>{{ r.name }}</td><td class="text-end">{{ num(r.a) }}</td><td class="text-end">{{ num(r.b) }}</td>
+                    <tr{% if r.other %} class="text-muted"{% endif %}><td>{{ _("{count} more").format(count=r.name.split(" ")[0]) if r.other else r.name }}</td><td class="text-end">{{ num(r.a) }}</td><td class="text-end">{{ num(r.b) }}</td>
                       <td class="text-end">{{ "{:+,}".format(r.a - r.b) }}</td><td class="text-end">{{ change(r) }}</td></tr>
                   {% endfor %}
                   </tbody>
@@ -122,7 +126,7 @@
               </div>
             </details>
           {% else %}
-            <p class="text-muted mb-0">No {{ page.noun }} in either period.</p>
+            <p class="text-muted mb-0">{{ _("No {noun} in either period.").format(noun=noun) }}</p>
           {% endif %}
         {% endif %}
       </div>
@@ -131,36 +135,36 @@
 
     <form method="get" action="{{ url_for(page.endpoint) }}" class="d-flex align-items-center gap-2 mb-3">
       {% for name, value in compare_params.items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
-      <label class="small text-muted mb-0" for="month">Month</label>
+      <label class="small text-muted mb-0" for="month">{{ _("Month") }}</label>
       <select name="month" id="month" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
         {% for m in report.months %}
           <option value="{{ m.month }}" {% if m.month == report.selected.month %}selected{% endif %}>
-            {{ m.month }}{% if m.partial %} (to date){% endif %} · {{ num(m.orders) }} {{ page.noun }}
+            {{ m.month }}{% if m.partial %}{{ to_date }}{% endif %} · {{ num(m.orders) }} {{ noun }}
           </option>
         {% endfor %}
       </select>
-      <noscript><button type="submit" class="btn btn-sm btn-primary">Show</button></noscript>
+      <noscript><button type="submit" class="btn btn-sm btn-primary">{{ _("Show") }}</button></noscript>
     </form>
 
     <div class="row g-2 mb-4">
-      {{ tile(page.noun | capitalize, num(k.orders), month_label, cols="col-6 col-lg-3") }}
-      {{ tile("Share of the month's orders", pct(k.share_of_orders), "of " ~ num(k.all_orders) ~ " orders", cols="col-6 col-lg-3") }}
-      {{ tile(page.revenue, money(k.revenue), None, cols="col-6 col-lg-3") }}
-      {{ tile(page.average, k.avg_value | cop, None, cols="col-6 col-lg-3") }}
+      {{ tile(noun | capitalize, num(k.orders), month_label, cols="col-6 col-lg-3") }}
+      {{ tile(_("Share of the month's orders"), pct(k.share_of_orders), _("of {count} orders").format(count=num(k.all_orders)), cols="col-6 col-lg-3") }}
+      {{ tile(_(page.revenue), money(k.revenue), None, cols="col-6 col-lg-3") }}
+      {{ tile(_(page.average), k.avg_value | cop, None, cols="col-6 col-lg-3") }}
     </div>
 
     <div class="card shadow-sm mb-4">
-      <div class="card-header fw-bold">{{ page.noun | capitalize }} by month, by utm_source
-        <span class="text-muted small fw-normal">· from {{ report.trend.months[0] if report.trend.months else "" }}, after UTM tracking began · click a month to open it below</span></div>
+      <div class="card-header fw-bold">{{ _("{noun} by month, by utm_source").format(noun=noun | capitalize) }}
+        <span class="text-muted small fw-normal">· {{ _("from {month}, after UTM tracking began").format(month=report.trend.months[0] if report.trend.months else "") }} · {{ _("click a month to open it below") }}</span></div>
       <div class="card-body">
         <div style="position:relative; height:320px;"><canvas id="trendChart"></canvas></div>
         <details class="small mt-2">
-          <summary class="text-muted">Table view</summary>
+          <summary class="text-muted">{{ _("Table view") }}</summary>
           <div class="table-responsive mt-2" style="max-height: 320px;">
             <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
-              <thead><tr><th>Month</th>
-                {% for s in report.trend.series %}<th class="text-end">{{ s.name }}</th>{% endfor %}
-                <th class="text-end">Total</th></tr></thead>
+              <thead><tr><th>{{ _("Month") }}</th>
+                {% for s in report.trend.series %}<th class="text-end">{{ _(s.name) if s.name in ("other sources", "no UTM (undefined, n/a)") else s.name }}</th>{% endfor %}
+                <th class="text-end">{{ _("Total") }}</th></tr></thead>
               <tbody>
               {% for month in report.trend.months | reverse %}
                 {% set i = report.trend.months | length - loop.index %}
@@ -177,24 +181,24 @@
 
     <div class="card shadow-sm mb-3">
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span class="fw-bold">Where the {{ page.noun }} of {{ month_label }} came from
+        <span class="fw-bold">{{ _("Where the {noun} of {month} came from").format(noun=noun, month=month_label) }}
           <span class="text-muted small fw-normal">· utm_source › utm_campaign › utm_content</span></span>
         <span class="d-flex gap-2">
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll">Expand all</button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll">Collapse all</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="expandAll">{{ _("Expand all") }}</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAll">{{ _("Collapse all") }}</button>
         </span>
       </div>
       {% if report.breakdown %}
       <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle" id="breakdown" style="font-variant-numeric: tabular-nums;">
-          <thead><tr><th>Source › campaign › content</th><th class="text-end">{{ page.noun | capitalize }}</th>
-            <th class="text-end">Share</th><th class="text-end">Revenue</th><th class="text-end">Average order</th></tr></thead>
+          <thead><tr><th>{{ _("Source › campaign › content") }}</th><th class="text-end">{{ noun | capitalize }}</th>
+            <th class="text-end">{{ _("Share") }}</th><th class="text-end">{{ _("Revenue") }}</th><th class="text-end">{{ _("Average order") }}</th></tr></thead>
           <tbody>
           {% for s in report.breakdown %}
             {% set sid = "s" ~ loop.index %}
             <tr class="table-light">
               <td><button type="button" class="btn btn-link btn-sm p-0 me-1 text-decoration-none toggle"
-                          data-target="{{ sid }}" aria-expanded="true" aria-label="Show or hide the campaigns of {{ s.name }}">▾</button>
+                          data-target="{{ sid }}" aria-expanded="true" aria-label="{{ _('Show or hide the campaigns of {name}').format(name=s.name) }}">▾</button>
                   <strong>{{ s.name }}</strong></td>
               <td class="text-end fw-semibold">{{ num(s.orders) }}</td><td class="text-end">{{ pct(s.share) }}</td>
               <td class="text-end">{{ s.revenue | cop }}</td><td class="text-end">{{ s.avg_value | cop }}</td>
@@ -203,7 +207,7 @@
               {% set cid = sid ~ "c" ~ loop.index %}
               <tr data-parent="{{ sid }}">
                 <td style="padding-left: 1.9rem;"><button type="button" class="btn btn-link btn-sm p-0 me-1 text-decoration-none toggle"
-                            data-target="{{ cid }}" aria-expanded="false" aria-label="Show or hide the contents of {{ c.name }}">▸</button>
+                            data-target="{{ cid }}" aria-expanded="false" aria-label="{{ _('Show or hide the contents of {name}').format(name=c.name) }}">▸</button>
                     {{ c.name }}</td>
                 <td class="text-end">{{ num(c.orders) }}</td><td class="text-end">{{ pct(c.share) }}</td>
                 <td class="text-end">{{ c.revenue | cop }}</td><td class="text-end">{{ c.avg_value | cop }}</td>
@@ -221,25 +225,25 @@
         </table>
       </div>
       {% else %}
-        <div class="card-body text-muted">No {{ page.noun }} in {{ month_label }}.</div>
+        <div class="card-body text-muted">{{ _("No {noun} in {month}.").format(noun=noun, month=month_label) }}</div>
       {% endif %}
     </div>
 
     <div class="row g-3 mt-1 mb-3">
       <div class="col-xl-6">
         <div class="card shadow-sm h-100" id="cities">
-          <div class="card-header fw-bold">Where the {{ page.customers }} of {{ month_label }} live
-            <span class="text-muted small fw-normal">· {{ page.noun }} by city{% if report.cities %} · {{ num(report.cities | length) }} {{ "city" if report.cities | length == 1 else "cities" }}{% endif %}</span></div>
+          <div class="card-header fw-bold">{{ _("Where the {customers} of {month} live").format(customers=_(page.customers), month=month_label) }}
+            <span class="text-muted small fw-normal">· {{ _("{noun} by city").format(noun=noun) }}{% if report.cities %} · {{ (_("{count} city") if report.cities | length == 1 else _("{count} cities")).format(count=num(report.cities | length)) }}{% endif %}</span></div>
           <div class="card-body">
             {% if report.cities %}
               <div style="position:relative;"><canvas id="citiesChart" role="img"
-                   aria-label="{{ page.noun | capitalize }} by city, largest first; the table view lists every city"></canvas></div>
+                   aria-label="{{ _('{noun} by city, largest first; the table view lists every city').format(noun=noun | capitalize) }}"></canvas></div>
               <details class="small mt-2">
-                <summary class="text-muted">Table view · every city</summary>
+                <summary class="text-muted">{{ _("Table view · every city") }}</summary>
                 <div class="table-responsive mt-2" style="max-height: 320px;">
                   <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
-                    <thead><tr><th>City</th><th>Department</th><th class="text-end">Orders</th>
-                      <th class="text-end">Share</th><th class="text-end">Revenue</th></tr></thead>
+                    <thead><tr><th>{{ _("City") }}</th><th>{{ _("Department") }}</th><th class="text-end">{{ _("Orders") }}</th>
+                      <th class="text-end">{{ _("Share") }}</th><th class="text-end">{{ _("Revenue") }}</th></tr></thead>
                     <tbody>
                     {% for r in report.cities %}
                       <tr><td>{{ r.name }}</td><td>{{ r.state }}</td><td class="text-end">{{ num(r.orders) }}</td>
@@ -250,7 +254,7 @@
                 </div>
               </details>
             {% else %}
-              <p class="text-muted mb-0">No {{ page.noun }} in {{ month_label }}.</p>
+              <p class="text-muted mb-0">{{ _("No {noun} in {month}.").format(noun=noun, month=month_label) }}</p>
             {% endif %}
           </div>
         </div>
@@ -258,17 +262,17 @@
 
       <div class="col-xl-6">
         <div class="card shadow-sm h-100" id="products">
-          <div class="card-header fw-bold">What the {{ page.customers }} of {{ month_label }} bought
-            <span class="text-muted small fw-normal">· {{ page.noun }} that included each product</span></div>
+          <div class="card-header fw-bold">{{ _("What the {customers} of {month} bought").format(customers=_(page.customers), month=month_label) }}
+            <span class="text-muted small fw-normal">· {{ _("{noun} that included each product").format(noun=noun) }}</span></div>
           <div class="card-body">
             {% if report.products %}
               <div style="position:relative;"><canvas id="productsChart" role="img"
-                   aria-label="{{ page.noun | capitalize }} that included each product, largest first; the table view lists every product"></canvas></div>
+                   aria-label="{{ _('{noun} that included each product, largest first; the table view lists every product').format(noun=noun | capitalize) }}"></canvas></div>
               <details class="small mt-2">
-                <summary class="text-muted">Table view · every product</summary>
+                <summary class="text-muted">{{ _("Table view · every product") }}</summary>
                 <div class="table-responsive mt-2" style="max-height: 320px;">
                   <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
-                    <thead><tr><th>Product</th><th>SKU</th><th class="text-end">Orders</th><th class="text-end">Share</th></tr></thead>
+                    <thead><tr><th>{{ _("Product") }}</th><th>SKU</th><th class="text-end">{{ _("Orders") }}</th><th class="text-end">{{ _("Share") }}</th></tr></thead>
                     <tbody>
                     {% for r in report.products %}
                       <tr><td>{{ r.name }}</td><td>{% if r.sku %}<code>{{ r.sku }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</td>
@@ -278,11 +282,9 @@
                   </table>
                 </div>
               </details>
-              <p class="text-muted small mt-2 mb-0">An order with several products counts once for each, so the shares
-                can add up to more than 100%. Products are named as the store showed them that month; orders from
-                before the store set SKUs (most up to August 2023) are listed by name, without a SKU.</p>
+              <p class="text-muted small mt-2 mb-0">{{ _("An order with several products counts once for each, so the shares can add up to more than 100%. Products are named as the store showed them that month; orders from before the store set SKUs (most up to August 2023) are listed by name, without a SKU.") }}</p>
             {% else %}
-              <p class="text-muted mb-0">No {{ page.noun }} in {{ month_label }}.</p>
+              <p class="text-muted mb-0">{{ _("No {noun} in {month}.").format(noun=noun, month=month_label) }}</p>
             {% endif %}
           </div>
         </div>
@@ -291,43 +293,43 @@
 
     {% set d = report.daily %}
     <div class="card shadow-sm mb-3" id="daily">
-      <div class="card-header fw-bold">The {{ page.customers }} of {{ month_label }}, day by day
-        <span class="text-muted small fw-normal">· {{ page.noun }} each day, weekends and public holidays in Colombia shaded{% if d.through %} · complete days up to {{ d.through }}{% endif %}</span></div>
+      <div class="card-header fw-bold">{{ _("The {customers} of {month}, day by day").format(customers=_(page.customers), month=month_label) }}
+        <span class="text-muted small fw-normal">· {{ _("{noun} each day, weekends and public holidays in Colombia shaded").format(noun=noun) }}{% if d.through %} · {{ _("complete days up to {date}").format(date=d.through) }}{% endif %}</span></div>
       <div class="card-body">
         {% if d.complete_days %}
           <div class="row g-2 mb-3">
             {% for a in d.averages %}
-              {% set label = a.label ~ " · " ~ a.days ~ (" day" if a.days == 1 else " days") %}
+              {% set label = _(a.label) ~ " · " ~ (_("{count} day") if a.days == 1 else _("{count} days")).format(count=a.days) %}
               {% if not a.days %}
-                {{ tile(a.label, "—", "none in " ~ report.selected.month ~ (" so far" if d.through else ""), cols="col-12 col-md-4") }}
+                {{ tile(_(a.label), "—", (_("none in {month} so far") if d.through else _("none in {month}")).format(month=report.selected.month), cols="col-12 col-md-4") }}
               {% elif a.type == "weekday" %}
-                {{ tile(label, "%.1f a day"|format(a.orders), money(a.revenue) ~ " a day", cols="col-12 col-md-4") }}
+                {{ tile(label, _("{value} a day").format(value="%.1f"|format(a.orders)), _("{value} a day").format(value=money(a.revenue)), cols="col-12 col-md-4") }}
               {% else %}
-                {{ tile(label, "%.1f a day"|format(a.orders), change(a.vs_weekdays) ~ " vs weekdays · " ~ money(a.revenue) ~ " a day", cols="col-12 col-md-4") }}
+                {{ tile(label, _("{value} a day").format(value="%.1f"|format(a.orders)), _("{change} vs weekdays · {amount} a day").format(change=change(a.vs_weekdays), amount=money(a.revenue)), cols="col-12 col-md-4") }}
               {% endif %}
             {% endfor %}
           </div>
           <div class="d-flex flex-wrap gap-3 small text-muted mb-1">
-            {% for kind, name in [("weekend", "Weekend"), ("holiday", "Public holiday in Colombia")] %}
+            {% for kind, name in [("weekend", _("Weekend")), ("holiday", _("Public holiday in Colombia"))] %}
               <span><span class="d-inline-block align-middle me-1 rounded-1" style="width:12px; height:12px; background: {{ day_bands[kind] }}; box-shadow: inset 0 0 0 1px rgba(21, 24, 29, 0.15);"></span>{{ name }}</span>
             {% endfor %}
           </div>
           <div style="position:relative; height:260px;"><canvas id="dailyChart" role="img"
-               aria-label="{{ page.noun | capitalize }} each day of the month, weekends and holidays shaded; the table view lists every day"></canvas></div>
+               aria-label="{{ _('{noun} each day of the month, weekends and holidays shaded; the table view lists every day').format(noun=noun | capitalize) }}"></canvas></div>
           <p class="small mt-2 mb-0">
-            {% if d.holidays %}<span class="text-muted">Holidays:</span>
+            {% if d.holidays %}<span class="text-muted">{{ _("Holidays:") }}</span>
               {% for h in d.holidays %}{{ h.short }} · {{ h.holiday }}{{ "; " if not loop.last }}{% endfor %}
-            {% else %}<span class="text-muted">No public holidays in Colombia in {{ report.selected.month }}.</span>{% endif %}
+            {% else %}<span class="text-muted">{{ _("No public holidays in Colombia in {month}.").format(month=report.selected.month) }}</span>{% endif %}
           </p>
           <details class="small mt-2">
-            <summary class="text-muted">Table view · every day</summary>
+            <summary class="text-muted">{{ _("Table view · every day") }}</summary>
             <div class="table-responsive mt-2" style="max-height: 320px;">
               <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
-                <thead><tr><th>Day</th><th>Kind</th><th class="text-end">Orders</th><th class="text-end">Revenue</th></tr></thead>
+                <thead><tr><th>{{ _("Day") }}</th><th>{{ _("Kind") }}</th><th class="text-end">{{ _("Orders") }}</th><th class="text-end">{{ _("Revenue") }}</th></tr></thead>
                 <tbody>
                 {% for r in d.days if r.complete %}
                   <tr{% if r.type != "weekday" %} class="table-light"{% endif %}><td>{{ r.label }}</td>
-                    <td>{{ "Holiday · " ~ r.holiday if r.holiday else r.type | capitalize }}</td>
+                    <td>{{ _("Holiday · {name}").format(name=r.holiday) if r.holiday else {"weekday": _("Working day"), "weekend": _("Weekend"), "holiday": _("Holiday")}.get(r.type, r.type | capitalize) }}</td>
                     <td class="text-end">{{ num(r.orders) }}</td><td class="text-end text-nowrap">{{ r.revenue | cop }}</td></tr>
                 {% endfor %}
                 </tbody>
@@ -335,43 +337,43 @@
             </div>
           </details>
         {% else %}
-          <p class="text-muted mb-0">No complete days yet in {{ month_label }}.</p>
+          <p class="text-muted mb-0">{{ _("No complete days yet in {month}.").format(month=month_label) }}</p>
         {% endif %}
       </div>
     </div>
 
     {% set t = report.times %}
     <div class="card shadow-sm mb-3" id="times">
-      <div class="card-header fw-bold">When the {{ page.customers }} of {{ month_label }} bought
-        <span class="text-muted small fw-normal">· {{ page.noun }} by hour of the day and day of the week, Colombia time</span></div>
+      <div class="card-header fw-bold">{{ _("When the {customers} of {month} bought").format(customers=_(page.customers), month=month_label) }}
+        <span class="text-muted small fw-normal">· {{ _("{noun} by hour of the day and day of the week, Colombia time").format(noun=noun) }}</span></div>
       <div class="card-body">
         {% if t.peak_hour is not none %}
           {% set busiest_hour, busiest_day = t.hours[t.peak_hour], t.weekdays[t.peak_day] %}
-          <p class="small mb-3">Busiest hour <strong>{{ busiest_hour.label }}</strong>, {{ num(busiest_hour.orders) }} orders ({{ pct(busiest_hour.share) }})
-            <span class="text-muted mx-1">·</span> busiest day <strong>{{ busiest_day.label }}</strong>, {{ num(busiest_day.orders) }} orders ({{ pct(busiest_day.share) }})</p>
+          <p class="small mb-3">{{ _("Busiest hour") }} <strong>{{ busiest_hour.label }}</strong>, {{ _("{count} orders ({pct})").format(count=num(busiest_hour.orders), pct=pct(busiest_hour.share)) }}
+            <span class="text-muted mx-1">·</span> {{ _("busiest day") }} <strong>{{ _(busiest_day.label) }}</strong>, {{ _("{count} orders ({pct})").format(count=num(busiest_day.orders), pct=pct(busiest_day.share)) }}</p>
           <div class="row g-4">
             <div class="col-lg-8">
-              <div class="small text-muted mb-1">By hour of the day</div>
+              <div class="small text-muted mb-1">{{ _("By hour of the day") }}</div>
               <div style="position:relative; height:240px;"><canvas id="hoursChart" role="img"
-                   aria-label="{{ page.noun | capitalize }} by hour of the day; the table view lists every hour"></canvas></div>
+                   aria-label="{{ _('{noun} by hour of the day; the table view lists every hour').format(noun=noun | capitalize) }}"></canvas></div>
             </div>
             <div class="col-lg-4">
-              <div class="small text-muted mb-1">By day of the week</div>
+              <div class="small text-muted mb-1">{{ _("By day of the week") }}</div>
               <div style="position:relative; height:240px;"><canvas id="weekdaysChart" role="img"
-                   aria-label="{{ page.noun | capitalize }} by day of the week; the table view lists every day"></canvas></div>
+                   aria-label="{{ _('{noun} by day of the week; the table view lists every day').format(noun=noun | capitalize) }}"></canvas></div>
             </div>
           </div>
           <details class="small mt-2">
-            <summary class="text-muted">Table view</summary>
+            <summary class="text-muted">{{ _("Table view") }}</summary>
             <div class="row g-3 mt-1">
-              {% for title, rows in [("Hour", t.hours), ("Day", t.weekdays)] %}
+              {% for title, rows in [(_("Hour"), t.hours), (_("Day"), t.weekdays)] %}
                 <div class="col-md-6">
                   <div class="table-responsive" style="max-height: 320px;">
                     <table class="table table-sm mb-0" style="font-variant-numeric: tabular-nums;">
-                      <thead><tr><th>{{ title }}</th><th class="text-end">Orders</th><th class="text-end">Share</th></tr></thead>
+                      <thead><tr><th>{{ title }}</th><th class="text-end">{{ _("Orders") }}</th><th class="text-end">{{ _("Share") }}</th></tr></thead>
                       <tbody>
                       {% for r in rows %}
-                        <tr><td>{{ r.label }}</td><td class="text-end">{{ num(r.orders) }}</td><td class="text-end">{{ pct(r.share) }}</td></tr>
+                        <tr><td>{{ _(r.label) }}</td><td class="text-end">{{ num(r.orders) }}</td><td class="text-end">{{ pct(r.share) }}</td></tr>
                       {% endfor %}
                       </tbody>
                     </table>
@@ -381,16 +383,14 @@
             </div>
           </details>
         {% else %}
-          <p class="text-muted mb-0">No {{ page.noun }} in {{ month_label }}.</p>
+          <p class="text-muted mb-0">{{ _("No {noun} in {month}.").format(noun=noun, month=month_label) }}</p>
         {% endif %}
       </div>
     </div>
 
     <p class="text-muted small mb-5">
-      {{ page.definition }} UTM values are shown
-      as the store recorded them: <code>undefined</code> means the order carried no UTM, and <code>n/a</code>
-      marks orders from before the store recorded UTMs (up to August 2023). WhatsApp sales entered through WATI
-      carry <code>wati</code> as their source and campaign.
+      {{ _(page.definition) }}
+      {{ _("UTM values are shown as the store recorded them: <code>undefined</code> means the order carried no UTM, and <code>n/a</code> marks orders from before the store recorded UTMs (up to August 2023). WhatsApp sales entered through WATI carry <code>wati</code> as their source and campaign.")|safe }}
     </p>
   {% endif %}
 </div>
@@ -401,7 +401,24 @@
 <script>
 (function () {
   var COLORS = {{ colors | tojson }};
-  var NOUN = {{ page.noun | tojson }};
+  var NOUN = {{ _(page.noun) | tojson }};
+  // Text the report builds in English: its two catch-all series, weekday
+  // names, "(to date)" and the rows gathering the rest. Data keys stay as sent.
+  var T = {{ {
+    "series": {"other sources": _("other sources"), "no UTM (undefined, n/a)": _("no UTM (undefined, n/a)")},
+    "weekdays": {"Monday": _("Monday"), "Tuesday": _("Tuesday"), "Wednesday": _("Wednesday"), "Thursday": _("Thursday"),
+               "Friday": _("Friday"), "Saturday": _("Saturday"), "Sunday": _("Sunday")},
+    "toDate": " (" ~ _("to date") ~ ")", "total": _("Total: {count}"), "openMonth": _("Click to open this month"),
+    "isNew": _("new"), "noChange": _("no change"), "change": _("Change: {change}"), "more": _("{count} more"),
+    "otherCities": _("{n} other cities"), "otherProducts": _("{n} other products"),
+    "notComplete": _("Not complete yet"), "holiday": _("Holiday: {name}"), "weekend": _("Weekend")
+  } | tojson }};
+  function seriesText(name) { return T.series[name] || name; }
+  function dayText(name) { return T.weekdays[name] || name; }
+  function toDateText(label) { return String(label || "").replace(" (to date)", T.toDate); }
+  function restText(rows, template) {
+    return rows.map(function (r) { return r.other ? Object.assign({}, r, { name: template.replace("{n}", parseInt(r.name, 10)) }) : r; });
+  }
   var INK = "#15181D", MUTED = "#6B7883", FADED = "#A3ACB5", GRID = "#E5E9EC", SURFACE = "#FFFFFF";
   var trend = {{ report.trend | tojson }};
   var selected = {{ report.selected.month | tojson }};
@@ -436,7 +453,7 @@
     data: {
       labels: trend.months,
       datasets: trend.series.map(function (s) {
-        return { label: s.name, data: s.counts, backgroundColor: COLORS[s.name], borderColor: SURFACE,
+        return { label: seriesText(s.name), data: s.counts, backgroundColor: COLORS[s.name], borderColor: SURFACE,
                  borderWidth: { top: 2 }, borderSkipped: false, maxBarThickness: 24,
                  categoryPercentage: 0.8, barPercentage: 0.95 };
       })
@@ -459,7 +476,7 @@
                      label: function (c) { return " " + c.parsed.y.toLocaleString() + " · " + c.dataset.label; },
                      footer: function (items) {
                        var total = items.length ? trend.series.reduce(function (sum, s) { return sum + s.counts[items[0].dataIndex]; }, 0) : 0;
-                       return ["Total: " + total.toLocaleString(), "Click to open this month"];
+                       return [T.total.replace("{count}", total.toLocaleString()), T.openMonth];
                      } } }
       },
       scales: {
@@ -477,19 +494,19 @@
   if (cmpEl && cmp && cmp.rows && cmp.rows.length) {
     var CMP = {{ compare_colors | tojson }};
     function changeText(r) {
-      if (!r.b) return r.a ? "new" : "—";
+      if (!r.b) return r.a ? T.isNew : "—";
       if (r.pct > 0) return "▲ " + (r.pct * 100).toFixed(1) + "%";
       if (r.pct < 0) return "▼ " + (-r.pct * 100).toFixed(1) + "%";
-      return "no change";
+      return T.noChange;
     }
     function shorten(name) { return name.length > 32 ? name.slice(0, 31) + "…" : name; }
     var bar = { borderRadius: 4, borderSkipped: "start", maxBarThickness: 14, categoryPercentage: 0.8, barPercentage: 0.9 };
     var drawCompare = function () { new Chart(cmpEl, {
       type: "bar",
-      data: { labels: cmp.rows.map(function (r) { return r.name; }),
+      data: { labels: cmp.rows.map(function (r) { return r.other ? T.more.replace("{count}", parseInt(r.name, 10)) : r.name; }),
               datasets: [
-                Object.assign({ label: "A · " + cmp.a.label, data: cmp.rows.map(function (r) { return r.a; }), backgroundColor: CMP.a }, bar),
-                Object.assign({ label: "B · " + cmp.b.label, data: cmp.rows.map(function (r) { return r.b; }), backgroundColor: CMP.b }, bar)
+                Object.assign({ label: "A · " + toDateText(cmp.a.label), data: cmp.rows.map(function (r) { return r.a; }), backgroundColor: CMP.a }, bar),
+                Object.assign({ label: "B · " + toDateText(cmp.b.label), data: cmp.rows.map(function (r) { return r.b; }), backgroundColor: CMP.b }, bar)
               ] },
       options: {
         indexAxis: "y", responsive: true, maintainAspectRatio: false,
@@ -500,7 +517,7 @@
           tooltip: { backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
                      callbacks: {
                        label: function (c) { return " " + c.parsed.x.toLocaleString() + " · " + c.dataset.label; },
-                       footer: function (items) { return items.length ? "Change: " + changeText(cmp.rows[items[0].dataIndex]) : ""; } } }
+                       footer: function (items) { return items.length ? T.change.replace("{change}", changeText(cmp.rows[items[0].dataIndex])) : ""; } } }
         },
         scales: {
           x: { beginAtZero: true, grid: { color: GRID }, border: { display: false },
@@ -581,8 +598,8 @@
     });
   }
   fontsReady.then(function () {
-    rankedBars("citiesChart", {{ report.cities_chart | tojson }});
-    rankedBars("productsChart", {{ report.products_chart | tojson }}, function (r) { return r.sku ? "SKU " + r.sku : ""; });
+    rankedBars("citiesChart", restText({{ report.cities_chart | tojson }}, T.otherCities));
+    rankedBars("productsChart", restText({{ report.products_chart | tojson }}, T.otherProducts), function (r) { return r.sku ? "SKU " + r.sku : ""; });
   });
 
   /* Hours and days: one bar each in time order, the counts on a shared look. */
@@ -592,7 +609,7 @@
     if (!el) return;
     new Chart(el, {
       type: "bar",
-      data: { labels: rows.map(function (r) { return r.label; }),
+      data: { labels: rows.map(function (r) { return dayText(r.label); }),
               datasets: [{ data: rows.map(function (r) { return r.orders; }), backgroundColor: BAR.bar,
                            borderRadius: 3, borderSkipped: "start", maxBarThickness: 28,
                            categoryPercentage: 0.85, barPercentage: 0.9 }] },
@@ -612,7 +629,7 @@
     });
   }
   timeBars("hoursChart", times.hours, function (value, i) { return i % 3 ? "" : String(i).padStart(2, "0"); });
-  timeBars("weekdaysChart", times.weekdays, function (value, i) { return times.weekdays[i].label.slice(0, 3); });
+  timeBars("weekdaysChart", times.weekdays, function (value, i) { return dayText(times.weekdays[i].label).slice(0, 3); });
 
   /* Day by day: one bar a day in the one hue. Weekends and Colombian holidays
      are bands shaded behind the bars, so the bars stay one series. */
@@ -652,11 +669,11 @@
                        label: function (c) {
                          var d = daily.days[c.dataIndex];
                          return d.complete ? " " + d.orders.toLocaleString() + " " + NOUN + " · " + cop(d.revenue)
-                                           : " Not complete yet";
+                                           : " " + T.notComplete;
                        },
                        footer: function (items) {
                          var d = daily.days[items[0].dataIndex];
-                         return d.holiday ? "Holiday: " + d.holiday : d.type === "weekend" ? "Weekend" : "";
+                         return d.holiday ? T.holiday.replace("{name}", d.holiday) : d.type === "weekend" ? T.weekend : "";
                        } } }
         },
         scales: {

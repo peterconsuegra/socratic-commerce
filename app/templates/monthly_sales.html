@@ -2,7 +2,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Monthly Sales
+{{ _("Monthly Sales") }}
 {% endblock %}
 
 {% block content %}
@@ -15,14 +15,14 @@ Monthly Sales
   {% else %}
 
     <div class="text-center mb-3">
-      <label for="exchangeRateSales">USD Exchange Rate (COP):</label>
+      <label for="exchangeRateSales">{{ _("USD Exchange Rate (COP):") }}</label>
       <input type="number" id="exchangeRateSales" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleCurrencySales()" class="btn btn-primary">Switch Currency</button>
+      <button onclick="toggleCurrencySales()" class="btn btn-primary">{{ _("Switch Currency") }}</button>
     </div>
 
-    <h2 class="text-center">Sales by UTM Source (Up to Previous Month)</h2>
+    <h2 class="text-center">{{ _("Sales by UTM Source (Up to Previous Month)") }}</h2>
     <p class="text-center text-muted mb-3">
-      Includes all orders up to the last day of the previous month (Bogota time).
+      {{ _("Includes all orders up to the last day of the previous month (Bogota time).") }}
     </p>
 
     <div style="height: 420px;">
@@ -31,20 +31,20 @@ Monthly Sales
 
     {% if other_channels_labels and other_channels_pct and other_channels_pct > 0 %}
       <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
-        Other channels (&lt;2%): {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
+        {{ _("Other channels (<2%)") }}: {{ other_channels_labels|join(", ") }} ({{ "%.1f"|format(other_channels_pct) }}%)
       </p>
     {% endif %}
 
     <hr class="my-5">
 
-    <h2 class="text-center">Monthly Total Sales Trend & Forecast</h2>
+    <h2 class="text-center">{{ _("Monthly Total Sales Trend & Forecast") }}</h2>
 
     {% if forecast_includes_current_month_mtd %}
       <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
-        Forecast uses current month projection (method: {{ projection_method|default("weekday_weighted") }}).
-        MTD (through yesterday): {{ current_month_mtd_sales|cop }}.
-        Remaining days projected: {{ current_month_remaining_days }}.
-        Projected full month used for forecast: {{ current_month_projected_sales|cop }}.
+        {{ _("Forecast uses current month projection (method: {method}).").format(method=projection_method|default("weekday_weighted")) }}
+        {{ _("MTD (through yesterday): {amount}.").format(amount=current_month_mtd_sales|cop) }}
+        {{ _("Remaining days projected: {days}.").format(days=current_month_remaining_days) }}
+        {{ _("Projected full month used for forecast: {amount}.").format(amount=current_month_projected_sales|cop) }}
       </p>
     {% endif %}
 
@@ -54,30 +54,30 @@ Monthly Sales
 
     <hr class="my-5">
 
-    <h2 class="text-center">Monthly Sales Trend & Forecast by Channel</h2>
+    <h2 class="text-center">{{ _("Monthly Sales Trend & Forecast by Channel") }}</h2>
 
     {% if not channel_charts %}
       <div class="alert alert-warning mt-3">
-        No channel charts available for this selection.
+        {{ _("No channel charts available for this selection.") }}
       </div>
     {% else %}
       {% for ch in channel_charts %}
-        <h3 class="text-center mt-5">{{ ch.label }} Sales Trend and Forecast</h3>
+        <h3 class="text-center mt-5">{{ _("{channel} Sales Trend and Forecast").format(channel=ch.label) }}</h3>
 
         <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
-          Ranked by total number of sales: {{ ch.count }}
+          {{ _("Ranked by total number of sales: {count}").format(count=ch.count) }}
         </p>
 
         {% if ch.forecast_includes_current_month_mtd %}
           <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-            Forecast uses current month projection (method: {{ ch.projection_method|default("weekday_weighted") }}).
-            MTD (through yesterday): {{ ch.current_month_mtd_sales|cop }}.
-            Remaining days projected: {{ ch.current_month_remaining_days }}.
-            Projected full month used for forecast: {{ ch.current_month_projected_sales|cop }}.
+            {{ _("Forecast uses current month projection (method: {method}).").format(method=ch.projection_method|default("weekday_weighted")) }}
+            {{ _("MTD (through yesterday): {amount}.").format(amount=ch.current_month_mtd_sales|cop) }}
+            {{ _("Remaining days projected: {days}.").format(days=ch.current_month_remaining_days) }}
+            {{ _("Projected full month used for forecast: {amount}.").format(amount=ch.current_month_projected_sales|cop) }}
           </p>
         {% else %}
           <p class="text-center text-muted mb-3" style="font-size: 0.9rem;">
-            Not enough current-month data yet to project this channel.
+            {{ _("Not enough current-month data yet to project this channel.") }}
           </p>
         {% endif %}
 
@@ -100,6 +100,7 @@ document.addEventListener("DOMContentLoaded", function() {
   var exchangeRateEl = document.getElementById("exchangeRateSales");
   var exchangeRate = parseFloat(exchangeRateEl ? exchangeRateEl.value : "4000");
   var useUSD = false;
+  var PROJECTED_CURRENT_MONTH = {{ _("Projected Current Month")|tojson }};
 
   function convertToUSD(values) {
     return values.map(function(v) {
@@ -216,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Line chart factory with optional bridge point for current month projection
-  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, titlePrefix, hexColor, bridgeLabel, bridgeValueCOP) {
+  function buildLineChart(canvasId, labelsHist, labelsForecast, histCOP, fcstCOP, histLabel, fcstLabel, hexColor, bridgeLabel, bridgeValueCOP) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -251,7 +252,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var datasets = [
       {
-        label: titlePrefix + " (COP)",
+        label: histLabel + " (COP)",
         data: histCOP.map(function(v){ return Number(v) || 0; }),
         fill: true,
         borderColor: lineColor,
@@ -261,7 +262,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (hasBridge) {
       datasets.push({
-        label: "Projected Current Month (COP)",
+        label: PROJECTED_CURRENT_MONTH + " (COP)",
         data: bridgeSeries,
         showLine: false,
         pointRadius: 5,
@@ -272,7 +273,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     datasets.push({
-      label: "Forecasted " + titlePrefix + " (COP)",
+      label: fcstLabel + " (COP)",
       data: forecastSeries,
       borderDash: [5, 5],
       fill: true,
@@ -297,7 +298,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._hasBridge = hasBridge;
     chart._bridgeValueCOP = hasBridge ? (Number(bridgeValueCOP) || 0) : null;
     chart._labelsForecastLen = labelsForecast.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -317,7 +319,8 @@ document.addEventListener("DOMContentLoaded", function() {
     totalForecastLabels,
     totalHist,
     totalFcst,
-    "Historical Total Sales",
+    {{ _("Historical Total Sales")|tojson }},
+    {{ _("Forecasted Total Sales")|tojson }},
     null,
     totalBridgeLabel,
     totalBridgeValue
@@ -346,7 +349,8 @@ document.addEventListener("DOMContentLoaded", function() {
         forecastLabels,
         hist,
         fcst,
-        "Historical {{ ch.label }} Sales",
+        {{ _("Historical {channel} Sales").format(channel=ch.label)|tojson }},
+        {{ _("Forecasted {channel} Sales").format(channel=ch.label)|tojson }},
         color,
         bridgeLabel,
         bridgeValue
@@ -387,7 +391,7 @@ document.addEventListener("DOMContentLoaded", function() {
           new Array(chart._labelsForecastLen).fill(null)
         );
         chart.data.datasets[1].data = bridgeSeries;
-        chart.data.datasets[1].label = useUSD ? "Projected Current Month (USD)" : "Projected Current Month (COP)";
+        chart.data.datasets[1].label = PROJECTED_CURRENT_MONTH + (useUSD ? " (USD)" : " (COP)");
       }
 
       // forecast dataset
@@ -395,10 +399,9 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.data.datasets[dsIndexForecast].data = [].concat(new Array(padLen).fill(null), fcst);
 
       // labels
-      chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
-      chart.data.datasets[dsIndexForecast].label = useUSD
-        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+      var currencyCode = useUSD ? " (USD)" : " (COP)";
+      chart.data.datasets[0].label = chart._histLabel + currencyCode;
+      chart.data.datasets[dsIndexForecast].label = chart._fcstLabel + currencyCode;
 
       chart.update();
     }

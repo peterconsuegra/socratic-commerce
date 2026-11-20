@@ -22,6 +22,6 @@
   
 </div>
 
-<h3 class="text-center">Total Sales: {{ ns.total |cop}}</h3>
+<h3 class="text-center">{{ _("Total sales: {amount}").format(amount=ns.total|cop) }}</h3>
 
 

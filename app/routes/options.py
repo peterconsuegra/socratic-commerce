@@ -9,6 +9,7 @@ from flask_login import login_required
 from markupsafe import escape
 
 from app import db
+from app.i18n import LANGUAGE_OPTION_KEY, LANGUAGES, site_language, translate as _
 from app.models import ApiToken, Option
 from app.services.secrets import get_secret, has_secret, mask_secret, set_secret
 from app.services.sendgrid import is_sendable_email, test_connection as sendgrid_test_connection
@@ -68,7 +69,23 @@ def list_options():
             "token_masked": mask_secret(get_secret(ROXY_TOKEN_KEY)),
             "base_url": get_option_value_raw(ROXY_URL_KEY, ""),
         },
+        site_language=site_language(),
     )
+
+
+@main.route("/options/language", methods=["POST"])
+@login_required
+def options_language_save():
+    """Save the site-wide language: every page and every user reads in it."""
+    lang = (request.form.get("language", "") or "").strip().lower()
+    if lang not in LANGUAGES:
+        flash(_("Pick English or Spanish."), "danger")
+        return redirect(url_for("main.list_options"))
+    _set_plain_option(LANGUAGE_OPTION_KEY, lang)
+    db.session.commit()
+    # Confirm in the language just chosen.
+    flash(_("Language saved: {language}.", lang).format(language=LANGUAGES[lang]), "success")
+    return redirect(url_for("main.list_options"))
 
 
 WATI_TOKEN_KEY = "wati_api_token"
@@ -109,7 +126,7 @@ def options_roxy_save():
     """Save the Revive new-leads API settings. The token is stored encrypted."""
     base_url = (request.form.get("base_url", "") or "").strip()
     if base_url and not base_url.startswith("https://"):
-        flash("The Revive URL must start with https://.", "danger")
+        flash(_("The Revive URL must start with https://."), "danger")
         return redirect(url_for("main.list_options"))
     _set_plain_option(ROXY_URL_KEY, base_url)
     db.session.commit()
@@ -118,12 +135,12 @@ def options_roxy_save():
     token = (request.form.get("api_token", "") or "").strip()
     if request.form.get("clear_token"):
         set_secret(ROXY_TOKEN_KEY, "")
-        flash("Revive API token removed.", "success")
+        flash(_("Revive API token removed."), "success")
     elif token:
         set_secret(ROXY_TOKEN_KEY, token)
-        flash("Revive settings saved. The token is stored encrypted.", "success")
+        flash(_("Revive settings saved. The token is stored encrypted."), "success")
     else:
-        flash("Revive settings saved.", "success")
+        flash(_("Revive settings saved."), "success")
     return redirect(url_for("main.list_options"))
 
 
@@ -188,7 +205,7 @@ def options_orders_api_save():
     """
     orders_url = (request.form.get("orders_url", "") or "").strip()
     if not orders_url.startswith(("https://", "http://")):
-        flash("The orders API URL must start with https://.", "danger")
+        flash(_("The orders API URL must start with https://."), "danger")
         return redirect(url_for("main.list_options"))
     _set_plain_option(ORDERS_URL_KEY, orders_url)
     db.session.commit()
@@ -196,9 +213,9 @@ def options_orders_api_save():
     api_key = (request.form.get("api_key", "") or "").strip()
     if api_key:
         set_secret(ORDERS_API_KEY_KEY, api_key)
-        flash("Orders API settings saved. The key is stored encrypted.", "success")
+        flash(_("Orders API settings saved. The key is stored encrypted."), "success")
     else:
-        flash("Orders API settings saved.", "success")
+        flash(_("Orders API settings saved."), "success")
     return redirect(url_for("main.list_options"))
 
 
@@ -226,18 +243,18 @@ def options_wati_save():
     token = (request.form.get("api_token", "") or "").strip()
     if request.form.get("clear_token"):
         set_secret(WATI_TOKEN_KEY, "")
-        flash("WATI API token removed.", "success")
+        flash(_("WATI API token removed."), "success")
     elif token:
         set_secret(WATI_TOKEN_KEY, token)
-        flash("WATI settings saved. The token is stored encrypted.", "success")
+        flash(_("WATI settings saved. The token is stored encrypted."), "success")
     else:
-        flash("WATI settings saved.", "success")
+        flash(_("WATI settings saved."), "success")
 
     if _is_dashboard_url(tenant_url):
         flash(
-            "Note: that URL is the WATI dashboard, not the API endpoint. Requests "
-            "will be sent to live-mt-server.wati.io automatically, but consider "
-            "saving the API endpoint from WATI → Connector → API.",
+            _("Note: that URL is the WATI dashboard, not the API endpoint. Requests "
+              "will be sent to live-mt-server.wati.io automatically, but consider "
+              "saving the API endpoint from WATI → Connector → API."),
             "success",
         )
 
@@ -319,13 +336,13 @@ def options_sendgrid_save():
     group_id = (request.form.get("unsubscribe_group_id", "") or "").strip()
 
     if from_email and not is_sendable_email(from_email):
-        flash(f"'{escape(from_email)}' is not a valid From email address.", "danger")
+        flash(_("'{email}' is not a valid From email address.").format(email=escape(from_email)), "danger")
         return redirect(url_for("main.list_options"))
     if reply_to and not is_sendable_email(reply_to):
-        flash(f"'{escape(reply_to)}' is not a valid Reply-to address.", "danger")
+        flash(_("'{email}' is not a valid Reply-to address.").format(email=escape(reply_to)), "danger")
         return redirect(url_for("main.list_options"))
     if group_id and not group_id.isdigit():
-        flash("The unsubscribe group ID must be a number (SendGrid → Marketing → Unsubscribe Groups).",
+        flash(_("The unsubscribe group ID must be a number (SendGrid → Marketing → Unsubscribe Groups)."),
               "danger")
         return redirect(url_for("main.list_options"))
 
@@ -340,15 +357,15 @@ def options_sendgrid_save():
     api_key = (request.form.get("api_key", "") or "").strip()
     if request.form.get("clear_key"):
         set_secret(SENDGRID_API_KEY_KEY, "")
-        flash("SendGrid API key removed.", "success")
+        flash(_("SendGrid API key removed."), "success")
     elif api_key:
         set_secret(SENDGRID_API_KEY_KEY, api_key)
-        flash("SendGrid settings saved. The API key is stored encrypted.", "success")
+        flash(_("SendGrid settings saved. The API key is stored encrypted."), "success")
     else:
-        flash("SendGrid settings saved.", "success")
+        flash(_("SendGrid settings saved."), "success")
 
     if not from_email:
-        flash("Note: no From email is set, so nothing can be sent yet. Use a sender verified in SendGrid.",
+        flash(_("Note: no From email is set, so nothing can be sent yet. Use a sender verified in SendGrid."),
               "danger")
 
     return redirect(url_for("main.list_options"))
@@ -388,7 +405,7 @@ def options_sendgrid_test():
 def options_api_tokens_new():
     name = (request.form.get("token_name") or "").strip()
     if not name:
-        flash("Token name is required.", "danger")
+        flash(_("Token name is required."), "danger")
         return redirect(url_for("main.list_options"))
 
     token, raw = ApiToken.generate(name)
@@ -396,7 +413,7 @@ def options_api_tokens_new():
     db.session.commit()
 
     flash(
-        "API token created. Copy it now — it will not be shown again:<br>"
+        _("API token created. Copy it now — it will not be shown again:") + "<br>"
         f"<code style='font-size:1rem; word-break:break-all;'>{raw}</code>",
         "success",
     )
@@ -410,7 +427,7 @@ def options_api_tokens_revoke(token_id):
     token.revoked = True
     db.session.commit()
 
-    flash(f"Token '{token.name}' revoked.", "success")
+    flash(_("Token '{name}' revoked.").format(name=token.name), "success")
     return redirect(url_for("main.list_options"))
 
 
@@ -421,7 +438,7 @@ def options_api_tokens_delete(token_id):
     db.session.delete(token)
     db.session.commit()
 
-    flash(f"Token '{token.name}' deleted.", "success")
+    flash(_("Token '{name}' deleted.").format(name=token.name), "success")
     return redirect(url_for("main.list_options"))
 
 
@@ -433,17 +450,17 @@ def create_option():
         meta_value = request.form.get("meta_value")
 
         if not meta_key or not meta_value:
-            flash("Both meta key and meta value are required.", "danger")
+            flash(_("Both meta key and meta value are required."), "danger")
             return redirect(url_for("main.create_option"))
 
         if meta_key in SECRET_OPTION_KEYS:
-            flash(f"'{escape(meta_key)}' is stored encrypted: set it in its section of this page.", "danger")
+            flash(_("'{key}' is stored encrypted: set it in its section of this page.").format(key=escape(meta_key)), "danger")
             return redirect(url_for("main.list_options"))
 
         existing_option = Option.query.filter_by(meta_key=meta_key).first()
 
         if existing_option:
-            flash("An option with this meta key already exists.", "danger")
+            flash(_("An option with this meta key already exists."), "danger")
             return redirect(url_for("main.create_option"))
 
         new_option = Option(meta_key=meta_key, meta_value=meta_value)
@@ -451,11 +468,11 @@ def create_option():
         try:
             db.session.add(new_option)
             db.session.commit()
-            flash("Option added successfully!", "success")
+            flash(_("Option added successfully!"), "success")
 
         except Exception as e:
             db.session.rollback()
-            flash(f"Error adding option: {str(e)}", "danger")
+            flash(_("Error adding option: {error}").format(error=str(e)), "danger")
 
         return redirect(url_for("main.list_options"))
 
@@ -468,25 +485,25 @@ def edit_option(option_id):
     option = Option.query.get_or_404(option_id)
 
     if option.meta_key in SECRET_OPTION_KEYS:
-        flash(f"'{escape(option.meta_key)}' is stored encrypted: change it in its section of this page.", "danger")
+        flash(_("'{key}' is stored encrypted: change it in its section of this page.").format(key=escape(option.meta_key)), "danger")
         return redirect(url_for("main.list_options"))
 
     if request.method == "POST":
         meta_value = request.form.get("meta_value")
 
         if not meta_value:
-            flash("Meta value cannot be empty.", "danger")
+            flash(_("Meta value cannot be empty."), "danger")
             return redirect(url_for("main.edit_option", option_id=option_id))
 
         option.meta_value = meta_value
 
         try:
             db.session.commit()
-            flash("Option updated successfully!", "success")
+            flash(_("Option updated successfully!"), "success")
 
         except Exception as e:
             db.session.rollback()
-            flash(f"Error updating option: {str(e)}", "danger")
+            flash(_("Error updating option: {error}").format(error=str(e)), "danger")
 
         return redirect(url_for("main.list_options"))
 
@@ -501,10 +518,10 @@ def delete_option(option_id):
     try:
         db.session.delete(option)
         db.session.commit()
-        flash("Option deleted successfully!", "success")
+        flash(_("Option deleted successfully!"), "success")
 
     except Exception as e:
         db.session.rollback()
-        flash(f"Error deleting option: {str(e)}", "danger")
+        flash(_("Error deleting option: {error}").format(error=str(e)), "danger")
 
     return redirect(url_for("main.list_options"))

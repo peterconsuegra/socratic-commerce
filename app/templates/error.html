@@ -2,12 +2,12 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="text-danger">Internal Server Error</h2>
+  <h2 class="text-danger">{{ _("Internal Server Error") }}</h2>
 
-  <p><strong>Error:</strong></p>
+  <p><strong>{{ _("Error:") }}</strong></p>
   <pre>{{ error }}</pre>
 
-  <p><strong>Traceback:</strong></p>
+  <p><strong>{{ _("Traceback:") }}</strong></p>
   <pre style="white-space: pre-wrap;">{{ traceback }}</pre>
 </div>
 {% endblock %}

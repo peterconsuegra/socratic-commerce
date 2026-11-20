@@ -22,6 +22,6 @@
   </div>
 {% else %}
   <div class="alert alert-warning" role="alert">
-    No data available for {{ title }}.
+    {{ _("No data available for {title}.").format(title=title) }}
   </div>
 {% endif %}

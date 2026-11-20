@@ -18,7 +18,7 @@
 
           {% set selected_range = (date_range | default('') | lower | trim) %}
 
-          <select name="date_range" id="date_range" class="form-select" aria-label="Select Date Range">
+          <select name="date_range" id="date_range" class="form-select" aria-label="{{ _('Select Date Range') }}">
             {% for option in custom_date_range_options %}
               {% set opt_val = (option.value | default('') | lower | trim) %}
               <option value="{{ option.value }}" {% if selected_range and selected_range == opt_val %}selected{% endif %}>
@@ -37,10 +37,10 @@
               type="text"
               id="start_date"
               name="start_date"
-              placeholder="DD/MM/YYYY"
+              placeholder="{{ _('DD/MM/YYYY') }}"
               autocomplete="off"
               class="form-control datepicker-input"
-              aria-label="Start Date"
+              aria-label="{{ _('Start Date') }}"
               value="{{ start_date }}"
             >
           </div>
@@ -51,10 +51,10 @@
               type="text"
               id="end_date"
               name="end_date"
-              placeholder="DD/MM/YYYY"
+              placeholder="{{ _('DD/MM/YYYY') }}"
               autocomplete="off"
               class="form-control datepicker-input"
-              aria-label="End Date"
+              aria-label="{{ _('End Date') }}"
               value="{{ end_date }}"
             >
           </div>
@@ -203,9 +203,9 @@ $(document).ready(function() {
         if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
           errorMessage = jqXHR.responseJSON.message;
         } else {
-          errorMessage = jqXHR.statusText || "An unknown error occurred.";
+          errorMessage = jqXHR.statusText || {{ _("An unknown error occurred.")|tojson }};
         }
-        alert("AJAX request failed: " + errorMessage);
+        alert({{ _("Request failed: {error}")|tojson }}.replace("{error}", errorMessage));
         $("#loader").removeClass("show");
         $("#fetchData").prop("disabled", false).html({{ _("Fetch Data")|tojson }});
       }

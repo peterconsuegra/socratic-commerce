@@ -1,12 +1,15 @@
 {% extends "layout.html" %}
 
-{% block title %}{{ 'Edit' if template else 'New' }} Email Template{% endblock %}
+{% block title %}{{ _('Edit Email Template') if template else _('New Email Template') }}{% endblock %}
 
 {% block content %}
+{% set uns_tag = '<code>{{unsubscribe_url}}</code>'|safe %}
+{% set hero_tag = '<code>{{hero_image_url}}</code>'|safe %}
+{% set src_tag = '<code>src</code>'|safe %}
 <div class="container mt-4" style="max-width: 1400px;">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h2 class="mb-0">{{ template.name if template else 'New email template' }}</h2>
-    <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">&laquo; All templates</a>
+    <h2 class="mb-0">{{ template.name if template else _('New email template') }}</h2>
+    <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">&laquo; {{ _("All templates") }}</a>
   </div>
 
   <div class="row g-4">
@@ -14,87 +17,84 @@
       <form method="POST" id="tplForm"
             action="{{ url_for('main.email_templates_edit', template_id=template.id) if template else url_for('main.email_templates_new') }}">
         <div class="mb-3">
-          <label class="form-label fw-bold mb-1">Name</label>
+          <label class="form-label fw-bold mb-1">{{ _("Name") }}</label>
           <input class="form-control" type="text" name="name" value="{{ values.name }}"
-                 maxlength="{{ max_name }}" placeholder="e.g. Win-back · 20% off" required>
-          <div class="form-text">Internal only; it is how you pick the template when sending.</div>
+                 maxlength="{{ max_name }}" placeholder="{{ _('e.g. Win-back · 20% off') }}" required>
+          <div class="form-text">{{ _("Internal only; it is how you pick the template when sending.") }}</div>
         </div>
 
         <div class="mb-3">
-          <label class="form-label fw-bold mb-1">Subject</label>
+          <label class="form-label fw-bold mb-1">{{ _("Subject") }}</label>
           <input class="form-control" type="text" name="subject" id="tplSubject" value="{{ values.subject }}"
                  maxlength="{{ max_subject }}" placeholder="e.g. {{ '{{' }}name{{ '}}' }}, te extrañamos" required>
         </div>
 
         <div class="mb-2">
-          <label class="form-label fw-bold mb-1">HTML body</label>
+          <label class="form-label fw-bold mb-1">{{ _("HTML body") }}</label>
           <textarea class="form-control font-monospace" name="html_body" id="tplHtml" rows="22"
                     style="font-size: 0.8rem; white-space: pre; overflow-wrap: normal; overflow-x: auto;"
                     placeholder="&lt;html&gt;&lt;body&gt;…&lt;/body&gt;&lt;/html&gt;" required>{{ values.html_body }}</textarea>
           <div class="form-text">
-            Paste a full HTML email. Keep CSS inline; most mail clients ignore &lt;style&gt; blocks.
-            Link <code>{{ '{{' }}unsubscribe_url{{ '}}' }}</code> in the footer: it becomes each customer's own
-            unsubscribe page, and templates without it cannot be sent to customers.
+            {{ _("Paste a full HTML email. Keep CSS inline; most mail clients ignore <style> blocks.") }}
+            {{ (_("Link {tag} in the footer: it becomes each customer's own unsubscribe page, and templates without it cannot be sent to customers.")|e).format(tag=uns_tag) }}
           </div>
           {% if values.html_body and not uses_unsubscribe %}
             <div class="alert alert-warning py-2 small mt-2 mb-0">
-              This HTML has no <code>{{ '{{' }}unsubscribe_url{{ '}}' }}</code> link, so sending it to customers is
-              blocked (test sends still work). Add e.g.
-              <code>&lt;a href="{{ '{{' }}unsubscribe_url{{ '}}' }}"&gt;Cancelar suscripción&lt;/a&gt;</code> to the footer.
+              {{ (_("This HTML has no {tag} link, so sending it to customers is blocked (test sends still work).")|e).format(tag=uns_tag) }}
+              {{ (_("Add e.g. {example} to the footer.")|e).format(example='<code>&lt;a href="{{unsubscribe_url}}"&gt;Cancelar suscripción&lt;/a&gt;</code>'|safe) }}
             </div>
           {% endif %}
         </div>
 
         <div class="mb-3">
-          <span class="small text-muted me-1">Insert placeholder:</span>
+          <span class="small text-muted me-1">{{ _("Insert placeholder:") }}</span>
           {% for tag, (desc, sample) in placeholders.items() %}
             <button type="button" class="btn btn-sm btn-outline-secondary mb-1 tpl-chip"
-                    data-tag="{{ '{{' }}{{ tag }}{{ '}}' }}" title="{{ desc }} (e.g. {{ sample }})">{{ tag }}</button>
+                    data-tag="{{ '{{' }}{{ tag }}{{ '}}' }}" title="{{ _('{desc} (e.g. {sample})').format(desc=_(desc), sample=sample) }}">{{ tag }}</button>
           {% endfor %}
         </div>
 
         <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-primary" type="submit">{{ 'Save changes' if template else 'Create template' }}</button>
-          <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">Cancel</a>
+          <button class="btn btn-primary" type="submit">{{ _('Save changes') if template else _('Create template') }}</button>
+          <a class="btn btn-light" href="{{ url_for('main.email_templates_index') }}">{{ _("Cancel") }}</a>
         </div>
       </form>
 
       <hr class="my-4">
       <div class="card shadow-sm">
         <div class="card-body">
-          <h6 class="mb-1">Hero image</h6>
+          <h6 class="mb-1">{{ _("Hero image") }}</h6>
           <p class="small text-muted mb-2">
-            Recommended size: <strong>{{ hero_recommended[0] }} × {{ hero_recommended[1] }} px</strong> (2:1),
-            JPG or PNG, under {{ hero_max_mb }} MB. Put <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> as the
-            <code>src</code> of the image in your HTML; it is replaced with this image's public URL when sending.
+            {{ _("Recommended size:") }} <strong>{{ hero_recommended[0] }} × {{ hero_recommended[1] }} px</strong> (2:1),
+            {{ _("JPG or PNG, under {mb} MB.").format(mb=hero_max_mb) }}
+            {{ (_("Put {tag} as the {src} of the image in your HTML; it is replaced with this image's public URL when sending.")|e).format(tag=hero_tag, src=src_tag) }}
           </p>
 
           {% if not template %}
-            <div class="alert alert-light border small mb-0">Save the template first, then upload the hero image here.</div>
+            <div class="alert alert-light border small mb-0">{{ _("Save the template first, then upload the hero image here.") }}</div>
           {% else %}
             {% if hero %}
               <div class="border rounded p-2 mb-2 bg-light">
-                <img src="{{ hero_url }}" alt="Hero image" style="display:block; max-width:100%; height:auto; border-radius:4px;">
+                <img src="{{ hero_url }}" alt="{{ _('Hero image') }}" style="display:block; max-width:100%; height:auto; border-radius:4px;">
                 <div class="small text-muted mt-2">
                   {{ hero.width }} × {{ hero.height }} px · {{ (hero.size_bytes / 1024) | round | int }} KB · {{ hero.content_type }}
                   {% if (hero.width, hero.height) != hero_recommended %}
-                    · <span class="text-warning fw-bold">recommended {{ hero_recommended[0] }} × {{ hero_recommended[1] }}</span>
+                    · <span class="text-warning fw-bold">{{ _("recommended {width} × {height}").format(width=hero_recommended[0], height=hero_recommended[1]) }}</span>
                   {% else %}
-                    · <span class="text-success fw-bold">recommended size ✓</span>
+                    · <span class="text-success fw-bold">{{ _("recommended size ✓") }}</span>
                   {% endif %}
                 </div>
               </div>
               {% if not uses_hero %}
                 <div class="alert alert-warning py-2 small mb-2">
-                  Your HTML does not use <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> yet, so this image is not in the
-                  email. Set it as the <code>src</code> of your hero <code>&lt;img&gt;</code> (the
-                  <em>hero_image_url</em> chip above inserts it at the cursor).
+                  {{ (_("Your HTML does not use {tag} yet, so this image is not in the email.")|e).format(tag=hero_tag) }}
+                  {{ (_("Set it as the {src} of your hero {img} (the {chip} chip above inserts it at the cursor).")|e).format(src=src_tag, img='<code>&lt;img&gt;</code>'|safe, chip='<em>hero_image_url</em>'|safe) }}
                 </div>
               {% endif %}
             {% elif uses_hero %}
               <div class="alert alert-warning py-2 small mb-2">
-                Your HTML uses <code>{{ '{{' }}hero_image_url{{ '}}' }}</code> but no image is uploaded yet.
-                Sending is blocked until you upload one or remove the placeholder.
+                {{ (_("Your HTML uses {tag} but no image is uploaded yet.")|e).format(tag=hero_tag) }}
+                {{ _("Sending is blocked until you upload one or remove the placeholder.") }}
               </div>
             {% endif %}
 
@@ -103,12 +103,12 @@
                   class="d-flex gap-2 align-items-center flex-wrap">
               <input type="file" name="hero" class="form-control" style="max-width: 420px;"
                      accept="image/jpeg,image/png,image/gif" required>
-              <button type="submit" class="btn btn-outline-primary">{{ 'Replace image' if hero else 'Upload image' }}</button>
+              <button type="submit" class="btn btn-outline-primary">{{ _('Replace image') if hero else _('Upload image') }}</button>
             </form>
             {% if hero %}
               <form method="POST" action="{{ url_for('main.email_templates_hero_delete', template_id=template.id) }}"
-                    class="mt-2" onsubmit="return confirm('Remove the hero image from this template?');">
-                <button type="submit" class="btn btn-link btn-sm text-danger p-0">Remove image</button>
+                    class="mt-2" onsubmit='return confirm({{ _("Remove the hero image from this template?")|tojson }});'>
+                <button type="submit" class="btn btn-link btn-sm text-danger p-0">{{ _("Remove image") }}</button>
               </form>
             {% endif %}
           {% endif %}
@@ -117,8 +117,8 @@
 
       {% if template %}
         <form method="POST" action="{{ url_for('main.email_templates_delete', template_id=template.id) }}"
-              class="mt-4" onsubmit="return confirm('Delete the template \'{{ template.name | e }}\'? This cannot be undone.');">
-          <button class="btn btn-outline-danger btn-sm" type="submit">Delete this template</button>
+              class="mt-4" onsubmit='return confirm({{ _("Delete the template '{name}'? This cannot be undone.").format(name=template.name)|tojson }});'>
+          <button class="btn btn-outline-danger btn-sm" type="submit">{{ _("Delete this template") }}</button>
         </form>
       {% endif %}
     </div>
@@ -126,40 +126,40 @@
     <div class="col-lg-6">
       <div class="card shadow-sm sticky-lg-top" style="top: 1rem;">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <span class="fw-bold">Preview</span>
-          <span class="small text-muted" id="previewStatus">with sample data</span>
+          <span class="fw-bold">{{ _("Preview") }}</span>
+          <span class="small text-muted" id="previewStatus">{{ _("with sample data") }}</span>
         </div>
         <div class="card-body">
           <!-- Send a test of exactly what the preview shows -->
           <div class="border rounded p-2 mb-3 bg-light">
             <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-1 mb-1">
-              <span class="small fw-bold">Send a test to</span>
-              <span class="small text-muted">sends what you see here, unsaved edits included · subject prefixed <code>[Test]</code></span>
+              <span class="small fw-bold">{{ _("Send a test to") }}</span>
+              <span class="small text-muted">{{ _("sends what you see here, unsaved edits included · subject prefixed") }} <code>[Test]</code></span>
             </div>
             {% if not template %}
-              <div class="small text-muted">Save the template first, then you can send tests from here.</div>
+              <div class="small text-muted">{{ _("Save the template first, then you can send tests from here.") }}</div>
             {% elif not sendgrid_ready %}
               <div class="small text-warning">
-                SendGrid is not configured — add the API key and From email in
-                <a href="{{ url_for('main.list_options') }}">Settings</a>.
+                {{ _("SendGrid is not configured — add the API key and From email in") }}
+                <a href="{{ url_for('main.list_options') }}">{{ _("Settings") }}</a>.
               </div>
             {% else %}
               <div class="input-group">
                 <input type="email" class="form-control" id="testTo" placeholder="you@saveaplaya.com"
                        autocomplete="email">
-                <button type="button" class="btn btn-success" id="testSendBtn">Send test</button>
+                <button type="button" class="btn btn-success" id="testSendBtn">{{ _("Send test") }}</button>
               </div>
             {% endif %}
             <div id="testResult" class="small mt-1"></div>
           </div>
 
-          <div class="small text-muted mb-1">Subject</div>
+          <div class="small text-muted mb-1">{{ _("Subject") }}</div>
           <div class="fw-bold mb-3" id="previewSubject">&nbsp;</div>
           <div id="previewWarnings"></div>
-          <iframe id="previewFrame" sandbox title="Email preview"
+          <iframe id="previewFrame" sandbox title="{{ _('Email preview') }}"
                   style="width:100%; height:560px; border:1px solid #dee2e6; border-radius:4px; background:#fff;"></iframe>
           <details class="small mt-2">
-            <summary class="text-muted">Plain-text version (sent alongside the HTML)</summary>
+            <summary class="text-muted">{{ _("Plain-text version (sent alongside the HTML)") }}</summary>
             <pre class="bg-light p-2 mt-2 mb-0" id="previewText" style="white-space:pre-wrap; max-height:200px; overflow:auto;"></pre>
           </details>
         </div>
@@ -172,6 +172,16 @@
 {% block page_scripts %}
 <script>
 (function () {
+  var T = {
+    rendering: {{ _("rendering…")|tojson }},
+    sample: {{ _("with sample data")|tojson }},
+    failed: {{ _("preview failed: {error}")|tojson }},
+    nothing: {{ _("Nothing to preview yet.")|tojson }},
+    unknown: {{ _("Unknown placeholder(s) left as-is:")|tojson }},
+    enterAddress: {{ _("Enter an address.")|tojson }},
+    sending: {{ _("Sending…")|tojson }},
+    requestFailed: {{ _("Request failed.")|tojson }}
+  };
   var subject = document.getElementById("tplSubject");
   var body = document.getElementById("tplHtml");
   var frame = document.getElementById("previewFrame");
@@ -186,7 +196,7 @@
   /* Server-side render with sample data: the same code path as a real send,
      so the preview cannot drift from what customers receive. */
   async function refresh() {
-    status.textContent = "rendering…";
+    status.textContent = T.rendering;
     try {
       var resp = await fetch("{{ url_for('main.email_templates_preview') }}", {
         method: "POST",
@@ -198,15 +208,15 @@
       var data = await resp.json();
       if (!resp.ok || data.status !== "success") throw new Error(data.message || ("HTTP " + resp.status));
       outSubject.innerHTML = data.subject ? esc(data.subject) : "&nbsp;";
-      frame.srcdoc = data.html || "<p style='color:#888;font-family:sans-serif'>Nothing to preview yet.</p>";
+      frame.srcdoc = data.html || "<p style='color:#888;font-family:sans-serif'>" + esc(T.nothing) + "</p>";
       outText.textContent = data.text || "";
       outWarn.innerHTML = (data.unknown_placeholders && data.unknown_placeholders.length)
-        ? '<div class="alert alert-warning py-1 px-2 small mb-2">Unknown placeholder(s) left as-is: '
+        ? '<div class="alert alert-warning py-1 px-2 small mb-2">' + esc(T.unknown) + ' '
           + data.unknown_placeholders.map(function (t) { return "<code>{{ '{{' }}" + esc(t) + "{{ '}}' }}</code>"; }).join(", ") + "</div>"
         : "";
-      status.textContent = "with sample data";
+      status.textContent = T.sample;
     } catch (e) {
-      status.textContent = "preview failed: " + e.message;
+      status.textContent = T.failed.replace("{error}", e.message);
     }
   }
   function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 400); }
@@ -240,9 +250,9 @@
     testBtn.addEventListener("click", async function () {
       var to = testTo.value.trim();
       var out = document.getElementById("testResult");
-      if (!to) { out.innerHTML = '<span class="text-danger">Enter an address.</span>'; testTo.focus(); return; }
+      if (!to) { out.innerHTML = '<span class="text-danger">' + esc(T.enterAddress) + '</span>'; testTo.focus(); return; }
       testBtn.disabled = true;
-      out.innerHTML = '<span class="text-primary">Sending…</span>';
+      out.innerHTML = '<span class="text-primary">' + esc(T.sending) + '</span>';
       try {
         var resp = await fetch("{{ url_for('main.email_templates_send_test', template_id=template.id) if template else '' }}", {
           method: "POST",
@@ -254,7 +264,7 @@
         var data = await resp.json();
         out.innerHTML = (resp.ok && data.status === "success")
           ? '<span class="text-success">✓ ' + esc(data.message) + '</span>'
-          : '<span class="text-danger">✗ ' + esc(data.message || "Request failed.") + '</span>';
+          : '<span class="text-danger">✗ ' + esc(data.message || T.requestFailed) + '</span>';
       } catch (e) {
         out.innerHTML = '<span class="text-danger">✗ ' + esc(String(e)) + '</span>';
       } finally { testBtn.disabled = false; }

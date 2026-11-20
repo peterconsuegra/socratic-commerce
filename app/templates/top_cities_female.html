@@ -3,7 +3,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-  Top Cities Daily Trend (Female)
+  {{ _("Top Cities Daily Trend ({segment})").format(segment=_("Female")) }}
 {% endblock %}
 
 {% block content %}
@@ -26,18 +26,18 @@
 
 <div class="container mt-3">
   <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-    <label for="topNumberSelectFemale" class="form-label m-0 small text-muted">Show:</label>
+    <label for="topNumberSelectFemale" class="form-label m-0 small text-muted">{{ _("Show:") }}</label>
     <select id="topNumberSelectFemale" class="form-select form-select-sm" style="width: 140px;">
-      <option value="10" {% if (top_number|default(10)) == 10 %}selected{% endif %}>Top 10</option>
-      <option value="20" {% if (top_number|default(10)) == 20 %}selected{% endif %}>Top 20</option>
-      <option value="30" {% if (top_number|default(10)) == 30 %}selected{% endif %}>Top 30</option>
-      <option value="50" {% if (top_number|default(10)) == 50 %}selected{% endif %}>Top 50</option>
+      <option value="10" {% if (top_number|default(10)) == 10 %}selected{% endif %}>{{ _("Top {n}").format(n=10) }}</option>
+      <option value="20" {% if (top_number|default(10)) == 20 %}selected{% endif %}>{{ _("Top {n}").format(n=20) }}</option>
+      <option value="30" {% if (top_number|default(10)) == 30 %}selected{% endif %}>{{ _("Top {n}").format(n=30) }}</option>
+      <option value="50" {% if (top_number|default(10)) == 50 %}selected{% endif %}>{{ _("Top {n}").format(n=50) }}</option>
     </select>
   </div>
 </div>
 
 <div class="container mt-4">
-  <h2 class="text-center">Top {{ top_number|default(10) }} Cities by Sales (Female, Daily Trend)</h2>
+  <h2 class="text-center">{{ _("Top {n} Cities by Sales ({segment}, Daily Trend)").format(n=top_number|default(10), segment=_("Female")) }}</h2>
 
   {% if error %}
     <div class="alert alert-danger mt-3">{{ error }}</div>
@@ -45,7 +45,7 @@
 
   {% if not top_cities or not cities_daily_trend %}
     <div class="alert alert-warning mt-3">
-      No data available to display.
+      {{ _("No data available to display.") }}
     </div>
   {% else %}
 
@@ -53,7 +53,7 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-body d-flex justify-content-center align-items-center gap-2 flex-wrap">
-            <label for="exchangeRateTopCitiesFemale" class="m-0">USD Exchange Rate (COP):</label>
+            <label for="exchangeRateTopCitiesFemale" class="m-0">{{ _("USD Exchange Rate (COP):") }}</label>
             <input
               type="number"
               id="exchangeRateTopCitiesFemale"
@@ -65,7 +65,7 @@
               class="form-control form-control-sm"
             >
             <button onclick="toggleCurrencyTopCitiesFemale()" class="btn btn-primary btn-sm">
-              Switch Currency
+              {{ _("Switch Currency") }}
             </button>
             <span id="currencyBadgeTopCitiesFemale" class="badge text-bg-secondary">COP</span>
           </div>
@@ -77,14 +77,14 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header">
-            <strong>Sales share (Top {{ top_number|default(10) }} cities vs other cities)</strong>
+            <strong>{{ _("Sales share (Top {n} cities vs other cities)").format(n=top_number|default(10)) }}</strong>
           </div>
           <div class="card-body">
             <div style="max-width: 520px; margin: 0 auto; height: 460px;">
               <canvas id="citiesSharePieFemale"></canvas>
             </div>
             <div class="small text-muted mt-2 text-center">
-              Hover to see exact values and percentages.
+              {{ _("Hover to see exact values and percentages.") }}
             </div>
           </div>
         </div>
@@ -100,22 +100,22 @@
 
               {% set city_days = [] %}
               {% for r in cities_daily_trend if r.City == city %}
-                {% set _ = city_days.append(r.Day) %}
+                {% set _discard = city_days.append(r.Day) %}
               {% endfor %}
 
               {% set fc_days = [] %}
               {% if cities_forecast_trend %}
                 {% for r in cities_forecast_trend if r.City == city %}
-                  {% set _ = fc_days.append(r.Day) %}
+                  {% set _discard = fc_days.append(r.Day) %}
                 {% endfor %}
               {% endif %}
 
               <div class="small text-muted">
                 {% if city_days %}
-                  Actuals: {{ city_days | min }} to {{ city_days | max }}
+                  {{ _("Actuals: {start} to {end}").format(start=city_days | min, end=city_days | max) }}
                 {% endif %}
                 {% if fc_days %}
-                  <span class="ms-2">| Forecast: {{ fc_days | min }} to {{ fc_days | max }}</span>
+                  <span class="ms-2">| {{ _("Forecast: {start} to {end}").format(start=fc_days | min, end=fc_days | max) }}</span>
                 {% endif %}
               </div>
             </div>
@@ -126,39 +126,39 @@
                 <div class="col-12 col-lg-4">
                   <div class="border rounded p-2 h-100">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                      <div class="small fw-semibold">UTM campaign</div>
-                      <div class="small text-muted">Within city</div>
+                      <div class="small fw-semibold">{{ _("UTM campaign") }}</div>
+                      <div class="small text-muted">{{ _("Within city") }}</div>
                     </div>
                     <div style="height: 260px;">
                       <canvas id="cityCampaignPieFemale{{ loop.index }}"></canvas>
                     </div>
-                    <div class="small text-muted mt-2 text-center">Hover to see values and percentages.</div>
+                    <div class="small text-muted mt-2 text-center">{{ _("Hover to see values and percentages.") }}</div>
                   </div>
                 </div>
 
                 <div class="col-12 col-lg-4">
                   <div class="border rounded p-2 h-100">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                      <div class="small fw-semibold">UTM content</div>
-                      <div class="small text-muted">Within city</div>
+                      <div class="small fw-semibold">{{ _("UTM content") }}</div>
+                      <div class="small text-muted">{{ _("Within city") }}</div>
                     </div>
                     <div style="height: 260px;">
                       <canvas id="cityContentPieFemale{{ loop.index }}"></canvas>
                     </div>
-                    <div class="small text-muted mt-2 text-center">Hover to see values and percentages.</div>
+                    <div class="small text-muted mt-2 text-center">{{ _("Hover to see values and percentages.") }}</div>
                   </div>
                 </div>
 
                 <div class="col-12 col-lg-4">
                   <div class="border rounded p-2 h-100">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                      <div class="small fw-semibold">Time of day (3h buckets)</div>
-                      <div class="small text-muted">Within city</div>
+                      <div class="small fw-semibold">{{ _("Time of day (3h buckets)") }}</div>
+                      <div class="small text-muted">{{ _("Within city") }}</div>
                     </div>
                     <div style="height: 260px;">
                       <canvas id="cityHourPieFemale{{ loop.index }}"></canvas>
                     </div>
-                    <div class="small text-muted mt-2 text-center">Hover to see values and percentages.</div>
+                    <div class="small text-muted mt-2 text-center">{{ _("Hover to see values and percentages.") }}</div>
                   </div>
                 </div>
               </div>
@@ -171,13 +171,13 @@
               <div class="mt-3">
                 <div class="border rounded p-2">
                   <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                    <div class="small fw-semibold">AI prompt for customer persona ({{ city }})</div>
+                    <div class="small fw-semibold">{{ _("AI prompt for customer persona ({city})").format(city=city) }}</div>
                     <button
                       type="button"
                       class="btn btn-outline-primary btn-sm"
                       onclick="copyCityPromptFemale('{{ city | e }}', {{ loop.index }})"
                     >
-                      Copy prompt
+                      {{ _("Copy prompt") }}
                     </button>
                   </div>
 
@@ -202,7 +202,7 @@ Primero, Clasifica estas localidades en niveles de ingreso alto, medio o bajo ut
 Segundo, indícame en qué áreas específicas de {{ city }} somos más populares y si nuestra marca Save a Playa (desodorante natural) está atrayendo actualmente a un público de ingresos altos o ingresos medios. Presenta los resultados en un resumen claro con insights accionables para publicidad segmentada.
 </textarea>
                   <div id="copyPromptToastFemale{{ loop.index }}" class="small text-success mt-2" style="display:none;">
-                    Copied.
+                    {{ _("Copied.") }}
                   </div>
                 </div>
 
@@ -211,7 +211,7 @@ Segundo, indícame en qué áreas específicas de {{ city }} somos más populare
                     class="btn btn-outline-secondary btn-sm"
                     href="{{ url_for('main.download_top_cities_female_city_csv', city=city) }}"
                   >
-                    Download CSV
+                    {{ _("Download CSV") }}
                   </a>
                 </div>
               </div>
@@ -277,7 +277,7 @@ Segundo, indícame en qué áreas específicas de {{ city }} somos más populare
         toast._t = setTimeout(() => { toast.style.display = "none"; }, 1200);
       }
     } catch (e) {
-      alert("Could not copy prompt. Please copy manually.");
+      alert({{ _("Could not copy prompt. Please copy manually.")|tojson }});
     }
   };
 </script>
@@ -426,15 +426,15 @@ Segundo, indícame en qué áreas específicas de {{ city }} somos más populare
         type: "line",
         data: {
           datasets: [
-            { label: useUSDFemale ? "Actual Sales (USD)" : "Actual Sales (COP)", data: actual, tension: 0.1 },
-            { label: useUSDFemale ? "Forecast (USD)" : "Forecast (COP)", data: fc, tension: 0.1, borderDash: [6, 6], pointRadius: 0 }
+            { label: useUSDFemale ? {{ _("Actual Sales (USD)")|tojson }} : {{ _("Actual Sales (COP)")|tojson }}, data: actual, tension: 0.1 },
+            { label: useUSDFemale ? {{ _("Forecast (USD)")|tojson }} : {{ _("Forecast (COP)")|tojson }}, data: fc, tension: 0.1, borderDash: [6, 6], pointRadius: 0 }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: `Daily Sales Trend: ${city}` },
+            title: { display: true, text: {{ _("Daily Sales Trend: {city}")|tojson }}.replace("{city}", () => city) },
             tooltip: { callbacks: { label: (ctx) => formatMoneyFromCOP(ctx.parsed.y || 0) } },
 
             // Hard-disable datalabels for trend/forecast charts
@@ -442,12 +442,12 @@ Segundo, indícame en qué áreas específicas de {{ city }} somos más populare
           },
           interaction: { mode: "index", intersect: false },
           scales: {
-            x: { type: "time", time: { unit: "day", tooltipFormat: "yyyy-MM-dd" }, title: { display: true, text: "Date" } },
+            x: { type: "time", time: { unit: "day", tooltipFormat: "yyyy-MM-dd" }, title: { display: true, text: {{ _("Date")|tojson }} } },
             y: {
               beginAtZero: true,
               suggestedMax: localMax ? localMax * 1.1 : undefined,
               ticks: { callback: (value) => formatMoneyFromCOP(value) },
-              title: { display: true, text: useUSDFemale ? "Total Sales (USD)" : "Total Sales (COP)" }
+              title: { display: true, text: useUSDFemale ? {{ _("Total Sales (USD)")|tojson }} : {{ _("Total Sales (COP)")|tojson }} }
             }
           }
         }
@@ -509,15 +509,15 @@ Segundo, indícame en qué áreas específicas de {{ city }} somos más populare
   }
 
   function renderCampaignPies() {
-    renderPerCityPie(cityCampaignPieInstances, cityCampaignPies, "cityCampaignPieFemale", "No utm_campaign data");
+    renderPerCityPie(cityCampaignPieInstances, cityCampaignPies, "cityCampaignPieFemale", {{ _("No utm_campaign data")|tojson }});
   }
 
   function renderContentPies() {
-    renderPerCityPie(cityContentPieInstances, cityContentPies, "cityContentPieFemale", "No utm_content data");
+    renderPerCityPie(cityContentPieInstances, cityContentPies, "cityContentPieFemale", {{ _("No utm_content data")|tojson }});
   }
 
   function renderHourPies() {
-    renderPerCityPie(cityHourPieInstances, cityHourPies, "cityHourPieFemale", "No hour data");
+    renderPerCityPie(cityHourPieInstances, cityHourPies, "cityHourPieFemale", {{ _("No hour data")|tojson }});
   }
 
   window.toggleCurrencyTopCitiesFemale = function () {

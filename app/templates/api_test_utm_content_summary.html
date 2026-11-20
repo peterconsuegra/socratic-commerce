@@ -1,53 +1,52 @@
 {% extends "layout.html" %}
 
-{% block title %}API Test · UTM Content Sales Summary{% endblock %}
+{% block title %}{{ _("API Test · {name}").format(name=_("UTM Content Sales Summary")) }}{% endblock %}
 
 {% block content %}
 <div class="container mt-2" style="max-width: 1100px;">
 
-  <h2 class="text-center mb-1">API Test — UTM Content Sales Summary</h2>
+  <h2 class="text-center mb-1">{{ _("API Test — {name}").format(name=_("UTM Content Sales Summary")) }}</h2>
   <p class="text-center text-muted mb-4">
-    <code>GET /api/utm_content_summary</code> — total sales &amp; repurchase % grouped by
-    <code>utm_content</code> for a single <code>utm_campaign</code>.
+    {{ _("<code>GET /api/utm_content_summary</code> — total sales &amp; repurchase % grouped by <code>utm_content</code> for a single <code>utm_campaign</code>.")|safe }}
   </p>
 
   <!-- Selector -->
   <div class="card shadow-sm mb-3">
     <div class="card-body">
 
-      <label class="form-label fw-bold mb-2" for="campaignName">Campaign name <span class="text-danger">*</span></label>
+      <label class="form-label fw-bold mb-2" for="campaignName">{{ _("Campaign name") }} <span class="text-danger">*</span></label>
       <div class="input-group mb-3">
         <input type="text" id="campaignName" class="form-control" list="campaignList"
-               placeholder="e.g. RetargetingSaveaplaya2026" autocomplete="off">
+               placeholder="{{ _('e.g. {example}').format(example='RetargetingSaveaplaya2026') }}" autocomplete="off">
         <button type="button" id="loadCampaignsBtn" class="btn btn-outline-secondary">
-          Load campaign list
+          {{ _("Load campaign list") }}
         </button>
         <datalist id="campaignList"></datalist>
       </div>
       <div id="campaignHint" class="small text-muted mb-3">
-        Matched case-insensitively against <code>utm_campaign</code>. Use “Load campaign list” to autocomplete.
+        {{ _("Matched case-insensitively against <code>utm_campaign</code>. Use “Load campaign list” to autocomplete.")|safe }}
       </div>
 
-      <label class="form-label fw-bold mb-2">Date range</label>
-      <div class="btn-group flex-wrap mb-3" role="group" aria-label="Period selector" id="periodButtons">
-        <button type="button" class="btn btn-outline-primary active" data-period="all">All periods</button>
-        <button type="button" class="btn btn-outline-primary" data-period="today">Today</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_7d">Last 7 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_30d">Last 30 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_90d">Last 90 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_180d">Last 180 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="custom">Custom</button>
+      <label class="form-label fw-bold mb-2">{{ _("Date range") }}</label>
+      <div class="btn-group flex-wrap mb-3" role="group" aria-label="{{ _('Period selector') }}" id="periodButtons">
+        <button type="button" class="btn btn-outline-primary active" data-period="all">{{ _("All periods") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="today">{{ _("Today") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_7d">{{ _("Last 7 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_30d">{{ _("Last 30 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_90d">{{ _("Last 90 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_180d">{{ _("Last 180 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="custom">{{ _("Custom") }}</button>
       </div>
       {% include "partials/api_custom_range.html" %}
 
       <div class="d-flex align-items-center gap-3 flex-wrap">
-        <label class="small text-muted mb-0">Top N contents
+        <label class="small text-muted mb-0">{{ _("Top N contents") }}
           <input type="number" id="limit" class="form-control form-control-sm d-inline-block ms-1"
                  style="width:90px;" value="50" step="5" min="0">
-          <span class="text-muted">(0 = all)</span>
+          <span class="text-muted">{{ _("(0 = all)") }}</span>
         </label>
         <button type="button" id="sendBtn" class="btn btn-primary">
-          <span class="material-icons align-middle" style="font-size:18px;">send</span> Send request
+          <span class="material-icons align-middle" style="font-size:18px;">send</span> {{ _("Send request") }}
         </button>
         <code id="requestUrl" class="text-muted small" style="word-break:break-all;"></code>
         <span id="status" class="ms-auto small"></span>
@@ -61,11 +60,11 @@
   <!-- Raw JSON -->
   <div class="card shadow-sm mt-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-bold">Raw JSON response</span>
-      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+      <span class="fw-bold">{{ _("Raw JSON response") }}</span>
+      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">{{ _("Copy") }}</button>
     </div>
     <div class="card-body p-0">
-      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">No request sent yet.</pre>
+      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">{{ _("No request sent yet.") }}</pre>
     </div>
   </div>
 
@@ -75,6 +74,39 @@
 {% block page_scripts %}
 <script>
 (function () {
+  // UI text in the page language; the API's JSON is never translated.
+  const T = {
+    loading: {{ _("Loading…")|tojson }},
+    requestFailed: {{ _("Request failed.")|tojson }},
+    networkError: {{ _("Network error")|tojson }},
+    copy: {{ _("Copy")|tojson }},
+    copied: {{ _("Copied!")|tojson }},
+    totalSales: {{ _("Total sales")|tojson }},
+    orders: {{ _("Orders")|tojson }},
+    repSalesPct: {{ _("Repurchase % (sales)")|tojson }},
+    repOrdersPct: {{ _("Repurchase % (orders)")|tojson }},
+    repSalesOrders: {{ _("Repurchase (sales · orders)")|tojson }},
+    noOrders: {{ _("No orders in this period.")|tojson }},
+    loadedCampaigns: {{ _("Loaded {n} campaigns (last 180 days) — start typing to autocomplete.")|tojson }},
+    couldNotLoad: {{ _("Could not load campaign list: {error}")|tojson }},
+    female: {{ _("Female")|tojson }},
+    male: {{ _("Male")|tojson }},
+    unknown: {{ _("Unknown")|tojson }},
+    nOrders: {{ _("({n} orders)")|tojson }},
+    othersContents: {{ _("others ({n} contents)")|tojson }},
+    showingTop: {{ _("showing top {limit} of {total} utm_content values")|tojson }},
+    nValues: {{ _("{n} utm_content values")|tojson }},
+    genderShareAll: {{ _("Gender share (all content)")|tojson }},
+    campaign: {{ _("Campaign:")|tojson }},
+    noOrdersCarry: {{ _("No orders carry campaign '{name}'.")|tojson }},
+    didYouMean: {{ _("Did you mean:")|tojson }},
+    nameRequired: {{ _("campaign_name required")|tojson }},
+    enterName: {{ _("Please enter a campaign name.")|tojson }},
+    noOrdersShort: {{ _("no orders")|tojson }},
+  };
+  const PERIOD_LABELS = { "Today": {{ _("Today")|tojson }}, "Last 7 days": {{ _("Last 7 days")|tojson }}, "Last 30 days": {{ _("Last 30 days")|tojson }}, "Last 90 days": {{ _("Last 90 days")|tojson }}, "Last 180 days": {{ _("Last 180 days")|tojson }} };
+  function periodLabel(l) { return PERIOD_LABELS[l] || l; }
+  function fmt(s, v) { return s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)); }
   const ENDPOINT = "{{ url_for('main.api_utm_content_summary') }}";
   const CAMPAIGNS_ENDPOINT = "{{ url_for('main.api_utm_campaign_summary') }}";
 
@@ -126,7 +158,7 @@
   $loadBtn.addEventListener("click", async () => {
     $loadBtn.disabled = true;
     const original = $loadBtn.textContent;
-    $loadBtn.textContent = "Loading…";
+    $loadBtn.textContent = T.loading;
     try {
       const resp = await fetch(CAMPAIGNS_ENDPOINT + "?period=last_180d&limit=0",
                                { headers: { "Accept": "application/json" }, credentials: "same-origin" });
@@ -135,9 +167,9 @@
       $campList.innerHTML = rows
         .map(r => `<option value="${esc(r.utm_campaign)}">`)
         .join("");
-      $hint.innerHTML = `<span class="text-success">Loaded ${num(rows.length)} campaigns (last 180 days) — start typing to autocomplete.</span>`;
+      $hint.innerHTML = `<span class="text-success">${fmt(T.loadedCampaigns, { n: num(rows.length) })}</span>`;
     } catch (err) {
-      $hint.innerHTML = `<span class="text-danger">Could not load campaign list: ${esc(String(err))}</span>`;
+      $hint.innerHTML = `<span class="text-danger">${fmt(T.couldNotLoad, { error: esc(String(err)) })}</span>`;
     } finally {
       $loadBtn.disabled = false;
       $loadBtn.textContent = original;
@@ -147,9 +179,9 @@
   // --- Rendering ------------------------------------------------------------
   // The API labels the third bucket "Other/Unknown"; it is shown as "Unknown".
   const GENDERS = [
-    { key: "Female",        label: "Female" },
-    { key: "Male",          label: "Male" },
-    { key: "Other/Unknown", label: "Unknown" },
+    { key: "Female",        label: T.female },
+    { key: "Male",          label: T.male },
+    { key: "Other/Unknown", label: T.unknown },
   ];
 
   function genderLookup(items) {
@@ -179,14 +211,14 @@
       const hit = by[g.key];
       const share = hit && totalSales > 0 ? (hit.sales / totalSales * 100) : 0;
       return `<span class="me-3"><strong>${g.label}:</strong> ${share.toFixed(1)}%`
-           + `<span class="text-muted small"> (${hit ? num(hit.orders) : 0} orders)</span></span>`;
+           + `<span class="text-muted small"> ${fmt(T.nOrders, { n: hit ? num(hit.orders) : 0 })}</span></span>`;
     });
     return parts.join("");
   }
 
   function bodyRow(c, isOther) {
     const name = isOther
-      ? `<em class="text-muted">others (${num(c.contents_count)} contents)</em>`
+      ? `<em class="text-muted">${fmt(T.othersContents, { n: num(c.contents_count) })}</em>`
       : `<span class="badge bg-secondary">${esc(c.utm_content)}</span>`;
     const cls = isOther ? ' class="table-secondary"' : "";
     return `
@@ -207,24 +239,24 @@
     if (p.others) rows += bodyRow(p.others, true);
 
     const limitNote = p.limit
-      ? `<span class="text-muted small">showing top ${num(p.limit)} of ${num(t.distinct_contents)} utm_content values</span>`
-      : `<span class="text-muted small">${num(t.distinct_contents)} utm_content values</span>`;
+      ? `<span class="text-muted small">${fmt(T.showingTop, { limit: num(p.limit), total: num(t.distinct_contents) })}</span>`
+      : `<span class="text-muted small">${fmt(T.nValues, { n: num(t.distinct_contents) })}</span>`;
 
     return `
       <div class="card shadow-sm mb-3">
         <div class="card-header bg-light d-flex justify-content-between flex-wrap">
-          <span class="fw-bold">${p.label}</span>
+          <span class="fw-bold">${periodLabel(p.label)}</span>
           <span class="text-muted small">${p.start_date} → ${p.end_date}</span>
         </div>
         <div class="card-body">
           <div class="row text-center mb-3 g-2">
-            <div class="col"><div class="text-muted small">Total sales</div><div class="fw-bold">${money(t.total_sales)}</div></div>
-            <div class="col"><div class="text-muted small">Orders</div><div class="fw-bold">${num(t.total_orders)}</div></div>
-            <div class="col"><div class="text-muted small">Repurchase % (sales)</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
-            <div class="col"><div class="text-muted small">Repurchase % (orders)</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">${T.totalSales}</div><div class="fw-bold">${money(t.total_sales)}</div></div>
+            <div class="col"><div class="text-muted small">${T.orders}</div><div class="fw-bold">${num(t.total_orders)}</div></div>
+            <div class="col"><div class="text-muted small">${T.repSalesPct}</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">${T.repOrdersPct}</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
           </div>
           <div class="text-center mb-3">
-            <div class="text-muted small mb-1">Gender share (all content)</div>
+            <div class="text-muted small mb-1">${T.genderShareAll}</div>
             ${genderSummary(t.gender_share_sales, t.total_sales)}
           </div>
           <div class="mb-2">${limitNote}</div>
@@ -233,17 +265,17 @@
               <thead class="table-light">
                 <tr>
                   <th>utm_content</th>
-                  <th class="text-end">Total sales</th>
-                  <th class="text-end">Orders</th>
-                  <th class="text-end">Repurchase % (sales)</th>
-                  <th class="text-end">Repurchase % (orders)</th>
-                  <th class="text-end">Repurchase (sales · orders)</th>
-                  <th class="text-end bg-female">Female</th>
-                  <th class="text-end bg-male">Male</th>
-                  <th class="text-end">Unknown</th>
+                  <th class="text-end">${T.totalSales}</th>
+                  <th class="text-end">${T.orders}</th>
+                  <th class="text-end">${T.repSalesPct}</th>
+                  <th class="text-end">${T.repOrdersPct}</th>
+                  <th class="text-end">${T.repSalesOrders}</th>
+                  <th class="text-end bg-female">${T.female}</th>
+                  <th class="text-end bg-male">${T.male}</th>
+                  <th class="text-end">${T.unknown}</th>
                 </tr>
               </thead>
-              <tbody>${rows || `<tr><td colspan="9" class="text-center text-muted">No orders in this period.</td></tr>`}</tbody>
+              <tbody>${rows || `<tr><td colspan="9" class="text-center text-muted">${T.noOrders}</td></tr>`}</tbody>
             </table>
           </div>
         </div>
@@ -255,7 +287,7 @@
     const order = ["today", "last_7d", "last_30d", "last_90d", "last_180d"];
     const keys = Object.keys(data.periods).sort((a, b) => order.indexOf(a) - order.indexOf(b));
     const header = `<div class="alert alert-light border mb-3">
-        Campaign: <strong>${esc((data.resolved_utm_campaigns || [data.utm_campaign]).join(", "))}</strong>
+        ${T.campaign} <strong>${esc((data.resolved_utm_campaigns || [data.utm_campaign]).join(", "))}</strong>
       </div>`;
     $results.innerHTML = header + keys.map(k => periodCard(data.periods[k])).join("");
   }
@@ -270,8 +302,8 @@
                     data-name="${esc(x)}">${esc(x)}</button>`).join("")}</div>`
       : "";
     $results.innerHTML = `<div class="alert alert-warning">
-        No orders carry campaign '${esc(data.campaign_name || data.campaign_id || "")}'.
-        ${s.length ? "<div class='small mt-2'>Did you mean:</div>" : ""}
+        ${fmt(T.noOrdersCarry, { name: esc(data.campaign_name || data.campaign_id || "") })}
+        ${s.length ? `<div class='small mt-2'>${T.didYouMean}</div>` : ""}
         ${chips}
       </div>`;
     $results.querySelectorAll(".suggestion-chip").forEach(btn =>
@@ -285,15 +317,15 @@
   async function send() {
     const name = $campaign.value.trim();
     if (!name) {
-      $status.innerHTML = `<span class="text-danger">campaign_name required</span>`;
-      $results.innerHTML = `<div class="alert alert-danger">Please enter a campaign name.</div>`;
+      $status.innerHTML = `<span class="text-danger">${T.nameRequired}</span>`;
+      $results.innerHTML = `<div class="alert alert-danger">${T.enterName}</div>`;
       $campaign.focus();
       return;
     }
 
     refreshUrlPreview();
     $sendBtn.disabled = true;
-    $status.innerHTML = `<span class="text-primary">Loading…</span>`;
+    $status.innerHTML = `<span class="text-primary">${T.loading}</span>`;
     const started = performance.now();
     try {
       const resp = await fetch(buildUrl(), { headers: { "Accept": "application/json" }, credentials: "same-origin" });
@@ -302,17 +334,17 @@
       $rawJson.textContent = JSON.stringify(data, null, 2);
 
       if (resp.ok && data.status === "success" && data.campaign_found === false) {
-        $status.innerHTML = `<span class="text-warning">${resp.status} · no orders · ${ms} ms</span>`;
+        $status.innerHTML = `<span class="text-warning">${resp.status} · ${T.noOrdersShort} · ${ms} ms</span>`;
         renderSuggestions(data);
       } else if (resp.ok && data.status === "success") {
         $status.innerHTML = `<span class="text-success">${resp.status} OK · ${ms} ms</span>`;
         render(data);
       } else {
         $status.innerHTML = `<span class="text-danger">${resp.status} · ${ms} ms</span>`;
-        $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || "Request failed.")}</div>`;
+        $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || T.requestFailed)}</div>`;
       }
     } catch (err) {
-      $status.innerHTML = `<span class="text-danger">Network error</span>`;
+      $status.innerHTML = `<span class="text-danger">${T.networkError}</span>`;
       $results.innerHTML = `<div class="alert alert-danger">${esc(String(err))}</div>`;
       $rawJson.textContent = String(err);
     } finally {
@@ -325,8 +357,8 @@
 
   $copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText($rawJson.textContent).then(() => {
-      $copyBtn.textContent = "Copied!";
-      setTimeout(() => ($copyBtn.textContent = "Copy"), 1500);
+      $copyBtn.textContent = T.copied;
+      setTimeout(() => ($copyBtn.textContent = T.copy), 1500);
     });
   });
 

@@ -173,6 +173,19 @@ class SalesByLocationPageTests(TempOrdersTestCase):
         self.assertIn("Stats for every location", html)
         self.assertIn("$259,000", html)
 
+    def test_the_site_language_applies_until_the_report_picks_the_other(self):
+        db.session.add(Option(meta_key="site_language", meta_value="es"))
+        db.session.commit()
+        self.assertIn("Estadísticas de todas las ubicaciones", self.get())
+
+        self.assertIn("Stats for every location", self.get("?lang=en"))  # this report in English
+        self.assertIn("Stats for Cundinamarca", self.get("?state=Cundinamarca"))
+
+        self.client.post("/options/language", data={"language": "en"})
+        self.assertIn("Stats for every location", self.get())
+        self.client.post("/options/language", data={"language": "es"})
+        self.assertIn("Estadísticas de todas las ubicaciones", self.get())  # the English report choice is gone
+
     def test_sidebar_links_the_page(self):
         self.assertIn('<a href="/sales_by_location" class="active">Sales by Location</a>', self.get())
 

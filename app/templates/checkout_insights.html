@@ -2,7 +2,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Checkout Insights
+{{ _("Checkout Insights") }}
 {% endblock %}
 
 {% block content %}
@@ -35,20 +35,19 @@ Checkout Insights
 
   {% if not total_daily_trend %}
     <div class="alert alert-warning mt-3">
-      No data available to display for this selection.
+      {{ _("No data available to display for this selection.") }}
     </div>
   {% else %}
 
     <div class="text-center mb-3">
-      <label for="exchangeRateCheckout">USD Exchange Rate (COP):</label>
+      <label for="exchangeRateCheckout">{{ _("USD Exchange Rate (COP):") }}</label>
       <input type="number" id="exchangeRateCheckout" value="4000" step="50" min="3000" max="6000">
-      <button onclick="toggleCurrencyCheckout()" class="btn btn-primary">Switch Currency</button>
+      <button onclick="toggleCurrencyCheckout()" class="btn btn-primary">{{ _("Switch Currency") }}</button>
     </div>
 
-    <h2 class="text-center">Checkout Answers Distribution (utm_answer)</h2>
+    <h2 class="text-center">{{ _("Checkout Answers Distribution (utm_answer)") }}</h2>
     <p class="text-center text-muted mb-3">
-      Based on the selected date range. This reflects the checkout question:
-      “How did you first hear about Save a Playa?”
+      {{ _("Based on the selected date range. This reflects the checkout question: “How did you first hear about Save a Playa?”") }}
     </p>
 
     <div style="height: 420px;">
@@ -57,32 +56,32 @@ Checkout Insights
 
     {% if other_answers_labels and other_answers_pct and other_answers_pct > 0 %}
       <p class="text-center text-muted mt-3" style="font-size: 0.95rem;">
-        Other answers (&lt;2%): {{ other_answers_labels|join(", ") }} ({{ "%.1f"|format(other_answers_pct) }}%)
+        {{ _("Other answers (<2%): {answers} ({pct}%)").format(answers=other_answers_labels|join(", "), pct="%.1f"|format(other_answers_pct)) }}
       </p>
     {% endif %}
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Total Sales Trend and Forecast</h2>
+    <h2 class="text-center">{{ _("Daily Total Sales Trend and Forecast") }}</h2>
 
     <!-- TOTAL: 3 pies in one row -->
     <div class="row mt-4">
       <div class="col-12 col-lg-4 mb-4">
-        <h6 class="text-center mb-2">Sales share by gender (total)</h6>
+        <h6 class="text-center mb-2">{{ _("Sales share by gender (total)") }}</h6>
         <div style="height: 320px;">
           <canvas id="genderPieTotal"></canvas>
         </div>
       </div>
 
       <div class="col-12 col-lg-4 mb-4">
-        <h6 class="text-center mb-2">Sales share by city (total)</h6>
+        <h6 class="text-center mb-2">{{ _("Sales share by city (total)") }}</h6>
         <div style="height: 320px;">
           <canvas id="cityPieTotal"></canvas>
         </div>
       </div>
 
       <div class="col-12 col-lg-4 mb-4">
-        <h6 class="text-center mb-2">Sales share by time of day (3h buckets)</h6>
+        <h6 class="text-center mb-2">{{ _("Sales share by time of day (3h buckets)") }}</h6>
         <div style="height: 320px;">
           <canvas id="hourPieTotal"></canvas>
         </div>
@@ -95,11 +94,11 @@ Checkout Insights
 
     <hr class="my-5">
 
-    <h2 class="text-center">Daily Sales Trend and Forecast by Answer</h2>
+    <h2 class="text-center">{{ _("Daily Sales Trend and Forecast by Answer") }}</h2>
 
     {% if not answer_charts %}
       <div class="alert alert-warning mt-3">
-        No per-answer charts available for this selection.
+        {{ _("No per-answer charts available for this selection.") }}
       </div>
     {% else %}
       {% for a in answer_charts %}
@@ -108,21 +107,21 @@ Checkout Insights
         <!-- PER ANSWER: 3 pies in one row -->
         <div class="row mt-4">
           <div class="col-12 col-lg-4 mb-4">
-            <h6 class="text-center mb-2">Sales share by gender</h6>
+            <h6 class="text-center mb-2">{{ _("Sales share by gender") }}</h6>
             <div style="height: 320px;">
               <canvas id="{{ a.gender_canvas_id }}"></canvas>
             </div>
           </div>
 
           <div class="col-12 col-lg-4 mb-4">
-            <h6 class="text-center mb-2">Sales share by city</h6>
+            <h6 class="text-center mb-2">{{ _("Sales share by city") }}</h6>
             <div style="height: 320px;">
               <canvas id="{{ a.city_canvas_id }}"></canvas>
             </div>
           </div>
 
           <div class="col-12 col-lg-4 mb-4">
-            <h6 class="text-center mb-2">Sales share by time of day (3h buckets)</h6>
+            <h6 class="text-center mb-2">{{ _("Sales share by time of day (3h buckets)") }}</h6>
             <div style="height: 320px;">
               <canvas id="{{ a.hour_canvas_id }}"></canvas>
             </div>
@@ -198,7 +197,18 @@ document.addEventListener("DOMContentLoaded", function() {
     "other": "#af7aa1"
   };
 
+  var GENDER_NAMES = {
+    "female": {{ _("female")|tojson }},
+    "male": {{ _("male")|tojson }},
+    "unknown": {{ _("unknown")|tojson }},
+    "other": {{ _("other")|tojson }}
+  };
+
   function normKey(s) { return String(s || "").trim().toLowerCase(); }
+
+  function genderName(label) {
+    return GENDER_NAMES[normKey(label)] || label;
+  }
 
   function buildGenderColors(labels) {
     var out = [];
@@ -238,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var chart = new Chart(ctx, {
       type: "pie",
       data: {
-        labels: fl,
+        labels: fl.map(genderName),
         datasets: [{
           data: fv,
           backgroundColor: colors,
@@ -441,7 +451,7 @@ document.addEventListener("DOMContentLoaded", function() {
   var hourPieTotal = buildGenericPie("hourPieTotal", hourLabelsTotal, hourValuesTotalCOP);
 
   // Line chart factory
-  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix, hexColor) {
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, histLabel, fcstLabel, hexColor) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -456,14 +466,14 @@ document.addEventListener("DOMContentLoaded", function() {
         labels: labels,
         datasets: [
           {
-            label: titlePrefix + " (COP)",
+            label: histLabel + " (COP)",
             data: histCOP,
             fill: true,
             borderColor: lineColor,
             backgroundColor: fillColor
           },
           {
-            label: "Forecasted " + titlePrefix + " (COP)",
+            label: fcstLabel + " (COP)",
             data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
             borderDash: [5, 5],
             fill: true,
@@ -483,7 +493,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._rawHistCOP = histCOP;
     chart._rawForecastCOP = fcstCOP;
     chart._histLen = histCOP.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -497,7 +508,8 @@ document.addEventListener("DOMContentLoaded", function() {
     ],
     [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
     [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
-    "Historical Total Sales",
+    {{ _("Historical Total Sales")|tojson }},
+    {{ _("Forecasted Total Sales")|tojson }},
     null
   );
 
@@ -563,7 +575,8 @@ document.addEventListener("DOMContentLoaded", function() {
         labels,
         hist,
         fcst,
-        "Historical {{ a.label|replace('"','\\"') }} Sales",
+        {{ _("Historical {channel} Sales").format(channel=a.label)|tojson }},
+        {{ _("Forecasted {channel} Sales").format(channel=a.label)|tojson }},
         color
       );
       if (c) answerCharts.push(c);
@@ -603,13 +616,9 @@ document.addEventListener("DOMContentLoaded", function() {
       chart.data.datasets[0].data = hist;
       chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-      chart.data.datasets[0].label = useUSD
-        ? chart._titlePrefix + " (USD)"
-        : chart._titlePrefix + " (COP)";
+      chart.data.datasets[0].label = chart._histLabel + (useUSD ? " (USD)" : " (COP)");
 
-      chart.data.datasets[1].label = useUSD
-        ? "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (USD)"
-        : "Forecasted " + chart._titlePrefix.replace("Historical ", "") + " (COP)";
+      chart.data.datasets[1].label = chart._fcstLabel + (useUSD ? " (USD)" : " (COP)");
 
       chart.update();
     }

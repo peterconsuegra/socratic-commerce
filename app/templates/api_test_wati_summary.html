@@ -1,28 +1,27 @@
 {% extends "layout.html" %}
 
-{% block title %}API Test · WATI Summary{% endblock %}
+{% block title %}{{ _("API Test · {name}").format(name=_("WATI Summary")) }}{% endblock %}
 
 {% block content %}
 <div class="container mt-2" style="max-width: 1100px;">
 
-  <h2 class="text-center mb-1">API Test — WATI Summary</h2>
+  <h2 class="text-center mb-1">{{ _("API Test — {name}").format(name=_("WATI Summary")) }}</h2>
   <p class="text-center text-muted mb-4">
-    <code>GET /api/wati_summary</code> — total sales &amp; repurchase % for
-    <code>utm_campaign = "wati"</code> only, with all other campaigns stripped out.
+    {{ _("<code>GET /api/wati_summary</code> — total sales &amp; repurchase % for <code>utm_campaign = &quot;wati&quot;</code> only, with all other campaigns stripped out.")|safe }}
   </p>
 
   <!-- Selector -->
   <div class="card shadow-sm mb-3">
     <div class="card-body">
-      <label class="form-label fw-bold mb-2">Date range</label>
-      <div class="btn-group flex-wrap mb-3" role="group" aria-label="Period selector" id="periodButtons">
-        <button type="button" class="btn btn-outline-primary active" data-period="all">All periods</button>
-        <button type="button" class="btn btn-outline-primary" data-period="today">Today</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_7d">Last 7 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_30d">Last 30 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_90d">Last 90 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="last_180d">Last 180 days</button>
-        <button type="button" class="btn btn-outline-primary" data-period="custom">Custom</button>
+      <label class="form-label fw-bold mb-2">{{ _("Date range") }}</label>
+      <div class="btn-group flex-wrap mb-3" role="group" aria-label="{{ _('Period selector') }}" id="periodButtons">
+        <button type="button" class="btn btn-outline-primary active" data-period="all">{{ _("All periods") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="today">{{ _("Today") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_7d">{{ _("Last 7 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_30d">{{ _("Last 30 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_90d">{{ _("Last 90 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="last_180d">{{ _("Last 180 days") }}</button>
+        <button type="button" class="btn btn-outline-primary" data-period="custom">{{ _("Custom") }}</button>
       </div>
       {% include "partials/api_custom_range.html" %}
 
@@ -30,11 +29,11 @@
         <div class="form-check mb-0">
           <input class="form-check-input" type="checkbox" id="refresh">
           <label class="form-check-label small text-muted" for="refresh">
-            Force fresh data (re-fetch latest orders — slower)
+            {{ _("Force fresh data (re-fetch latest orders — slower)") }}
           </label>
         </div>
         <button type="button" id="sendBtn" class="btn btn-primary">
-          <span class="material-icons align-middle" style="font-size:18px;">send</span> Send request
+          <span class="material-icons align-middle" style="font-size:18px;">send</span> {{ _("Send request") }}
         </button>
         <code id="requestUrl" class="text-muted small" style="word-break:break-all;"></code>
         <span id="status" class="ms-auto small"></span>
@@ -48,11 +47,11 @@
   <!-- Raw JSON -->
   <div class="card shadow-sm mt-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-bold">Raw JSON response</span>
-      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+      <span class="fw-bold">{{ _("Raw JSON response") }}</span>
+      <button type="button" id="copyJsonBtn" class="btn btn-sm btn-outline-secondary">{{ _("Copy") }}</button>
     </div>
     <div class="card-body p-0">
-      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">No request sent yet.</pre>
+      <pre id="rawJson" class="mb-0 p-3" style="max-height: 420px; overflow:auto; font-size: 0.8rem;">{{ _("No request sent yet.") }}</pre>
     </div>
   </div>
 
@@ -62,6 +61,36 @@
 {% block page_scripts %}
 <script>
 (function () {
+  // UI text in the page language; the API's JSON is never translated.
+  const T = {
+    loading: {{ _("Loading…")|tojson }},
+    requestFailed: {{ _("Request failed.")|tojson }},
+    networkError: {{ _("Network error")|tojson }},
+    copy: {{ _("Copy")|tojson }},
+    copied: {{ _("Copied!")|tojson }},
+    totalSales: {{ _("Total sales")|tojson }},
+    orders: {{ _("Orders")|tojson }},
+    repSalesPct: {{ _("Repurchase % (sales)")|tojson }},
+    repOrdersPct: {{ _("Repurchase % (orders)")|tojson }},
+    repSalesOrders: {{ _("Repurchase (sales · orders)")|tojson }},
+    noOrders: {{ _("No orders in this period.")|tojson }},
+    female: {{ _("Female")|tojson }},
+    male: {{ _("Male")|tojson }},
+    unknown: {{ _("Unknown")|tojson }},
+    noData: {{ _("No data for this period.")|tojson }},
+    sales: {{ _("Sales")|tojson }},
+    share: {{ _("Share")|tojson }},
+    genderShareSales: {{ _("Gender share (of sales)")|tojson }},
+    timeSlotSales: {{ _("Time slot sales")|tojson }},
+    timeSlot: {{ _("Time slot")|tojson }},
+    cityShareSales: {{ _("City share sales")|tojson }},
+    city: {{ _("City")|tojson }},
+    campaign: {{ _("Campaign:")|tojson }},
+    othersExcluded: {{ _("(all other campaigns excluded)")|tojson }},
+  };
+  const PERIOD_LABELS = { "Today": {{ _("Today")|tojson }}, "Last 7 days": {{ _("Last 7 days")|tojson }}, "Last 30 days": {{ _("Last 30 days")|tojson }}, "Last 90 days": {{ _("Last 90 days")|tojson }}, "Last 180 days": {{ _("Last 180 days")|tojson }} };
+  function periodLabel(l) { return PERIOD_LABELS[l] || l; }
+  function fmt(s, v) { return s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)); }
   const ENDPOINT = "{{ url_for('main.api_wati_summary') }}";
 
   let selectedPeriod = "all";
@@ -103,15 +132,15 @@
   // --- Rendering ------------------------------------------------------------
   // The API labels the third gender bucket "Other/Unknown"; shown as "Unknown".
   const GENDERS = [
-    { key: "Female",        label: "Female" },
-    { key: "Male",          label: "Male" },
-    { key: "Other/Unknown", label: "Unknown" },
+    { key: "Female",        label: T.female },
+    { key: "Male",          label: T.male },
+    { key: "Other/Unknown", label: T.unknown },
   ];
 
   // Generic breakdown table: rows of {<dimKey>: label, sales: n}, with share.
   function breakdownTable(items, dimKey, headLabel, totalSales) {
     if (!items || !items.length) {
-      return `<div class="text-muted small">No data for this period.</div>`;
+      return `<div class="text-muted small">${T.noData}</div>`;
     }
     const rows = items.map(it => {
       const share = totalSales > 0 ? (it.sales / totalSales * 100) : 0;
@@ -126,8 +155,8 @@
         <thead class="table-light">
           <tr>
             <th>${headLabel}</th>
-            <th class="text-end">Sales</th>
-            <th class="text-end">Share</th>
+            <th class="text-end">${T.sales}</th>
+            <th class="text-end">${T.share}</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -157,35 +186,35 @@
     return `
       <div class="card shadow-sm mb-3">
         <div class="card-header bg-light d-flex justify-content-between flex-wrap">
-          <span class="fw-bold">${p.label}</span>
+          <span class="fw-bold">${periodLabel(p.label)}</span>
           <span class="text-muted small">${p.start_date} → ${p.end_date}</span>
         </div>
         <div class="card-body">
 
           <div class="row text-center mb-3 g-2">
-            <div class="col"><div class="text-muted small">Total sales</div><div class="fw-bold">${money(t.total_sales)}</div></div>
-            <div class="col"><div class="text-muted small">Orders</div><div class="fw-bold">${num(t.total_orders)}</div></div>
-            <div class="col"><div class="text-muted small">Repurchase % (sales)</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
-            <div class="col"><div class="text-muted small">Repurchase % (orders)</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
-            <div class="col"><div class="text-muted small">Repurchase (sales · orders)</div><div class="fw-bold">${money(t.repurchase_sales)} · ${num(t.repurchase_orders)}</div></div>
+            <div class="col"><div class="text-muted small">${T.totalSales}</div><div class="fw-bold">${money(t.total_sales)}</div></div>
+            <div class="col"><div class="text-muted small">${T.orders}</div><div class="fw-bold">${num(t.total_orders)}</div></div>
+            <div class="col"><div class="text-muted small">${T.repSalesPct}</div><div class="fw-bold">${pct(t.repurchase_sales_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">${T.repOrdersPct}</div><div class="fw-bold">${pct(t.repurchase_orders_percentage)}</div></div>
+            <div class="col"><div class="text-muted small">${T.repSalesOrders}</div><div class="fw-bold">${money(t.repurchase_sales)} · ${num(t.repurchase_orders)}</div></div>
           </div>
 
           <div class="border rounded p-2 mb-3">
-            <div class="text-muted small text-center mb-2">Gender share (of sales)</div>
+            <div class="text-muted small text-center mb-2">${T.genderShareSales}</div>
             ${genderColumns(p.gender_share_sales, t.total_sales)}
           </div>
 
           <div class="row g-3">
             <div class="col-md-6">
-              <div class="fw-bold small mb-1">Time slot sales</div>
+              <div class="fw-bold small mb-1">${T.timeSlotSales}</div>
               <div class="table-responsive">
-                ${breakdownTable(p.time_slot_sales, "time_slot", "Time slot", t.total_sales)}
+                ${breakdownTable(p.time_slot_sales, "time_slot", T.timeSlot, t.total_sales)}
               </div>
             </div>
             <div class="col-md-6">
-              <div class="fw-bold small mb-1">City share sales</div>
+              <div class="fw-bold small mb-1">${T.cityShareSales}</div>
               <div class="table-responsive">
-                ${breakdownTable(p.city_share_sales, "city", "City", t.total_sales)}
+                ${breakdownTable(p.city_share_sales, "city", T.city, t.total_sales)}
               </div>
             </div>
           </div>
@@ -199,8 +228,8 @@
     const order = ["today", "last_7d", "last_30d", "last_90d", "last_180d"];
     const keys = Object.keys(data.periods).sort((a, b) => order.indexOf(a) - order.indexOf(b));
     const header = `<div class="alert alert-light border mb-3">
-        Campaign: <strong>${esc(data.utm_campaign)}</strong>
-        <span class="text-muted small">(all other campaigns excluded)</span>
+        ${T.campaign} <strong>${esc(data.utm_campaign)}</strong>
+        <span class="text-muted small">${T.othersExcluded}</span>
       </div>`;
     $results.innerHTML = header + keys.map(k => periodCard(data.periods[k])).join("");
   }
@@ -208,7 +237,7 @@
   async function send() {
     refreshUrlPreview();
     $sendBtn.disabled = true;
-    $status.innerHTML = `<span class="text-primary">Loading…</span>`;
+    $status.innerHTML = `<span class="text-primary">${T.loading}</span>`;
     const started = performance.now();
     try {
       const resp = await fetch(buildUrl(), { headers: { "Accept": "application/json" }, credentials: "same-origin" });
@@ -221,10 +250,10 @@
         render(data);
       } else {
         $status.innerHTML = `<span class="text-danger">${resp.status} · ${ms} ms</span>`;
-        $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || "Request failed.")}</div>`;
+        $results.innerHTML = `<div class="alert alert-danger">${esc(data.message || T.requestFailed)}</div>`;
       }
     } catch (err) {
-      $status.innerHTML = `<span class="text-danger">Network error</span>`;
+      $status.innerHTML = `<span class="text-danger">${T.networkError}</span>`;
       $results.innerHTML = `<div class="alert alert-danger">${esc(String(err))}</div>`;
       $rawJson.textContent = String(err);
     } finally {
@@ -235,8 +264,8 @@
   $sendBtn.addEventListener("click", send);
   $copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText($rawJson.textContent).then(() => {
-      $copyBtn.textContent = "Copied!";
-      setTimeout(() => ($copyBtn.textContent = "Copy"), 1500);
+      $copyBtn.textContent = T.copied;
+      setTimeout(() => ($copyBtn.textContent = T.copy), 1500);
     });
   });
 

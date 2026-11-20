@@ -2,7 +2,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-Bogota Insights Male
+{{ _("Bogota Insights Male") }}
 {% endblock %}
 
 {% block content %}
@@ -11,7 +11,7 @@ Bogota Insights Male
   class="btn btn-outline-success btn-sm"
   href="{{ url_for('main.download_bogota_insights_file', filename='bogota_insights_male_filtered.csv') }}"
 >
-  Download filtered CSV
+  {{ _("Download filtered CSV") }}
 </a>
 
 {% set file_name = "bogota_insights_male.csv" %}
@@ -38,30 +38,30 @@ Bogota Insights Male
 
   {% if error %}
     <div class="alert alert-danger" role="alert">
-      <strong>Something went wrong.</strong>
+      <strong>{{ _("Something went wrong.") }}</strong>
       <div class="mt-1">{{ error }}</div>
     </div>
   {% endif %}
 
   {% if not total_daily_trend %}
     <div class="alert alert-warning mt-3">
-      No data available for the selected date range.
+      {{ _("No data available for the selected date range.") }}
     </div>
   {% else %}
 
     <div class="text-center mb-2">
-      <h2 class="text-center">Bogota Insights Male</h2>
+      <h2 class="text-center">{{ _("Bogota Insights Male") }}</h2>
       <p class="text-center text-muted mb-2">
-        Showing <strong>male</strong> orders in <strong>Bogota (C/MARCA)</strong>.
+        {{ _("Showing <strong>male</strong> orders in <strong>Bogota (C/MARCA)</strong>.")|safe }}
       </p>
       <p class="text-center text-muted mb-3">
-        Data is shown up to the end of <strong>yesterday</strong> (Bogota time), or through today so far when the custom range ends today.
+        {{ _("Data is shown up to the end of <strong>yesterday</strong> (Bogota time), or through today so far when the custom range ends today.")|safe }}
       </p>
     </div>
 
     <div class="text-center mb-3">
       <label for="exchangeRateBogota" class="form-label">
-        Exchange rate (COP per 1 USD)
+        {{ _("Exchange rate (COP per 1 USD)") }}
       </label>
       <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
         <input
@@ -75,17 +75,17 @@ Bogota Insights Male
           style="max-width: 180px;"
         >
         <button type="button" onclick="toggleCurrencyBogota()" class="btn btn-primary">
-          Toggle COP / USD
+          {{ _("Toggle COP / USD") }}
         </button>
       </div>
       <small class="text-muted d-block mt-2">
-        When USD is selected, totals are converted using the exchange rate above.
+        {{ _("When USD is selected, totals are converted using the exchange rate above.") }}
       </small>
     </div>
 
-    <h3 class="text-center">Daily Total Sales Trend and Forecast</h3>
+    <h3 class="text-center">{{ _("Daily Total Sales Trend and Forecast") }}</h3>
     <p class="text-center text-muted mb-3">
-      Historical totals and the projected totals for the next 30 days.
+      {{ _("Historical totals and the projected totals for the next 30 days.") }}
     </p>
 
     <div style="height: 520px;">
@@ -94,14 +94,14 @@ Bogota Insights Male
 
     <hr class="my-4">
 
-    <h3 class="text-center">Sales Trend by Campaign</h3>
+    <h3 class="text-center">{{ _("Sales Trend by Campaign") }}</h3>
     <p class="text-center text-muted mb-3">
-      Campaign charts grouped into: wati, Unknown, Google (numeric), Meta (alphanumeric).
+      {{ _("Campaign charts grouped into: wati, Unknown, Google (numeric), Meta (alphanumeric).") }}
     </p>
 
     {% if not campaign_groups %}
       <div class="alert alert-warning">
-        No campaign data available (utm_campaign missing or empty).
+        {{ _("No campaign data available (utm_campaign missing or empty).") }}
       </div>
     {% else %}
 
@@ -122,7 +122,7 @@ Bogota Insights Male
                 aria-expanded="{{ 'true' if g['open_by_default'] else 'false' }}"
                 aria-controls="{{ collapse_id }}"
               >
-                {{ g['title'] }}
+                {{ _(g['title']) }}
                 &nbsp;
                 ({{ g['items']|length }})
                 &nbsp;·&nbsp;
@@ -142,7 +142,7 @@ Bogota Insights Male
 
                 {% if not g['items'] %}
                   <div class="text-muted">
-                    No campaigns in this group.
+                    {{ _("No campaigns in this group.") }}
                   </div>
                 {% else %}
 
@@ -152,19 +152,19 @@ Bogota Insights Male
                       <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                           <div>
-                            <h5 class="mb-1">Meta Campaign Scoring (Auto)</h5>
+                            <h5 class="mb-1">{{ _("Meta Campaign Scoring (Auto)") }}</h5>
                             <div class="text-muted">
-                              Scores are computed from order-attributed data (no Ads Manager metrics). Use it to prioritize audits and iteration.
+                              {{ _("Scores are computed from order-attributed data (no Ads Manager metrics). Use it to prioritize audits and iteration.") }}
                             </div>
                             <div class="text-muted small mt-2">
-                              Notes: The score uses signals like volume, dispersion across segments, time-of-day breadth, and creative diversity (utm_content). It does not mention estrato or localidades in copy recommendations.
+                              {{ _("Notes: The score uses signals like volume, dispersion across segments, time-of-day breadth, and creative diversity (utm_content). It does not mention estrato or localidades in copy recommendations.") }}
                             </div>
                           </div>
 
                           <div class="text-end">
-                            <div class="fw-semibold">Group overview</div>
+                            <div class="fw-semibold">{{ _("Group overview") }}</div>
                             <div class="text-muted small" id="metaGroupScoringSummary">
-                              Calculating...
+                              {{ _("Calculating...") }}
                             </div>
                           </div>
                         </div>
@@ -175,15 +175,15 @@ Bogota Insights Male
                           <table class="table table-sm align-middle mb-0">
                             <thead>
                               <tr>
-                                <th style="min-width: 220px;">Campaign</th>
-                                <th class="text-nowrap">Score</th>
-                                <th class="text-nowrap">Tier</th>
-                                <th class="text-nowrap">Why (signals)</th>
+                                <th style="min-width: 220px;">{{ _("Campaign") }}</th>
+                                <th class="text-nowrap">{{ _("Score") }}</th>
+                                <th class="text-nowrap">{{ _("Tier") }}</th>
+                                <th class="text-nowrap">{{ _("Why (signals)") }}</th>
                               </tr>
                             </thead>
                             <tbody id="metaScoringTableBody">
                               <tr>
-                                <td colspan="4" class="text-muted">Building scores...</td>
+                                <td colspan="4" class="text-muted">{{ _("Building scores...") }}</td>
                               </tr>
                             </tbody>
                           </table>
@@ -198,7 +198,7 @@ Bogota Insights Male
                         <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
                           <div>
                             <h5 class="mb-1">
-                              Campaign: <strong>{{ c['campaign'] }}</strong>
+                              {{ _("Campaign:") }} <strong>{{ c['campaign'] }}</strong>
                             </h5>
 
                             {# NEW: Score badge container (Meta only, JS fills) #}
@@ -207,24 +207,24 @@ Bogota Insights Male
                                 <span
                                   class="badge bg-secondary"
                                   id="metaScoreBadge{{ c['chart_id'] }}"
-                                  title="Auto score based on sales attribution signals"
+                                  title="{{ _('Auto score based on sales attribution signals') }}"
                                 >
-                                  Score: ...
+                                  {{ _("Score:") ~ " ..." }}
                                 </span>
                                 <span class="text-muted small" id="metaScoreWhy{{ c['chart_id'] }}">
-                                  Calculating signals...
+                                  {{ _("Calculating signals...") }}
                                 </span>
                               </div>
                             {% endif %}
                           </div>
 
                           <div class="text-muted">
-                            Total: <span class="fw-semibold">{{ (c['total_hist']|default(0))|cop }}</span>
+                            {{ _("Total:") }} <span class="fw-semibold">{{ (c['total_hist']|default(0))|cop }}</span>
                           </div>
                         </div>
 
                         <p class="text-muted mb-3 mt-2">
-                          Historical and forecasted daily totals for this campaign.
+                          {{ _("Historical and forecasted daily totals for this campaign.") }}
                         </p>
 
                         <div style="height: 420px;">
@@ -245,9 +245,9 @@ Bogota Insights Male
 
                             {% if has_localidad %}
                               <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
-                                <h6 class="text-center mb-2">Sales by Localidad</h6>
+                                <h6 class="text-center mb-2">{{ _("Sales by Localidad") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Share of total sales for this campaign, grouped by localidad.
+                                  {{ _("Share of total sales for this campaign, grouped by localidad.") }}
                                 </p>
                                 <div style="height: 420px;">
                                   <canvas id="localidadPie{{ c['chart_id'] }}"></canvas>
@@ -257,9 +257,9 @@ Bogota Insights Male
 
                             {% if has_estrato %}
                               <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
-                                <h6 class="text-center mb-2">Sales by Estrato</h6>
+                                <h6 class="text-center mb-2">{{ _("Sales by Estrato") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Share of total sales for this campaign, grouped by estrato.
+                                  {{ _("Share of total sales for this campaign, grouped by estrato.") }}
                                 </p>
                                 <div style="height: 420px;">
                                   <canvas id="estratoPie{{ c['chart_id'] }}"></canvas>
@@ -269,9 +269,9 @@ Bogota Insights Male
 
                             {% if has_nivel %}
                               <div class="col-12 {% if show_fourth_col %}col-lg-3{% else %}col-lg-4{% endif %}">
-                                <h6 class="text-center mb-2">Sales by Nivel Socioeconomico</h6>
+                                <h6 class="text-center mb-2">{{ _("Sales by Nivel Socioeconomico") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Share of total sales for this campaign, grouped by nivel socioeconomico.
+                                  {{ _("Share of total sales for this campaign, grouped by nivel socioeconomico.") }}
                                 </p>
                                 <div style="height: 420px;">
                                   <canvas id="nivelPie{{ c['chart_id'] }}"></canvas>
@@ -281,9 +281,9 @@ Bogota Insights Male
 
                             {% if show_fourth_col %}
                               <div class="col-12 col-lg-3">
-                                <h6 class="text-center mb-2">Sales by Time of Day</h6>
+                                <h6 class="text-center mb-2">{{ _("Sales by Time of Day") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Share of total sales by 3-hour chunks (Bogota time).
+                                  {{ _("Share of total sales by 3-hour chunks (Bogota time).") }}
                                 </p>
                                 <div style="height: 420px;">
                                   <canvas id="timeChunkPie{{ c['chart_id'] }}"></canvas>
@@ -305,9 +305,9 @@ Bogota Insights Male
                           <hr class="my-4">
                           <div class="row g-3">
                             <div class="col-12">
-                              <h6 class="text-center mb-2">UTM Content Total Sales by Localidad</h6>
+                              <h6 class="text-center mb-2">{{ _("UTM Content Total Sales by Localidad") }}</h6>
                               <p class="text-center text-muted mb-3">
-                                Stacked totals by <strong>utm_content</strong>, grouped by <strong>localidad</strong>.
+                                {{ _("Stacked totals by <strong>utm_content</strong>, grouped by <strong>localidad</strong>.")|safe }}
                               </p>
                               <div style="height: 520px;">
                                 <canvas id="utmContentLocalidad{{ c['chart_id'] }}"></canvas>
@@ -316,9 +316,9 @@ Bogota Insights Male
                               {% if g['key'] == 'meta' %}
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Prompts de Creatividad por Nivel Socioeconómico (ChatGPT 5.2)</h6>
+                                <h6 class="text-center mb-2">{{ _("Creative Prompts by Socioeconomic Level (ChatGPT 5.2)") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Un prompt por <strong>nivel socioeconómico</strong>. Cada prompt aplica principios de David Ogilvy, y usa estrato/localidad solo como insumo para ángulos sin mencionarlos explícitamente en el copy final.
+                                  {{ _("One prompt per <strong>socioeconomic level</strong>. Each prompt applies David Ogilvy's principles and uses estrato/localidad only as input for angles, without naming them in the final copy.")|safe }}
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -327,7 +327,7 @@ Bogota Insights Male
                                     class="btn btn-outline-primary btn-sm"
                                     onclick="copyAllPromptsForCampaign({{ c['chart_id'] }})"
                                   >
-                                    Copiar todos los prompts
+                                    {{ _("Copy all prompts") }}
                                   </button>
 
                                   <button
@@ -335,7 +335,7 @@ Bogota Insights Male
                                     class="btn btn-outline-secondary btn-sm"
                                     onclick="regenerateAllMetaPrompts({{ c['chart_id'] }})"
                                   >
-                                    Regenerar todos
+                                    {{ _("Regenerate all") }}
                                   </button>
                                 </div>
 
@@ -343,9 +343,9 @@ Bogota Insights Male
 
                                 <hr class="my-4">
 
-                                <h6 class="text-center mb-2">Prompt Estratégico para Optimización de Campaña Meta</h6>
+                                <h6 class="text-center mb-2">{{ _("Strategic Prompt for {platform} Campaign Optimization").format(platform="Meta") }}</h6>
                                 <p class="text-center text-muted mb-3">
-                                  Analiza la campaña completa usando todos los datos disponibles y genera un plan de optimización avanzado.
+                                  {{ _("Analyze the full campaign using all available data and generate an advanced optimization plan.") }}
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -354,7 +354,7 @@ Bogota Insights Male
                                     class="btn btn-outline-dark btn-sm"
                                     onclick="copyCampaignStrategicPrompt({{ c['chart_id'] }})"
                                   >
-                                    Copiar prompt estratégico
+                                    {{ _("Copy strategic prompt") }}
                                   </button>
                                 </div>
 
@@ -369,11 +369,11 @@ Bogota Insights Male
                                 <hr class="my-4">
 
                                 <h6 class="text-center mb-2">
-                                  Prompt para Redistribución Automática de Presupuesto (Meta)
+                                  {{ _("Prompt for Automatic Budget Reallocation ({platform})").format(platform="Meta") }}
                                 </h6>
 
                                 <p class="text-center text-muted mb-3">
-                                  Genera reglas automáticas de redistribución de presupuesto usando datos reales de esta campaña.
+                                  {{ _("Generate automatic budget reallocation rules using real campaign data.") }}
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -382,7 +382,7 @@ Bogota Insights Male
                                     class="btn btn-outline-success btn-sm"
                                     onclick="copyBudgetPrompt({{ c['chart_id'] }})"
                                   >
-                                    Copiar prompt de presupuesto
+                                    {{ _("Copy budget prompt") }}
                                   </button>
                                 </div>
 
@@ -397,11 +397,11 @@ Bogota Insights Male
                                 <hr class="my-4">
 
                                 <h6 class="text-center mb-2">
-                                  Prompt para Predicción de Escalabilidad (Meta)
+                                  {{ _("Prompt for Scalability Prediction ({platform})").format(platform="Meta") }}
                                 </h6>
 
                                 <p class="text-center text-muted mb-3">
-                                  Estima si esta campaña puede escalar y con qué probabilidad, usando únicamente los datos disponibles.
+                                  {{ _("Estimate whether this campaign can scale and with what probability, using only the available data.") }}
                                 </p>
 
                                 <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
@@ -410,7 +410,7 @@ Bogota Insights Male
                                     class="btn btn-outline-warning btn-sm"
                                     onclick="copyScalabilityPrompt({{ c['chart_id'] }})"
                                   >
-                                    Copiar prompt de escalabilidad
+                                    {{ _("Copy scalability prompt") }}
                                   </button>
                                 </div>
 
@@ -781,7 +781,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var niveles = sortDescByValue(filterValidNiveles(payload.nivel_socioeconomico_breakdown || []));
     if (!niveles.length) {
-      wrap.innerHTML = '<div class="text-muted">No hay datos de nivel socioeconómico disponibles para generar prompts.</div>';
+      wrap.innerHTML = '<div class="text-muted">' + escapeHtml({{ _("No socioeconomic level data available to generate prompts.")|tojson }}) + '</div>';
       return;
     }
 
@@ -789,7 +789,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var html = "";
     niveles.forEach(function(n, idx) {
-      var label = (n && n.label) ? String(n.label) : "Desconocido";
+      var label = (n && n.label) ? String(n.label) : {{ _("Unknown")|tojson }};
       var value = Number(n && n.value ? n.value : 0);
       var share = (totalHist > 0) ? ((value / totalHist) * 100) : 0;
 
@@ -800,13 +800,14 @@ document.addEventListener("DOMContentLoaded", function() {
         + '  <div class="card-body">'
         + '    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">'
         + '      <div>'
-        + '        <h6 class="mb-1">Prompt para Segmento (Nivel Socioeconómico): <strong>' + escapeHtml(label) + '</strong></h6>'
-        + '        <div class="text-muted small">Ventas: ' + value + ' COP · Porcentaje: ' + share.toFixed(1) + '% · Ranking: #' + (idx + 1) + '</div>'
-        + '        <div class="text-muted small mt-1">Reglas: no mencionar estrato ni localidades. Aplicar y mencionar principios de Ogilvy en cada idea.</div>'
+        + '        <h6 class="mb-1">' + escapeHtml({{ _("Prompt for segment (socioeconomic level):")|tojson }}) + ' <strong>' + escapeHtml(label) + '</strong></h6>'
+        + '        <div class="text-muted small">' + escapeHtml({{ _("Sales: {sales} COP · Share: {share}% · Rank: #{rank}")|tojson }}
+            .replace("{sales}", value).replace("{share}", share.toFixed(1)).replace("{rank}", idx + 1)) + '</div>'
+        + '        <div class="text-muted small mt-1">' + escapeHtml({{ _("Rules: do not mention estrato or localidades. Apply and name Ogilvy's principles in every idea.")|tojson }}) + '</div>'
         + '      </div>'
         + '      <div class="d-flex gap-2 flex-wrap">'
-        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">Copiar</button>'
-        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">Regenerar</button>'
+        + '        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPromptToClipboard(&quot;' + textareaId + '&quot;)">' + escapeHtml({{ _("Copy")|tojson }}) + '</button>'
+        + '        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="regenerateMetaPrompt(' + chartId + ', ' + idx + ')">' + escapeHtml({{ _("Regenerate")|tojson }}) + '</button>'
         + '      </div>'
         + '    </div>'
         + '    <textarea'
@@ -1066,15 +1067,15 @@ document.addEventListener("DOMContentLoaded", function() {
     var score = Math.max(0, Math.min(100, Math.round(raw)));
 
     var reasons = [];
-    if (volumeScore >= 22) reasons.push("good volume");
-    else if (volumeScore <= 10) reasons.push("low volume");
-    if (utmDiv >= 4) reasons.push("diverse creatives");
-    else if (utmDiv <= 1) reasons.push("creative concentration");
-    if (meaningfulTimes >= 4) reasons.push("broad time coverage");
-    else if (meaningfulTimes <= 1) reasons.push("time concentration");
-    if (meaningfulNiveles >= 4) reasons.push("multi-segment traction");
-    else if (meaningfulNiveles <= 1) reasons.push("segment concentration");
-    if (penalty >= 7) reasons.push("fragile mix");
+    if (volumeScore >= 22) reasons.push({{ _("good volume")|tojson }});
+    else if (volumeScore <= 10) reasons.push({{ _("low volume")|tojson }});
+    if (utmDiv >= 4) reasons.push({{ _("diverse creatives")|tojson }});
+    else if (utmDiv <= 1) reasons.push({{ _("creative concentration")|tojson }});
+    if (meaningfulTimes >= 4) reasons.push({{ _("broad time coverage")|tojson }});
+    else if (meaningfulTimes <= 1) reasons.push({{ _("time concentration")|tojson }});
+    if (meaningfulNiveles >= 4) reasons.push({{ _("multi-segment traction")|tojson }});
+    else if (meaningfulNiveles <= 1) reasons.push({{ _("segment concentration")|tojson }});
+    if (penalty >= 7) reasons.push({{ _("fragile mix")|tojson }});
 
     return {
       score: score,
@@ -1103,7 +1104,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (!entries.length) {
       var summaryEl = document.getElementById("metaGroupScoringSummary");
-      if (summaryEl) summaryEl.textContent = "No Meta payloads found for scoring.";
+      if (summaryEl) summaryEl.textContent = {{ _("No Meta payloads found for scoring.")|tojson }};
       return;
     }
 
@@ -1137,27 +1138,27 @@ document.addEventListener("DOMContentLoaded", function() {
 
       if (badge) {
         badge.className = "badge " + badgeClassForTier(x.tier);
-        badge.textContent = "Score: " + x.score + " (" + x.tier + ")";
+        badge.textContent = {{ _("Score:")|tojson }} + " " + x.score + " (" + x.tier + ")";
 
         var tooltip =
-          "Breakdown\n" +
-          "- Volume: " + x.details.volumeScore + "/30\n" +
-          "- Segment breadth: " + x.details.nivelScore + "/20\n" +
-          "- Time breadth: " + x.details.timeScore + "/15\n" +
-          "- Dispersion: " + x.details.locScore + "/15\n" +
-          "- Creative diversity: " + x.details.utmScore + "/20\n" +
-          "- Penalty: -" + x.details.penalty + "\n" +
-          "Signals\n" +
-          "- Niveles (meaningful): " + x.details.meaningfulNiveles + "\n" +
-          "- Time chunks (meaningful): " + x.details.meaningfulTimes + "\n" +
-          "- Local buckets (meaningful): " + x.details.meaningfulLoc + "\n" +
-          "- UTM contents (active): " + x.details.utmDiversity;
+          {{ _("Breakdown")|tojson }} + "\n" +
+          "- " + {{ _("Volume")|tojson }} + ": " + x.details.volumeScore + "/30\n" +
+          "- " + {{ _("Segment breadth")|tojson }} + ": " + x.details.nivelScore + "/20\n" +
+          "- " + {{ _("Time breadth")|tojson }} + ": " + x.details.timeScore + "/15\n" +
+          "- " + {{ _("Dispersion")|tojson }} + ": " + x.details.locScore + "/15\n" +
+          "- " + {{ _("Creative diversity")|tojson }} + ": " + x.details.utmScore + "/20\n" +
+          "- " + {{ _("Penalty")|tojson }} + ": -" + x.details.penalty + "\n" +
+          {{ _("Signals")|tojson }} + "\n" +
+          "- " + {{ _("Niveles (meaningful)")|tojson }} + ": " + x.details.meaningfulNiveles + "\n" +
+          "- " + {{ _("Time chunks (meaningful)")|tojson }} + ": " + x.details.meaningfulTimes + "\n" +
+          "- " + {{ _("Local buckets (meaningful)")|tojson }} + ": " + x.details.meaningfulLoc + "\n" +
+          "- " + {{ _("UTM contents (active)")|tojson }} + ": " + x.details.utmDiversity;
 
         badge.title = tooltip;
       }
 
       if (why) {
-        var txt = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        var txt = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : {{ _("signals computed")|tojson }};
         why.textContent = txt;
       }
     });
@@ -1165,20 +1166,20 @@ document.addEventListener("DOMContentLoaded", function() {
     var tbody = document.getElementById("metaScoringTableBody");
     if (tbody) {
       var rows = scored.map(function(x) {
-        var reasons = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : "signals computed";
+        var reasons = (x.reasons && x.reasons.length) ? x.reasons.join(", ") : {{ _("signals computed")|tojson }};
         var badge = '<span class="badge ' + badgeClassForTier(x.tier) + '"> ' + x.score + ' </span>';
         var tier = '<span class="badge bg-light text-dark border"> ' + x.tier + ' </span>';
 
         return ""
           + "<tr>"
-          + "<td><strong>" + escapeHtml(x.campaign) + "</strong><div class='text-muted small'>Total: " + escapeHtml(String(x.total)) + " COP</div></td>"
+          + "<td><strong>" + escapeHtml(x.campaign) + "</strong><div class='text-muted small'>" + escapeHtml({{ _("Total:")|tojson }}) + " " + escapeHtml(String(x.total)) + " COP</div></td>"
           + "<td class='text-nowrap'>" + badge + "</td>"
           + "<td class='text-nowrap'>" + tier + "</td>"
           + "<td class='text-muted small'>" + escapeHtml(reasons) + "</td>"
           + "</tr>";
       }).join("");
 
-      tbody.innerHTML = rows || "<tr><td colspan='4' class='text-muted'>No scored campaigns.</td></tr>";
+      tbody.innerHTML = rows || "<tr><td colspan='4' class='text-muted'>" + escapeHtml({{ _("No scored campaigns.")|tojson }}) + "</td></tr>";
     }
 
     var avg = scored.reduce(function(acc, x) { return acc + (Number(x.score) || 0); }, 0) / (scored.length || 1);
@@ -1187,11 +1188,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var summaryEl = document.getElementById("metaGroupScoringSummary");
     if (summaryEl) {
-      summaryEl.textContent =
-        "Campaigns: " + scored.length +
-        " | Avg score: " + avg.toFixed(1) +
-        " | Top: " + (top ? (top.score + " (" + top.tier + ")") : "n/a") +
-        " | Lowest: " + (bottom ? (bottom.score + " (" + bottom.tier + ")") : "n/a");
+      var notAvailable = {{ _("n/a")|tojson }};
+      summaryEl.textContent = {{ _("Campaigns: {n} | Avg score: {avg} | Top: {top} | Lowest: {low}")|tojson }}
+        .replace("{n}", scored.length)
+        .replace("{avg}", avg.toFixed(1))
+        .replace("{top}", top ? (top.score + " (" + top.tier + ")") : notAvailable)
+        .replace("{low}", bottom ? (bottom.score + " (" + bottom.tier + ")") : notAvailable);
     }
   }
 
@@ -1215,7 +1217,7 @@ document.addEventListener("DOMContentLoaded", function() {
       : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP" }).format(value);
   }
 
-  function buildLineChart(canvasId, labels, histCOP, fcstCOP, titlePrefix) {
+  function buildLineChart(canvasId, labels, histCOP, fcstCOP, histLabel, fcstLabel) {
     var canvas = document.getElementById(canvasId);
     if (!canvas) return null;
 
@@ -1226,9 +1228,9 @@ document.addEventListener("DOMContentLoaded", function() {
       data: {
         labels: labels,
         datasets: [
-          { label: titlePrefix + " (COP)", data: histCOP, fill: true },
+          { label: histLabel + " (COP)", data: histCOP, fill: true },
           {
-            label: "Pronóstico " + titlePrefix.replace("Histórico ", "") + " (COP)",
+            label: fcstLabel + " (COP)",
             data: [].concat(new Array(histCOP.length).fill(null), fcstCOP),
             borderDash: [5, 5],
             fill: true
@@ -1249,7 +1251,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart._rawHistCOP = histCOP;
     chart._rawForecastCOP = fcstCOP;
     chart._histLen = histCOP.length;
-    chart._titlePrefix = titlePrefix;
+    chart._histLabel = histLabel;
+    chart._fcstLabel = fcstLabel;
 
     return chart;
   }
@@ -1263,10 +1266,8 @@ document.addEventListener("DOMContentLoaded", function() {
     chart.data.datasets[0].data = hist;
     chart.data.datasets[1].data = [].concat(new Array(chart._histLen).fill(null), fcst);
 
-    chart.data.datasets[0].label = useUSD ? chart._titlePrefix + " (USD)" : chart._titlePrefix + " (COP)";
-    chart.data.datasets[1].label = useUSD
-      ? "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (USD)"
-      : "Pronóstico " + chart._titlePrefix.replace("Histórico ", "") + " (COP)";
+    chart.data.datasets[0].label = chart._histLabel + (useUSD ? " (USD)" : " (COP)");
+    chart.data.datasets[1].label = chart._fcstLabel + (useUSD ? " (USD)" : " (COP)");
 
     chart.update();
   }
@@ -1380,7 +1381,8 @@ document.addEventListener("DOMContentLoaded", function() {
     ],
     [{% for r in total_daily_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
     [{% for r in forecast_data %}{{ r['Projected Total Sales'] }},{% endfor %}],
-    "Historical Bogota Male Total Sales"
+    {{ _("Historical Bogota Male Total Sales")|tojson }},
+    {{ _("Forecasted Bogota Male Total Sales")|tojson }}
   );
 
   var campaignCharts = [];
@@ -1397,7 +1399,8 @@ document.addEventListener("DOMContentLoaded", function() {
           ],
           [{% for r in c['total_daily_trend'] %}{{ r['Total Sales']|default('0') }},{% endfor %}],
           [{% for r in c['forecast_data'] %}{{ r['Projected Total Sales'] }},{% endfor %}],
-          "Historical {{ c['campaign'] }} Total Sales"
+          {{ _("Historical {name} Total Sales").format(name=c['campaign'])|tojson }},
+          {{ _("Forecasted {name} Total Sales").format(name=c['campaign'])|tojson }}
         );
 
         if (chart) campaignCharts.push(chart);
@@ -1426,7 +1429,7 @@ document.addEventListener("DOMContentLoaded", function() {
             "localidadPie{{ c['chart_id'] }}",
             labels,
             values,
-            "Ventas por Localidad"
+            {{ _("Sales by Localidad")|tojson }}
           );
         })();
       {% endif %}
@@ -1449,7 +1452,7 @@ document.addEventListener("DOMContentLoaded", function() {
             "estratoPie{{ c['chart_id'] }}",
             labels,
             values,
-            "Ventas por Estrato"
+            {{ _("Sales by Estrato")|tojson }}
           );
         })();
       {% endif %}
@@ -1472,7 +1475,7 @@ document.addEventListener("DOMContentLoaded", function() {
             "nivelPie{{ c['chart_id'] }}",
             labels,
             values,
-            "Ventas por Segmento (Nivel Socioeconómico)"
+            {{ _("Sales by Segment (Socioeconomic Level)")|tojson }}
           );
         })();
       {% endif %}
@@ -1495,7 +1498,7 @@ document.addEventListener("DOMContentLoaded", function() {
             "timeChunkPie{{ c['chart_id'] }}",
             labels,
             values,
-            "Ventas por Hora del Día (3h)"
+            {{ _("Sales by Time of Day (3h)")|tojson }}
           );
         })();
       {% endif %}
@@ -1531,7 +1534,7 @@ document.addEventListener("DOMContentLoaded", function() {
             "utmContentLocalidad{{ c['chart_id'] }}",
             labels,
             datasets,
-            "UTM Content Ventas Totales por Localidad"
+            {{ _("UTM Content Total Sales by Localidad")|tojson }}
           );
 
           if (ch) stackedBarCharts.push(ch);

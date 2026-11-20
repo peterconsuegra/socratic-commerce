@@ -1,15 +1,15 @@
 {% extends "layout_logout.html" %}
 
-{% block title %}Log in · Second Order{% endblock %}
+{% block title %}{{ _("Log in") }} · Second Order{% endblock %}
 
 {% block content %}
 <div class="auth-card">
-  <h2>Welcome back</h2>
-  <p class="auth-sub">Log in to see who is coming back this month.</p>
+  <h2>{{ _("Welcome back") }}</h2>
+  <p class="auth-sub">{{ _("Log in to see who is coming back this month.") }}</p>
 
   <form method="POST" action="{{ url_for('main.login') }}">
     <div class="mb-3">
-      <label for="username" class="form-label">Username</label>
+      <label for="username" class="form-label">{{ _("Username") }}</label>
       <input
         type="text"
         name="username"
@@ -21,7 +21,7 @@
       >
     </div>
     <div class="mb-4">
-      <label for="password" class="form-label">Password</label>
+      <label for="password" class="form-label">{{ _("Password") }}</label>
       <input
         type="password"
         name="password"
@@ -31,11 +31,11 @@
         required
       >
     </div>
-    <button type="submit" class="btn btn-primary w-100">Log in</button>
+    <button type="submit" class="btn btn-primary w-100">{{ _("Log in") }}</button>
   </form>
 
   <p class="auth-foot">
-    New here? <a href="{{ url_for('main.register') }}">Create an account</a>
+    {{ _("New here?") }} <a href="{{ url_for('main.register') }}">{{ _("Create an account") }}</a>
   </p>
 </div>
 {% endblock %}

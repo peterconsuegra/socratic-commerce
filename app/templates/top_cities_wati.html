@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block title %}
-  Top Cities (Wati) Daily Trend
+  {{ _("Top Cities Daily Trend ({segment})").format(segment="WATI") }}
 {% endblock %}
 
 {% block content %}
@@ -24,18 +24,18 @@
 
 <div class="container mt-3">
   <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-    <label for="topNumberSelectWati" class="form-label m-0 small text-muted">Show:</label>
+    <label for="topNumberSelectWati" class="form-label m-0 small text-muted">{{ _("Show:") }}</label>
     <select id="topNumberSelectWati" class="form-select form-select-sm" style="width: 140px;">
-      <option value="10" {% if (top_number|default(10)) == 10 %}selected{% endif %}>Top 10</option>
-      <option value="20" {% if (top_number|default(10)) == 20 %}selected{% endif %}>Top 20</option>
-      <option value="30" {% if (top_number|default(10)) == 30 %}selected{% endif %}>Top 30</option>
-      <option value="50" {% if (top_number|default(10)) == 50 %}selected{% endif %}>Top 50</option>
+      <option value="10" {% if (top_number|default(10)) == 10 %}selected{% endif %}>{{ _("Top {n}").format(n=10) }}</option>
+      <option value="20" {% if (top_number|default(10)) == 20 %}selected{% endif %}>{{ _("Top {n}").format(n=20) }}</option>
+      <option value="30" {% if (top_number|default(10)) == 30 %}selected{% endif %}>{{ _("Top {n}").format(n=30) }}</option>
+      <option value="50" {% if (top_number|default(10)) == 50 %}selected{% endif %}>{{ _("Top {n}").format(n=50) }}</option>
     </select>
   </div>
 </div>
 
 <div class="container mt-4">
-  <h2 class="text-center">Top {{ top_number|default(10) }} Cities by Sales (Wati Daily Trend)</h2>
+  <h2 class="text-center">{{ _("Top {n} Cities by Sales ({segment}, Daily Trend)").format(n=top_number|default(10), segment="WATI") }}</h2>
 
   {% if error %}
     <div class="alert alert-danger mt-3">{{ error }}</div>
@@ -43,7 +43,7 @@
 
   {% if not top_cities or not cities_daily_trend %}
     <div class="alert alert-warning mt-3">
-      No data available to display.
+      {{ _("No data available to display.") }}
     </div>
   {% else %}
 
@@ -52,7 +52,7 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-body d-flex justify-content-center align-items-center gap-2 flex-wrap">
-            <label for="exchangeRateTopCitiesWati" class="m-0">USD Exchange Rate (COP):</label>
+            <label for="exchangeRateTopCitiesWati" class="m-0">{{ _("USD Exchange Rate (COP):") }}</label>
             <input
               type="number"
               id="exchangeRateTopCitiesWati"
@@ -64,7 +64,7 @@
               class="form-control form-control-sm"
             >
             <button type="button" onclick="toggleCurrencyTopCitiesWati()" class="btn btn-primary btn-sm">
-              Switch Currency
+              {{ _("Switch Currency") }}
             </button>
             <span id="currencyBadgeTopCitiesWati" class="badge text-bg-secondary">COP</span>
           </div>
@@ -77,14 +77,14 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header">
-            <strong>Sales share (Top {{ top_number|default(10) }} cities vs other cities)</strong>
+            <strong>{{ _("Sales share (Top {n} cities vs other cities)").format(n=top_number|default(10)) }}</strong>
           </div>
           <div class="card-body">
             <div style="max-width: 520px; margin: 0 auto;">
               <canvas id="citiesSharePieWati" style="max-height: 460px;"></canvas>
             </div>
             <div class="small text-muted mt-2 text-center">
-              Hover to see exact values and percentages.
+              {{ _("Hover to see exact values and percentages.") }}
             </div>
           </div>
         </div>
@@ -103,12 +103,12 @@
 
               {% set city_days = [] %}
               {% for r in cities_daily_trend if r.City == city %}
-                {% set _ = city_days.append(r.Day) %}
+                {% set _discard = city_days.append(r.Day) %}
               {% endfor %}
 
               {% if city_days %}
                 <div class="small text-muted mb-2">
-                  Range: {{ city_days | min }} to {{ city_days | max }}
+                  {{ _("Range: {start} to {end}").format(start=city_days | min, end=city_days | max) }}
                 </div>
               {% endif %}
 
@@ -119,13 +119,13 @@
               {% set fc_days = [] %}
               {% if cities_forecast_trend %}
                 {% for r in cities_forecast_trend if r.City == city %}
-                  {% set _ = fc_days.append(r.Day) %}
+                  {% set _discard = fc_days.append(r.Day) %}
                 {% endfor %}
               {% endif %}
 
               {% if fc_days %}
                 <div class="small text-muted mt-2">
-                  Forecast: {{ fc_days | min }} to {{ fc_days | max }}
+                  {{ _("Forecast: {start} to {end}").format(start=fc_days | min, end=fc_days | max) }}
                 </div>
               {% endif %}
 
@@ -282,12 +282,12 @@
         data: {
           datasets: [
             {
-              label: useUSDTopCitiesWati ? "Actual Sales (USD)" : "Actual Sales (COP)",
+              label: useUSDTopCitiesWati ? {{ _("Actual Sales (USD)")|tojson }} : {{ _("Actual Sales (COP)")|tojson }},
               data: actual,
               tension: 0.1
             },
             {
-              label: useUSDTopCitiesWati ? "Forecast (USD)" : "Forecast (COP)",
+              label: useUSDTopCitiesWati ? {{ _("Forecast (USD)")|tojson }} : {{ _("Forecast (COP)")|tojson }},
               data: fc,
               tension: 0.1,
               borderDash: [6, 6],
@@ -299,7 +299,7 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            title: { display: true, text: `Daily Sales Trend: ${city}` },
+            title: { display: true, text: {{ _("Daily Sales Trend: {city}")|tojson }}.replace("{city}", () => city) },
             tooltip: {
               callbacks: {
                 label: (ctx) => formatMoneyFromCOPWati(ctx.parsed.y || 0)
@@ -311,7 +311,7 @@
             x: {
               type: "time",
               time: { unit: "day", tooltipFormat: "yyyy-MM-dd" },
-              title: { display: true, text: "Date" }
+              title: { display: true, text: {{ _("Date")|tojson }} }
             },
             y: {
               beginAtZero: true,
@@ -319,7 +319,7 @@
               ticks: {
                 callback: (value) => formatMoneyFromCOPWati(value)
               },
-              title: { display: true, text: useUSDTopCitiesWati ? "Total Sales (USD)" : "Total Sales (COP)" }
+              title: { display: true, text: useUSDTopCitiesWati ? {{ _("Total Sales (USD)")|tojson }} : {{ _("Total Sales (COP)")|tojson }} }
             }
           }
         }

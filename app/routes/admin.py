@@ -6,6 +6,7 @@ from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app import db
+from app.i18n import translate as _
 from app.models import ApiToken, User
 
 from . import main
@@ -56,13 +57,13 @@ def admin_users_new():
             role = "user"
 
         if not username or not password:
-            flash("Username and password are required.", "danger")
+            flash(_("Username and password are required."), "danger")
             return redirect(url_for("main.admin_users_new"))
 
         existing = User.query.filter_by(username=username).first()
 
         if existing:
-            flash("That username already exists.", "danger")
+            flash(_("That username already exists."), "danger")
             return redirect(url_for("main.admin_users_new"))
 
         new_user = User(username=username, role=role)
@@ -71,7 +72,7 @@ def admin_users_new():
         db.session.add(new_user)
         db.session.commit()
 
-        flash("User created successfully.", "success")
+        flash(_("User created successfully."), "success")
         return redirect(url_for("main.admin_users_index"))
 
     return render_template("admin/users_new.html")
@@ -92,7 +93,7 @@ def admin_users_edit(user_id):
             role = "user"
 
         if not username:
-            flash("Username is required.", "danger")
+            flash(_("Username is required."), "danger")
             return redirect(url_for("main.admin_users_edit", user_id=user_id))
 
         existing = User.query.filter(
@@ -101,14 +102,14 @@ def admin_users_edit(user_id):
         ).first()
 
         if existing:
-            flash("That username is already taken by another user.", "danger")
+            flash(_("That username is already taken by another user."), "danger")
             return redirect(url_for("main.admin_users_edit", user_id=user_id))
 
         if user.role == "admin" and role != "admin":
             admins_count = User.query.filter_by(role="admin").count()
 
             if admins_count <= 1:
-                flash("You cannot remove admin role from the last admin user.", "danger")
+                flash(_("You cannot remove admin role from the last admin user."), "danger")
                 return redirect(url_for("main.admin_users_edit", user_id=user_id))
 
         user.username = username
@@ -119,7 +120,7 @@ def admin_users_edit(user_id):
 
         db.session.commit()
 
-        flash("User updated successfully.", "success")
+        flash(_("User updated successfully."), "success")
         return redirect(url_for("main.admin_users_index"))
 
     return render_template("admin/users_edit.html", user=user)
@@ -132,20 +133,20 @@ def admin_users_delete(user_id):
     user = User.query.get_or_404(user_id)
 
     if user.id == current_user.id:
-        flash("You cannot delete your own user while logged in.", "danger")
+        flash(_("You cannot delete your own user while logged in."), "danger")
         return redirect(url_for("main.admin_users_index"))
 
     if user.role == "admin":
         admins_count = User.query.filter_by(role="admin").count()
 
         if admins_count <= 1:
-            flash("You cannot delete the last admin user.", "danger")
+            flash(_("You cannot delete the last admin user."), "danger")
             return redirect(url_for("main.admin_users_index"))
 
     db.session.delete(user)
     db.session.commit()
 
-    flash("User deleted successfully.", "success")
+    flash(_("User deleted successfully."), "success")
     return redirect(url_for("main.admin_users_index"))
 
 
@@ -172,7 +173,7 @@ def admin_api_tokens_new():
     name = (request.form.get("name") or "").strip()
 
     if not name:
-        flash("Token name is required.", "danger")
+        flash(_("Token name is required."), "danger")
         return redirect(url_for("main.admin_api_tokens_index"))
 
     token, raw = ApiToken.generate(name)
@@ -180,7 +181,7 @@ def admin_api_tokens_new():
     db.session.commit()
 
     flash(
-        "API token created. Copy it now — it will not be shown again:<br>"
+        _("API token created. Copy it now — it will not be shown again:") + "<br>"
         f"<code style='font-size:1rem;'>{raw}</code>",
         "success",
     )
@@ -195,7 +196,7 @@ def admin_api_tokens_revoke(token_id):
     token.revoked = True
     db.session.commit()
 
-    flash(f"Token '{token.name}' revoked.", "success")
+    flash(_("Token '{name}' revoked.").format(name=token.name), "success")
     return redirect(url_for("main.admin_api_tokens_index"))
 
 
@@ -207,5 +208,5 @@ def admin_api_tokens_delete(token_id):
     db.session.delete(token)
     db.session.commit()
 
-    flash(f"Token '{token.name}' deleted.", "success")
+    flash(_("Token '{name}' deleted.").format(name=token.name), "success")
     return redirect(url_for("main.admin_api_tokens_index"))

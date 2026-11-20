@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -34,11 +34,11 @@
 
       <div class="auth-hero">
         {% with cls='auth-hero-mark' %}{% include 'partials/brand_mark.html' %}{% endwith %}
-        <h1>We tell you who buys again, before they do.</h1>
-        <p>Sales, repurchases, lapsed customers and channel attribution for your WooCommerce store, with a forecast attached to every trend.</p>
+        <h1>{{ _("We tell you who buys again, before they do.") }}</h1>
+        <p>{{ _("Sales, repurchases, lapsed customers and channel attribution for your WooCommerce store, with a forecast attached to every trend.") }}</p>
       </div>
 
-      <div class="auth-panel-foot">Second Order · Retention &amp; forecasting for ecommerce</div>
+      <div class="auth-panel-foot">Second Order · {{ _("Retention & forecasting for ecommerce") }}</div>
     </aside>
 
     <!-- Right: the form -->
@@ -50,7 +50,7 @@
               {% for category, message in messages %}
                 <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
                   {{ message | safe }}
-                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ _('Close') }}"></button>
                 </div>
               {% endfor %}
             </div>

@@ -2,16 +2,16 @@
 
 {% block content %}
 <div class="container mt-4" style="max-width: 720px;">
-  <h2 class="mb-3">Create user</h2>
+  <h2 class="mb-3">{{ _("Create user") }}</h2>
 
   <form method="POST" action="{{ url_for('main.admin_users_new') }}">
     <div class="mb-3">
-      <label class="form-label">Username (email)</label>
+      <label class="form-label">{{ _("Username (email)") }}</label>
       <input class="form-control" type="text" name="username" placeholder="email@domain.com" required>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Password</label>
+      <label class="form-label">{{ _("Password") }}</label>
 
       <div class="input-group">
         <input
@@ -19,7 +19,7 @@
           type="text"
           name="password"
           id="passwordField"
-          placeholder="Click Generate to create a secure password"
+          placeholder="{{ _('Click Generate to create a secure password') }}"
           autocomplete="new-password"
           required
         >
@@ -28,26 +28,26 @@
           type="button"
           onclick="generatePassword()"
         >
-          Generate
+          {{ _("Generate") }}
         </button>
       </div>
 
       <small class="text-muted">
-        Use the button to generate a strong password, or type one manually.
+        {{ _("Use the button to generate a strong password, or type one manually.") }}
       </small>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Role</label>
+      <label class="form-label">{{ _("Role") }}</label>
       <select class="form-select" name="role">
-        <option value="user" selected>User</option>
-        <option value="admin">Admin</option>
+        <option value="user" selected>{{ _("User") }}</option>
+        <option value="admin">{{ _("Admin") }}</option>
       </select>
     </div>
 
     <div class="d-flex gap-2">
-      <button class="btn btn-primary" type="submit">Create</button>
-      <a class="btn btn-light" href="{{ url_for('main.admin_users_index') }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">{{ _("Create") }}</button>
+      <a class="btn btn-light" href="{{ url_for('main.admin_users_index') }}">{{ _("Cancel") }}</a>
     </div>
   </form>
 </div>
