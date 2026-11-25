@@ -224,12 +224,29 @@ def _weekday_weighted_projection(
     }
 
 
+# Which orders each monthly trend counts. Both are the store's own figures
+# (see get_data): a repurchase is is_repurchase, a new customer's order is the
+# first purchase (purchase_number 1). Unnumbered orders count as neither.
+ORDER_KINDS = {
+    "repurchase": lambda data: data["is_repurchase"],
+    "first": lambda data: data["purchase_number"].eq(1),
+}
+
+# The keys each kind's rows carry, so the templates of /monthly_repurchases
+# and /new_customers_monthly keep reading the names they always have.
+_ROW_KEYS = {
+    "repurchase": ("Repurchase Total Value", "Projected Repurchase Sales"),
+    "first": ("New Customer Total Value", "Projected New Customer Sales"),
+}
+
+
 def _repurchase_orders(
     data: pd.DataFrame,
     utm_source_filter: str | None = None,
+    kind: str = "repurchase",
 ) -> pd.DataFrame:
-    """The orders the store flags is_repurchase, optionally of one utm_source only."""
-    rep = data[data["is_repurchase"]].copy()
+    """The orders of one kind (ORDER_KINDS), optionally of one utm_source only."""
+    rep = data[ORDER_KINDS[kind](data)].copy()
 
     if utm_source_filter is not None:
         rep["utm_source"] = rep["utm_source"].str.strip().str.lower()
@@ -247,6 +264,7 @@ def get_monthly_repurchases_trend(
     weekday_history_months: int = 6,
     orders_csv_path: str = "data/all_orders.csv",
     utm_source_filter: str | None = None,
+    kind: str = "repurchase",
 ):
     """
     Monthly repurchases trend (complete months) + forecast, with optional current-month projection.
@@ -258,10 +276,16 @@ def get_monthly_repurchases_trend(
       up to end of yesterday, and if include_current_month_for_forecast:
       current month value is replaced with a projected full-month (weekday_weighted).
 
+    kind picks the orders (ORDER_KINDS): "repurchase" (default) or "first",
+    a new customer's first purchase - see get_monthly_new_customers_trend.
+
     Returns:
       - (summary_rows, forecast_rows) or (summary_rows, forecast_rows, meta)
+      Each summary row also has "Orders": the month's number of those orders
+      (for "first", the number of new customers).
     """
-    logger.info("Building monthly repurchases trend from %s", orders_csv_path)
+    logger.info("Building monthly %s trend from %s", kind, orders_csv_path)
+    value_key, forecast_key = _ROW_KEYS[kind]
 
     meta = {
         "forecast_includes_current_month_mtd": False,
@@ -300,26 +324,27 @@ def get_monthly_repurchases_trend(
             return [], meta
         return []
 
-    rep_hist = _repurchase_orders(data_hist_base, utm_source_filter=utm_source_filter)
+    rep_hist = _repurchase_orders(data_hist_base, utm_source_filter=utm_source_filter, kind=kind)
 
     rep_hist["month_year"] = rep_hist["order_date"].dt.to_period("M")
     rep_value_per_month = (
-        rep_hist.groupby("month_year")["total_value"]
-        .sum()
-        .reset_index(name="Repurchase_Total_Value")
+        rep_hist.groupby("month_year")
+        .agg(Repurchase_Total_Value=("total_value", "sum"), Orders=("total_value", "size"))
+        .reset_index()
         .sort_values("month_year")
     )
     rep_value_per_month["Month"] = rep_value_per_month["month_year"].apply(lambda x: x.strftime("%Y-%m"))
-    rep_value_per_month["Repurchase Total Value"] = rep_value_per_month["Repurchase_Total_Value"].apply(
+    rep_value_per_month[value_key] = rep_value_per_month["Repurchase_Total_Value"].apply(
         lambda x: str(int(round(float(x or 0.0)))))
-    summary_rows = rep_value_per_month[["Month", "Repurchase Total Value"]].to_dict(orient="records")
+    rep_value_per_month["Orders"] = rep_value_per_month["Orders"].astype(int)
+    summary_rows = rep_value_per_month[["Month", value_key, "Orders"]].to_dict(orient="records")
 
     # ---------------------------
     # FORECAST SERIES: includes current month (through yesterday) optionally projected to full month
     # ---------------------------
     forecast_rows = []
     if return_forecast:
-        rep_model = _repurchase_orders(data_model_base, utm_source_filter=utm_source_filter)
+        rep_model = _repurchase_orders(data_model_base, utm_source_filter=utm_source_filter, kind=kind)
 
         if not rep_model.empty:
             rep_model["month_year"] = rep_model["order_date"].dt.to_period("M")
@@ -375,7 +400,7 @@ def get_monthly_repurchases_trend(
                 for d, v in zip(fc_idx, fc):
                     forecast_rows.append({
                         "Month": d.strftime("%Y-%m"),
-                        "Projected Repurchase Sales": float(v),
+                        forecast_key: float(v),
                     })
 
     if return_forecast:
@@ -387,3 +412,13 @@ def get_monthly_repurchases_trend(
         return summary_rows, meta
 
     return summary_rows
+
+
+def get_monthly_new_customers_trend(**kwargs):
+    """
+    get_monthly_repurchases_trend for new customers: only each customer's first
+    purchase (the store's purchase_number 1). Rows carry "New Customer Total
+    Value" and "Orders" (new customers that month); forecast rows carry
+    "Projected New Customer Sales".
+    """
+    return get_monthly_repurchases_trend(kind="first", **kwargs)
