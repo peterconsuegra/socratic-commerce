@@ -1,6 +1,9 @@
 # app/routes/new_customers.py
 """
-/new_customers_monthly: the root view (/, Monthly Sales) for new customers only.
+The sales views for new customers only:
+
+  - /new_customers_monthly: the root view (/, Monthly Sales);
+  - /daily_new_customers: /daily_sales, over the page's own date-range file.
 
 A new customer is an order the store numbers purchase_number 1 (see get_data);
 every customer counts once, in the month of their first paid order. The page
@@ -20,11 +23,16 @@ from flask import current_app, render_template
 from flask_login import login_required
 
 from app.i18n import translate as _
+from app.services.daily_sales import build_daily_sales_dashboard_context
 from app.services.get_data import load_orders
 from app.services.monthly_repurchases import ORDER_KINDS, get_monthly_new_customers_trend
+from app.services.periods import range_includes_today
 
 from . import main
 from .common import refresh_all_orders_if_needed
+from .daily import _saved_date_range
+
+DAILY_FILE = "daily_new_customers_orders.csv"
 
 FORECAST_MONTHS = 12
 MIN_CHANNEL_SHARE_PERCENT = 2.0
@@ -146,3 +154,38 @@ def new_customers_monthly():
         error=error,
         **projection,
     )
+
+
+@main.route("/daily_new_customers")
+@login_required
+def daily_new_customers():
+    """
+    /daily_sales for new customers: every chart counts only first purchases
+    (purchase_number 1) in the range picked with the date selector, which
+    fetches data/daily_new_customers_orders.csv. The page draws no repurchase
+    lines; it adds the number of new customers per day instead.
+    """
+    date_range, start_date, end_date = _saved_date_range(DAILY_FILE)
+    orders_file = f"data/{DAILY_FILE}"
+
+    context = build_daily_sales_dashboard_context(
+        input_file=orders_file,
+        forecast_periods=30,
+        min_channel_share_percent=2.0,
+        include_today=range_includes_today(end_date),
+        first_purchases_only=True,
+    )
+
+    # The service's "no file yet" message, in the page's language.
+    if context.get("error") == f"{orders_file} not found. Use the date selector above to fetch data first.":
+        context["error"] = _("{file} not found. Use the date selector above to fetch data first.").format(file=orders_file)
+
+    context.update(
+        date_range=date_range,
+        start_date=start_date,
+        end_date=end_date,
+        file_name=DAILY_FILE,
+        page_title="New Customers by Day",
+        new_customers=True,
+    )
+    return render_template("daily_sales.html", **context)

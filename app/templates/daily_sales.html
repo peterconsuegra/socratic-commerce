@@ -7,7 +7,9 @@
 
 {% block content %}
 
-{# file_name, the page's own date-range orders file, comes from the route. #}
+{# file_name, the page's own date-range orders file, comes from the route.
+   new_customers (/daily_new_customers): every chart is of first purchases
+   only, so the repurchase lines give way to a new-customers-per-day chart. #}
 
 {% set custom_date_range_options = [
   {"value": "", "label": "--Select--"},
@@ -74,10 +76,17 @@
 
     <hr class="my-5">
 
-    <h2 class="text-center">{{ _("Daily Total Sales and All Repurchases Trend and Forecast") }}</h2>
-    <p class="text-center text-muted mb-3">
-      {{ _("Total sales and all repurchases are shown together for easier comparison.") }}
-    </p>
+    {% if new_customers %}
+      <h2 class="text-center">{{ _("Daily New Customer Sales Trend and Forecast") }}</h2>
+      <p class="text-center text-muted mb-3">
+        {{ _("Only each customer's first paid order counts, so every chart on this page is about new customers.") }}
+      </p>
+    {% else %}
+      <h2 class="text-center">{{ _("Daily Total Sales and All Repurchases Trend and Forecast") }}</h2>
+      <p class="text-center text-muted mb-3">
+        {{ _("Total sales and all repurchases are shown together for easier comparison.") }}
+      </p>
+    {% endif %}
 
     <div class="row mt-4">
       <div class="col-12 col-lg-4">
@@ -100,19 +109,32 @@
       </div>
     </div>
 
-    {% if daily_repurchases_error %}
-      <div class="alert alert-warning mt-3">
-        {{ daily_repurchases_error }}
+    {% if new_customers %}
+      <div class="mt-4" style="height: 560px;">
+        <canvas id="dailyNewCustomersChart"></canvas>
+      </div>
+
+      <h5 class="text-center mt-5">{{ _("New Customers per Day") }}</h5>
+      <div class="mt-3" style="height: 420px;">
+        <canvas id="dailyNewCustomersCountChart"></canvas>
+      </div>
+    {% else %}
+      {% if daily_repurchases_error %}
+        <div class="alert alert-warning mt-3">
+          {{ daily_repurchases_error }}
+        </div>
+      {% endif %}
+
+      <div class="mt-4" style="height: 560px;">
+        <canvas id="dailySalesAndRepurchasesChart"></canvas>
       </div>
     {% endif %}
 
-    <div class="mt-4" style="height: 560px;">
-      <canvas id="dailySalesAndRepurchasesChart"></canvas>
-    </div>
-
     <hr class="my-5">
 
-    <h2 class="text-center">{{ _("Daily Sales Trend and Forecast by Channel") }}</h2>
+    <h2 class="text-center">
+      {{ _("Daily New Customer Sales Trend and Forecast by Channel") if new_customers else _("Daily Sales Trend and Forecast by Channel") }}
+    </h2>
 
     {% if not channel_charts %}
       <div class="alert alert-warning mt-3">
@@ -120,10 +142,12 @@
       </div>
     {% else %}
       {% for ch in channel_charts %}
-        {% if ch.key|lower in ("wati", "facebook", "google") %}
+        {% if not new_customers and ch.key|lower in ("wati", "facebook", "google") %}
           <h3 class="text-center mt-5">
             {{ _("{channel} Daily Sales and Repurchase Sales Trend and Forecast").format(channel=ch.key|upper) }}
           </h3>
+        {% elif new_customers %}
+          <h3 class="text-center mt-5">{{ _("{channel} New Customer Sales Trend and Forecast").format(channel=ch.label) }}</h3>
         {% else %}
           <h3 class="text-center mt-5">{{ _("{channel} Sales Trend and Forecast").format(channel=ch.label) }}</h3>
         {% endif %}
@@ -149,7 +173,7 @@
           </div>
         </div>
 
-        {% if ch.key|lower == "wati" %}
+        {% if not new_customers and ch.key|lower == "wati" %}
           {% if wati_daily_repurchases_error %}
             <div class="alert alert-warning mt-3">
               {{ wati_daily_repurchases_error }}
@@ -166,7 +190,7 @@
             <canvas id="watiSalesAndRepurchasesChannelChart"></canvas>
           </div>
 
-        {% elif ch.key|lower == "facebook" %}
+        {% elif not new_customers and ch.key|lower == "facebook" %}
           {% if facebook_daily_repurchases_error %}
             <div class="alert alert-warning mt-3">
               {{ facebook_daily_repurchases_error }}
@@ -183,7 +207,7 @@
             <canvas id="{{ ch.canvas_id }}"></canvas>
           </div>
 
-        {% elif ch.key|lower == "google" %}
+        {% elif not new_customers and ch.key|lower == "google" %}
           {% if google_daily_repurchases_error %}
             <div class="alert alert-warning mt-3">
               {{ google_daily_repurchases_error }}
@@ -794,6 +818,40 @@ document.addEventListener("DOMContentLoaded", function() {
 
   var combinedLineCharts = [];
 
+  {% if new_customers %}
+  var newCustomersChart = buildLineChart(
+    "dailyNewCustomersChart",
+    [
+      {% for r in daily_sales_trend %}"{{ r['Date'] }}",{% endfor %}
+      {% for r in forecast_data %}"{{ r['Date'] }}",{% endfor %}
+    ],
+    [{% for r in daily_sales_trend %}{{ r['Total Sales']|default('0') }},{% endfor %}],
+    [{% for r in forecast_data %}{{ r['Projected Total Sales']|default(0) }},{% endfor %}],
+    {{ _("New Customer Sales")|tojson }},
+    null
+  );
+
+  var countCanvas = document.getElementById("dailyNewCustomersCountChart");
+  if (countCanvas) {
+    new Chart(countCanvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: [{% for r in daily_sales_trend %}"{{ r['Date'] }}",{% endfor %}],
+        datasets: [{
+          label: {{ _("New Customers")|tojson }},
+          data: [{% for r in daily_sales_trend %}{{ r['Total Orders']|default(0) }},{% endfor %}],
+          backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--so-teal").trim()
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+  }
+  {% else %}
   var dailySalesAndRepurchasesChart = buildCombinedSalesRepurchasesChart(
     "dailySalesAndRepurchasesChart",
     [
@@ -833,6 +891,7 @@ document.addEventListener("DOMContentLoaded", function() {
   if (dailySalesAndRepurchasesChart) {
     combinedLineCharts.push(dailySalesAndRepurchasesChart);
   }
+  {% endif %}
 
   var channelCharts = [];
   var channelGenderPies = [];
@@ -943,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", function() {
         {% endfor %}
       ];
 
-      {% if ch.key|lower == "wati" %}
+      {% if not new_customers and ch.key|lower == "wati" %}
         var watiCombinedChart = buildCombinedSalesRepurchasesChart(
           "watiSalesAndRepurchasesChannelChart",
           [
@@ -994,7 +1053,7 @@ document.addEventListener("DOMContentLoaded", function() {
           combinedLineCharts.push(watiCombinedChart);
         }
 
-      {% elif ch.key|lower == "facebook" %}
+      {% elif not new_customers and ch.key|lower == "facebook" %}
         var facebookSalesColor = color || "#4e79a7";
         var facebookRepurchaseColor = "#e15759";
 
@@ -1052,7 +1111,7 @@ document.addEventListener("DOMContentLoaded", function() {
           combinedLineCharts.push(facebookCombinedChart);
         }
 
-      {% elif ch.key|lower == "google" %}
+      {% elif not new_customers and ch.key|lower == "google" %}
         var googleSalesColor = color || "#4e79a7";
         var googleRepurchaseColor = "#e15759";
 
@@ -1116,7 +1175,7 @@ document.addEventListener("DOMContentLoaded", function() {
           labels,
           hist,
           fcst,
-          {{ _("{channel} Sales").format(channel=ch.label)|tojson }},
+          {{ (_("{channel} New Customer Sales") if new_customers else _("{channel} Sales")).format(channel=ch.label)|tojson }},
           color
         );
 
@@ -1194,6 +1253,8 @@ document.addEventListener("DOMContentLoaded", function() {
     for (var i = 0; i < channelCharts.length; i++) {
       applyLine(channelCharts[i]);
     }
+
+    {% if new_customers %}applyLine(newCustomersChart);{% endif %}
   };
 
 });

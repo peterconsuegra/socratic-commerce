@@ -1,4 +1,13 @@
 # app/services/daily_sales.py
+"""
+The /daily_sales dashboard (also /sales_by_location and /daily_new_customers):
+daily sales trend and forecast, pies by utm_source, gender, city and time of
+day, and the same per channel, over a page's own date-range orders file.
+
+first_purchases_only limits everything to new customers: each customer's
+first paid order, the store's purchase_number 1 (see get_data). Orders the
+store has not numbered yet count as neither.
+"""
 import os
 import logging
 import pandas as pd
@@ -52,6 +61,13 @@ def _forecast_daily_series(series: pd.Series, periods: int = 14) -> pd.Series:
         return pd.Series([last] * periods)
 
 
+def first_purchases(df: pd.DataFrame) -> pd.DataFrame:
+    """The new customers' orders: purchase_number 1, as the store numbers them."""
+    if "purchase_number" not in df.columns:
+        raise ValueError("Orders file is missing purchase_number: pick the date range again to re-fetch it.")
+    return df[pd.to_numeric(df["purchase_number"], errors="coerce").eq(1)].copy()
+
+
 def get_daily_sales_trend(
     forecast_periods: int = 14,
     return_forecast: bool = True,
@@ -60,6 +76,7 @@ def get_daily_sales_trend(
     state: str | None = None,
     city: str | None = None,
     include_today: bool = False,
+    first_purchases_only: bool = False,
 ):
     logger = logging.getLogger(__name__)
     tz = "America/Bogota"
@@ -70,6 +87,8 @@ def get_daily_sales_trend(
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
     data = filter_by_location(pd.read_csv(orders_csv_path), state, city)
+    if first_purchases_only:
+        data = first_purchases(data)
 
     required_cols = {"order_date", "total_value"}
     missing = required_cols - set(data.columns)
@@ -387,6 +406,7 @@ def build_daily_sales_dashboard_context(
     state: str | None = None,
     city: str | None = None,
     include_today: bool = False,
+    first_purchases_only: bool = False,
 ) -> dict[str, Any]:
     """
     Builds the complete context needed by templates/daily_sales.html.
@@ -394,6 +414,7 @@ def build_daily_sales_dashboard_context(
     state and city, when given, limit every chart to the orders of that
     department and/or city (see get_data.filter_by_location). include_today
     counts today's orders so far in the trends (a range running through today).
+    first_purchases_only keeps only new customers' first orders.
 
     This keeps the Flask route focused on request orchestration only.
     """
@@ -415,12 +436,15 @@ def build_daily_sales_dashboard_context(
             state=state,
             city=city,
             include_today=include_today,
+            first_purchases_only=first_purchases_only,
         )
 
         context["daily_sales_trend"] = daily_sales_trend
         context["forecast_data"] = forecast_data
 
         df = filter_by_location(pd.read_csv(input_file), state, city)
+        if first_purchases_only:
+            df = first_purchases(df)
         df = _normalize_sales_dataframe(df)
 
         # UTM source pie
@@ -492,6 +516,7 @@ def build_daily_sales_dashboard_context(
                 state=state,
                 city=city,
                 include_today=include_today,
+                first_purchases_only=first_purchases_only,
             )
 
             if not trend_rows:
