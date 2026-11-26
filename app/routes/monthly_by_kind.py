@@ -12,9 +12,10 @@ The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases
     projected weekday-weighted), plus the number of those orders per month;
   - the same trend for each channel with at least 2% of those sales.
 
-Kinds in TOP_CAMPAIGN_KINDS (male) also get a table of their top 10
-utm_campaigns by sales over the last 12 complete months
-(services/top_campaigns.py).
+Kinds in TOP_TABLES also get tables of their top UTM values by sales over
+the last 12 complete months (services/top_campaigns.py): male the top 20
+utm_campaigns, female the top 10, new customers the top 20 utm_campaigns and
+the top 20 utm_content (ads).
 
 Which orders a kind counts is ORDER_KINDS in services/monthly_repurchases.py;
 its English texts are KIND_TEXT below (Spanish in app/i18n.py).
@@ -27,16 +28,19 @@ from flask import current_app, render_template
 from app.i18n import translate as _
 from app.services.get_data import load_orders
 from app.services.monthly_repurchases import ORDER_KINDS, ROW_KEYS, get_monthly_repurchases_trend
-from app.services.top_campaigns import campaign_window, top_utm_campaigns
+from app.services.top_campaigns import campaign_window, top_utm_values
 
 from .common import refresh_all_orders_if_needed
 
 FORECAST_MONTHS = 12
 MIN_CHANNEL_SHARE_PERCENT = 2.0
 
-# The kinds whose page shows the top 10 utm_campaigns table.
-TOP_CAMPAIGN_KINDS = {"male"}
-TOP_CAMPAIGNS = 10
+# Per kind: the top-values tables its page shows, in order (UTM field -> rows).
+TOP_TABLES = {
+    "male": {"utm_campaign": 20},
+    "female": {"utm_campaign": 10},
+    "first": {"utm_campaign": 20, "utm_content": 20},
+}
 
 # Per kind: the canvas id prefix and the page's texts, in English.
 KIND_TEXT = {
@@ -56,6 +60,19 @@ KIND_TEXT = {
         "forecasted": "Forecasted New Customer Sales",
         "channel_historical": "Historical {channel} New Customer Sales",
         "channel_forecasted": "Forecasted {channel} New Customer Sales",
+        "top_sales": "New customer sales",
+        "top_orders": "New customers",
+        "top_utm_campaign_heading": "Top 20 Campaigns for New Customers",
+        "top_utm_campaign_note": "Ranked by new customer sales (first purchases) over the last 12 complete months "
+                                 "({start} to {end}, Bogota time). Share is of all new customer sales in those months.",
+        "top_utm_campaign_none": "New customers without a campaign (undefined or N/A): {share} of new customer sales, "
+                                 "not ranked.",
+        "top_utm_content_heading": "Top 20 Ads (utm_content) for New Customers",
+        "top_utm_content_note": "Ranked by new customer sales (first purchases) over the last 12 complete months "
+                                "({start} to {end}, Bogota time). An ad name can be used in more than one campaign: "
+                                "Main campaign is the one with most of its sales.",
+        "top_utm_content_none": "New customers without a utm_content (undefined or N/A): {share} of new customer "
+                                "sales, not ranked.",
     },
     "male": {
         "chart_prefix": "maleSales",
@@ -73,12 +90,12 @@ KIND_TEXT = {
         "forecasted": "Forecasted Male Sales",
         "channel_historical": "Historical {channel} Male Sales",
         "channel_forecasted": "Forecasted {channel} Male Sales",
-        "top_campaigns_heading": "Top 10 Campaigns for Male Sales",
-        "top_campaigns_note": "Ranked by male sales over the last 12 complete months ({start} to {end}, Bogota time). "
+        "top_utm_campaign_heading": "Top 20 Campaigns for Male Sales",
+        "top_utm_campaign_note": "Ranked by male sales over the last 12 complete months ({start} to {end}, Bogota time). "
                               "Share is of all male sales in those months.",
-        "top_campaigns_no_campaign": "Male orders without a campaign (undefined or N/A): {share} of male sales, not ranked.",
-        "top_campaigns_sales": "Male sales",
-        "top_campaigns_orders": "Male orders",
+        "top_utm_campaign_none": "Male orders without a campaign (undefined or N/A): {share} of male sales, not ranked.",
+        "top_sales": "Male sales",
+        "top_orders": "Male orders",
     },
     "female": {
         "chart_prefix": "femaleSales",
@@ -96,6 +113,12 @@ KIND_TEXT = {
         "forecasted": "Forecasted Female Sales",
         "channel_historical": "Historical {channel} Female Sales",
         "channel_forecasted": "Forecasted {channel} Female Sales",
+        "top_utm_campaign_heading": "Top 10 Campaigns for Female Sales",
+        "top_utm_campaign_note": "Ranked by female sales over the last 12 complete months ({start} to {end}, Bogota time). "
+                              "Share is of all female sales in those months.",
+        "top_utm_campaign_none": "Female orders without a campaign (undefined or N/A): {share} of female sales, not ranked.",
+        "top_sales": "Female sales",
+        "top_orders": "Female orders",
     },
 }
 
@@ -147,7 +170,7 @@ def render_monthly_by_kind(kind: str):
     channel_charts = []
     other_channels_labels = []
     other_channels_pct = 0.0
-    top_campaigns = None
+    top_tables = []
     error = None
 
     try:
@@ -164,9 +187,11 @@ def render_monthly_by_kind(kind: str):
 
         kind_orders = df[ORDER_KINDS[kind](df)]
 
-        if kind in TOP_CAMPAIGN_KINDS:
-            start, end = campaign_window(today_bogota)
-            top_campaigns = top_utm_campaigns(kind_orders, start, end, n=TOP_CAMPAIGNS)
+        start, end = campaign_window(today_bogota)
+        top_tables = [
+            top_utm_values(kind_orders, start, end, field=field, n=n)
+            for field, n in TOP_TABLES.get(kind, {}).items()
+        ]
 
         orders = kind_orders[kind_orders["order_date"] <= end_prev_month].copy()
         orders["utm_source"] = orders["utm_source"].str.strip().str.lower()
@@ -218,7 +243,9 @@ def render_monthly_by_kind(kind: str):
         "monthly_by_kind.html",
         text=text,
         chart_prefix=text["chart_prefix"],
-        top_campaigns=top_campaigns,
+        top_tables=top_tables,
+        # Every order of the new-customers page is a new customer: no such column there.
+        show_new_customers=kind != "first",
         value_key=value_key,
         forecast_key=forecast_key,
         monthly_trend=trend,
