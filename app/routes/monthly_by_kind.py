@@ -12,6 +12,10 @@ The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases
     projected weekday-weighted), plus the number of those orders per month;
   - the same trend for each channel with at least 2% of those sales.
 
+Kinds in TOP_CAMPAIGN_KINDS (male) also get a table of their top 10
+utm_campaigns by sales over the last 12 complete months
+(services/top_campaigns.py).
+
 Which orders a kind counts is ORDER_KINDS in services/monthly_repurchases.py;
 its English texts are KIND_TEXT below (Spanish in app/i18n.py).
 """
@@ -23,11 +27,16 @@ from flask import current_app, render_template
 from app.i18n import translate as _
 from app.services.get_data import load_orders
 from app.services.monthly_repurchases import ORDER_KINDS, ROW_KEYS, get_monthly_repurchases_trend
+from app.services.top_campaigns import campaign_window, top_utm_campaigns
 
 from .common import refresh_all_orders_if_needed
 
 FORECAST_MONTHS = 12
 MIN_CHANNEL_SHARE_PERCENT = 2.0
+
+# The kinds whose page shows the top 10 utm_campaigns table.
+TOP_CAMPAIGN_KINDS = {"male"}
+TOP_CAMPAIGNS = 10
 
 # Per kind: the canvas id prefix and the page's texts, in English.
 KIND_TEXT = {
@@ -64,6 +73,12 @@ KIND_TEXT = {
         "forecasted": "Forecasted Male Sales",
         "channel_historical": "Historical {channel} Male Sales",
         "channel_forecasted": "Forecasted {channel} Male Sales",
+        "top_campaigns_heading": "Top 10 Campaigns for Male Sales",
+        "top_campaigns_note": "Ranked by male sales over the last 12 complete months ({start} to {end}, Bogota time). "
+                              "Share is of all male sales in those months.",
+        "top_campaigns_no_campaign": "Male orders without a campaign (undefined or N/A): {share} of male sales, not ranked.",
+        "top_campaigns_sales": "Male sales",
+        "top_campaigns_orders": "Male orders",
     },
     "female": {
         "chart_prefix": "femaleSales",
@@ -132,6 +147,7 @@ def render_monthly_by_kind(kind: str):
     channel_charts = []
     other_channels_labels = []
     other_channels_pct = 0.0
+    top_campaigns = None
     error = None
 
     try:
@@ -146,7 +162,13 @@ def render_monthly_by_kind(kind: str):
         today_bogota = pd.Timestamp.now(tz="America/Bogota").tz_localize(None).normalize()
         end_prev_month = today_bogota.replace(day=1) - pd.Timedelta(microseconds=1)
 
-        orders = df[(df["order_date"] <= end_prev_month) & ORDER_KINDS[kind](df)].copy()
+        kind_orders = df[ORDER_KINDS[kind](df)]
+
+        if kind in TOP_CAMPAIGN_KINDS:
+            start, end = campaign_window(today_bogota)
+            top_campaigns = top_utm_campaigns(kind_orders, start, end, n=TOP_CAMPAIGNS)
+
+        orders = kind_orders[kind_orders["order_date"] <= end_prev_month].copy()
         orders["utm_source"] = orders["utm_source"].str.strip().str.lower()
         orders.loc[orders["utm_source"] == "", "utm_source"] = "unknown"
 
@@ -196,6 +218,7 @@ def render_monthly_by_kind(kind: str):
         "monthly_by_kind.html",
         text=text,
         chart_prefix=text["chart_prefix"],
+        top_campaigns=top_campaigns,
         value_key=value_key,
         forecast_key=forecast_key,
         monthly_trend=trend,
