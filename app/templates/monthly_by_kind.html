@@ -1,8 +1,12 @@
-{# app/templates/new_customers_monthly.html #}
+{# app/templates/monthly_by_kind.html
+   The root view (/, Monthly Sales) for one kind of order: /new_customers_monthly
+   (first purchases), /male_sales_monthly (orders the store marks male). The
+   route (routes/monthly_by_kind.py) passes the kind's texts (English, each
+   translated here with _), its row keys and its chart id prefix. #}
 {% extends "layout.html" %}
 
 {% block title %}
-  {{ _("New Customers by Month") }}
+  {{ _(text.title) }}
 {% endblock %}
 
 {% block content %}
@@ -13,17 +17,17 @@
       {{ error }}
     </div>
   {% else %}
-    <h2 class="text-center">{{ _("Monthly New Customers Trend & Forecast") }}</h2>
+    <h2 class="text-center">{{ _(text.heading) }}</h2>
 
     <div class="text-center mb-3">
-      <label for="exchangeRateNewCustomers">{{ _("USD Exchange Rate (COP):") }}</label>
-      <input type="number" id="exchangeRateNewCustomers" value="4000" step="50" min="3000" max="6000">
+      <label for="exchangeRateMonthlyKind">{{ _("USD Exchange Rate (COP):") }}</label>
+      <input type="number" id="exchangeRateMonthlyKind" value="4000" step="50" min="3000" max="6000">
       <button id="toggleCurrencyAllBtn" class="btn btn-primary">{{ _("Switch Currency (All)") }}</button>
       <span id="currencyModeLabel" class="ms-2 text-muted">{{ _("Mode: {currency}").format(currency="COP") }}</span>
     </div>
 
     <div class="mb-4">
-      <h5 class="text-center mb-2">{{ _("New Customer Sales by Channel (utm_source) up to end of previous month") }}</h5>
+      <h5 class="text-center mb-2">{{ _(text.pie) }}</h5>
       <div style="max-width: 620px; margin: 0 auto; height: 420px;">
         <canvas id="salesByChannelPie"></canvas>
       </div>
@@ -36,7 +40,7 @@
     </div>
 
     <div class="mb-5">
-      <h5 class="text-center mb-2">{{ _("Total New Customer Sales") }}</h5>
+      <h5 class="text-center mb-2">{{ _(text.total) }}</h5>
 
       {% if forecast_includes_current_month_mtd %}
         <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
@@ -48,23 +52,23 @@
       {% endif %}
 
       <div style="position: relative; height: 520px;">
-        <canvas id="newCustomersChartTotal"></canvas>
+        <canvas id="{{ chart_prefix }}ChartTotal"></canvas>
       </div>
     </div>
 
     <div class="mb-5">
-      <h5 class="text-center mb-2">{{ _("New Customers per Month") }}</h5>
+      <h5 class="text-center mb-2">{{ _(text.count_heading) }}</h5>
       <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
-        {{ _("Customers whose first paid order was that month (complete months, Bogota time).") }}
+        {{ _(text.count_note) }}
       </p>
       <div style="position: relative; height: 420px;">
-        <canvas id="newCustomersCountChart"></canvas>
+        <canvas id="{{ chart_prefix }}CountChart"></canvas>
       </div>
     </div>
 
     <hr class="my-4">
 
-    <h5 class="text-center">{{ _("New Customers by Channel (ranked by total sales)") }}</h5>
+    <h5 class="text-center">{{ _(text.by_channel) }}</h5>
 
     {% if not channel_charts %}
       <div class="alert alert-warning mt-3">
@@ -73,10 +77,10 @@
     {% else %}
       {% for ch in channel_charts %}
         <div class="mb-5 mt-4">
-          <h5 class="text-center mb-2">{{ _("{channel} New Customers").format(channel=ch.label) }}</h5>
+          <h5 class="text-center mb-2">{{ _(text.channel_heading).format(channel=ch.label) }}</h5>
 
           <p class="text-center text-muted mb-2" style="font-size: 0.9rem;">
-            {{ _("Ranked by number of new customers: {count}").format(count=ch.count) }}
+            {{ _(text.ranked).format(count=ch.count) }}
           </p>
 
           {% if ch.forecast_includes_current_month_mtd %}
@@ -104,7 +108,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  var exchangeRateInput = document.getElementById("exchangeRateNewCustomers");
+  var exchangeRateInput = document.getElementById("exchangeRateMonthlyKind");
   var toggleBtn = document.getElementById("toggleCurrencyAllBtn");
   var modeLabel = document.getElementById("currencyModeLabel");
 
@@ -353,26 +357,26 @@ document.addEventListener("DOMContentLoaded", function() {
   // ----------------------------
   // TOTAL chart with bridge point
   // ----------------------------
-  var totalHistLabels = [{% for r in new_customers_trend %}"{{ r['Month'] }}",{% endfor %}];
+  var totalHistLabels = [{% for r in monthly_trend %}"{{ r['Month'] }}",{% endfor %}];
   var totalForecastLabels = [{% for r in forecast_data %}"{{ r['Month'] }}",{% endfor %}];
 
-  var totalHist = [{% for r in new_customers_trend %}{{ r['New Customer Total Value']|default('0') }},{% endfor %}]
+  var totalHist = [{% for r in monthly_trend %}{{ r[value_key]|default('0') }},{% endfor %}]
     .map(function(v){ return Number(v) || 0; });
 
-  var totalFcst = [{% for r in forecast_data %}{{ r['Projected New Customer Sales'] }},{% endfor %}]
+  var totalFcst = [{% for r in forecast_data %}{{ r[forecast_key] }},{% endfor %}]
     .map(function(v){ return Number(v) || 0; });
 
   var totalBridgeLabel = {% if forecast_includes_current_month_mtd and current_month_label %}"{{ current_month_label }}"{% else %}null{% endif %};
   var totalBridgeValue = {% if forecast_includes_current_month_mtd %}{{ current_month_projected_sales }}{% else %}null{% endif %};
 
   var totalChart = buildLineChart(
-    "newCustomersChartTotal",
+    "{{ chart_prefix }}ChartTotal",
     totalHistLabels,
     totalForecastLabels,
     totalHist,
     totalFcst,
-    {{ _("Historical New Customer Sales")|tojson }},
-    {{ _("Forecasted New Customer Sales")|tojson }},
+    {{ _(text.historical)|tojson }},
+    {{ _(text.forecasted)|tojson }},
     null,
     totalBridgeLabel,
     totalBridgeValue
@@ -391,10 +395,10 @@ document.addEventListener("DOMContentLoaded", function() {
       var histLabels = [{% for r in ch.trend %}"{{ r['Month'] }}",{% endfor %}];
       var forecastLabels = [{% for r in ch.forecast %}"{{ r['Month'] }}",{% endfor %}];
 
-      var hist = [{% for r in ch.trend %}{{ r['New Customer Total Value']|default('0') }},{% endfor %}]
+      var hist = [{% for r in ch.trend %}{{ r[value_key]|default('0') }},{% endfor %}]
         .map(function(v){ return Number(v) || 0; });
 
-      var fcst = [{% for r in ch.forecast %}{{ r['Projected New Customer Sales'] }},{% endfor %}]
+      var fcst = [{% for r in ch.forecast %}{{ r[forecast_key] }},{% endfor %}]
         .map(function(v){ return Number(v) || 0; });
 
       var bridgeLabel = {% if ch.forecast_includes_current_month_mtd and ch.current_month_label %}"{{ ch.current_month_label }}"{% else %}null{% endif %};
@@ -406,8 +410,8 @@ document.addEventListener("DOMContentLoaded", function() {
         forecastLabels,
         hist,
         fcst,
-        {{ _("Historical {channel} New Customer Sales").format(channel=ch.label)|tojson }},
-        {{ _("Forecasted {channel} New Customer Sales").format(channel=ch.label)|tojson }},
+        {{ _(text.channel_historical).format(channel=ch.label)|tojson }},
+        {{ _(text.channel_forecasted).format(channel=ch.label)|tojson }},
         color,
         bridgeLabel,
         bridgeValue
@@ -418,17 +422,17 @@ document.addEventListener("DOMContentLoaded", function() {
   {% endfor %}
 
   // ----------------------------
-  // New customers (count) per month
+  // The kind's orders (count) per month
   // ----------------------------
-  var countCanvas = document.getElementById("newCustomersCountChart");
+  var countCanvas = document.getElementById("{{ chart_prefix }}CountChart");
   if (countCanvas) {
     new Chart(countCanvas.getContext("2d"), {
       type: "bar",
       data: {
         labels: totalHistLabels,
         datasets: [{
-          label: {{ _("New Customers")|tojson }},
-          data: [{% for r in new_customers_trend %}{{ r['Orders']|default(0) }},{% endfor %}],
+          label: {{ _(text.count_label)|tojson }},
+          data: [{% for r in monthly_trend %}{{ r['Orders']|default(0) }},{% endfor %}],
           backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--so-teal").trim()
         }]
       },

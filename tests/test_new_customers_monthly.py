@@ -112,7 +112,7 @@ class NewCustomersPageTests(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def get(self, url):
-        with mock.patch("app.routes.new_customers.refresh_all_orders_if_needed"):
+        with mock.patch("app.routes.monthly_by_kind.refresh_all_orders_if_needed"):
             response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         return response.get_data(as_text=True)
