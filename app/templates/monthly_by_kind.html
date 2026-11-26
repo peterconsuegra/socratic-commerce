@@ -3,8 +3,8 @@
    (first purchases), /male_sales_monthly and /female_sales_monthly (orders
    the store marks male or female). The
    route (routes/monthly_by_kind.py) passes the kind's texts (English, each
-   translated here with _), its row keys and its chart id prefix, and for
-   some kinds top_campaigns (services/top_campaigns.py). #}
+   translated here with _), its row keys and its chart id prefix, and the
+   kind's top_tables (services/top_campaigns.py). #}
 {% extends "layout.html" %}
 
 {% block title %}
@@ -68,40 +68,47 @@
       </div>
     </div>
 
-    {% if top_campaigns %}
-      <div class="mb-5" id="top-campaigns">
-        <h5 class="text-center mb-2">{{ _(text.top_campaigns_heading) }}</h5>
+    {# Top UTM values tables (services/top_campaigns.py): one per field in
+       TOP_TABLES; ids top-utm_campaign / top-utm_content. #}
+    {% for table in top_tables %}
+      {% set is_content = table.field == "utm_content" %}
+      <div class="mb-5" id="top-{{ table.field }}">
+        <h5 class="text-center mb-2">{{ _(text["top_" ~ table.field ~ "_heading"]) }}</h5>
         <p class="text-center text-muted mb-3" style="font-size: 0.95rem;">
-          {{ _(text.top_campaigns_note).format(start=top_campaigns.start, end=top_campaigns.end) }}
+          {{ _(text["top_" ~ table.field ~ "_note"]).format(start=table.start, end=table.end) }}
         </p>
 
-        {% if not top_campaigns.rows %}
-          <div class="alert alert-warning">{{ _("No campaign sales in these months.") }}</div>
+        {% if not table.rows %}
+          <div class="alert alert-warning">
+            {{ _("No ad sales in these months.") if is_content else _("No campaign sales in these months.") }}
+          </div>
         {% else %}
           <div class="table-responsive">
             <table class="table table-sm table-striped align-middle" style="font-variant-numeric: tabular-nums;">
               <thead>
                 <tr>
                   <th scope="col">#</th>
-                  <th scope="col">{{ _("Campaign (utm_campaign)") }}</th>
-                  <th scope="col" class="text-end">{{ _(text.top_campaigns_sales) }}</th>
+                  <th scope="col">{{ _("Ad (utm_content)") if is_content else _("Campaign (utm_campaign)") }}</th>
+                  {% if is_content %}<th scope="col">{{ _("Main campaign") }}</th>{% endif %}
+                  <th scope="col" class="text-end">{{ _(text.top_sales) }}</th>
                   <th scope="col" class="text-end">{{ _("Share") }}</th>
-                  <th scope="col" class="text-end">{{ _(text.top_campaigns_orders) }}</th>
+                  <th scope="col" class="text-end">{{ _(text.top_orders) }}</th>
                   <th scope="col" class="text-end">{{ _("Avg. ticket") }}</th>
-                  <th scope="col" class="text-end">{{ _("New customers") }}</th>
+                  {% if show_new_customers %}<th scope="col" class="text-end">{{ _("New customers") }}</th>{% endif %}
                   <th scope="col" class="text-end">{{ _("Last order") }}</th>
                 </tr>
               </thead>
               <tbody>
-                {% for row in top_campaigns.rows %}
+                {% for row in table.rows %}
                   <tr>
                     <td>{{ loop.index }}</td>
-                    <td style="word-break: break-all;">{{ row.campaign }}</td>
+                    <td style="word-break: break-all;">{{ row.value }}</td>
+                    {% if is_content %}<td style="word-break: break-all;" class="text-muted">{{ row.main_campaign }}</td>{% endif %}
                     <td class="text-end">{{ row.sales|cop }}</td>
                     <td class="text-end">{{ "%.1f"|format(row.share) }}%</td>
                     <td class="text-end">{{ row.orders }}</td>
                     <td class="text-end">{{ row.avg_ticket|cop }}</td>
-                    <td class="text-end">{{ row.new_customers }}</td>
+                    {% if show_new_customers %}<td class="text-end">{{ row.new_customers }}</td>{% endif %}
                     <td class="text-end">{{ row.last_order }}</td>
                   </tr>
                 {% endfor %}
@@ -110,13 +117,13 @@
           </div>
         {% endif %}
 
-        {% if top_campaigns.no_campaign_sales > 0 %}
+        {% if table.no_value_sales > 0 %}
           <p class="text-center text-muted mt-2" style="font-size: 0.9rem;">
-            {{ _(text.top_campaigns_no_campaign).format(share="%.1f%%"|format(top_campaigns.no_campaign_share)) }}
+            {{ _(text["top_" ~ table.field ~ "_none"]).format(share="%.1f%%"|format(table.no_value_share)) }}
           </p>
         {% endif %}
       </div>
-    {% endif %}
+    {% endfor %}
 
     <hr class="my-4">
 

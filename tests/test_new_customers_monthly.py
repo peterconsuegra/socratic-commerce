@@ -128,6 +128,23 @@ class NewCustomersPageTests(unittest.TestCase):
         self.assertNotIn('id="newCustomersChart_wati"', html)
         self.assertIn("Ranked by number of new customers: 3", html)
 
+    def test_top_campaigns_and_ads_tables(self):
+        html = self.get("/new_customers_monthly")
+        content = html.split("<!-- Main Content Block -->", 1)[1]
+        self.assertIn("Top 20 Campaigns for New Customers", content)
+        self.assertIn("Top 20 Ads (utm_content) for New Customers", content)
+        campaigns = content.split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
+        ads = content.split('id="top-utm_content"', 1)[1].split("</table>", 1)[0]
+        # First purchases only: facebook 350,000 (3), google 50,000 (1); wati had repurchases only.
+        cells = lambda table: [c.split("<", 1)[0].strip()
+                               for c in table.split('<td style="word-break: break-all;">')[1:]]
+        self.assertEqual(cells(campaigns), ["facebook campaign", "google campaign"])
+        self.assertEqual(ads.count("<tr>") - 1, 1)  # every test order's utm_content is "ad"
+        self.assertIn("Main campaign", ads)
+        self.assertIn("facebook campaign", ads.split("Main campaign", 1)[1])
+        # Every order here is a new customer, so that column appears once (as the orders count).
+        self.assertEqual(campaigns.count(">New customers<"), 1)
+
     def test_sales_menu_links_the_page(self):
         html = self.get("/new_customers_monthly")
         sales = html.split('<div class="nav-group-label">Sales</div>', 1)[1].split('<div class="nav-group-label">', 1)[0]

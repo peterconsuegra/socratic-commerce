@@ -27,7 +27,7 @@ from app.routes.monthly_by_kind import KIND_TEXT  # noqa: E402
 from app.services.get_data import BOGOTA, write_orders_csv  # noqa: E402
 from app.services.monthly_repurchases import get_monthly_male_sales_trend  # noqa: E402
 from app.services.get_data import load_orders  # noqa: E402
-from app.services.top_campaigns import campaign_window, top_utm_campaigns  # noqa: E402
+from app.services.top_campaigns import campaign_window, top_utm_campaigns, top_utm_values  # noqa: E402
 
 CURRENT = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
 LAST = CURRENT - 1
@@ -112,15 +112,30 @@ class TopCampaignsTests(unittest.TestCase):
 
     def test_ranks_named_campaigns_by_sales(self):
         top = top_utm_campaigns(self.orders, self.start, self.end, n=10)
-        self.assertEqual([r["campaign"] for r in top["rows"]], ["BlackFriday", "Retargeting", "wati"])
+        self.assertEqual([r["value"] for r in top["rows"]], ["BlackFriday", "Retargeting", "wati"])
         first = top["rows"][0]
         self.assertEqual((first["sales"], first["orders"], first["avg_ticket"], first["new_customers"]),
                          (300000.0, 2, 150000.0, 1))
         self.assertEqual(first["last_order"], f"{LAST.start_time:%Y-%m}-10")
         # Shares are of every male sale in the window, campaign or not (1,100,000).
         self.assertAlmostEqual(first["share"], 300000 / 1100000 * 100)
-        self.assertEqual(top["no_campaign_sales"], 500000.0)
-        self.assertEqual(top["campaigns"], 3)
+        self.assertEqual(top["no_value_sales"], 500000.0)
+        self.assertEqual(top["values"], 3)
+
+    def test_utm_content_names_its_main_campaign(self):
+        rows = []
+        for i, (campaign, content, total) in enumerate([
+            ("Prospecting", "VideoA", 300000), ("Retargeting", "VideoA", 100000),  # same ad name, two campaigns
+            ("Prospecting", "VideoB", 150000), ("Prospecting", "undefined", 999000),
+        ]):
+            row = campaign_order(f"x{i}", LAST, campaign, total=total)
+            row["utm_content"] = content
+            rows.append(row)
+        write_orders_csv(rows, self.path)
+        top = top_utm_values(load_orders(self.path), self.start, self.end, field="utm_content", n=10)
+        self.assertEqual([(r["value"], r["sales"], r["main_campaign"]) for r in top["rows"]],
+                         [("VideoA", 400000.0, "Prospecting"), ("VideoB", 150000.0, "Prospecting")])
+        self.assertEqual(top["no_value_sales"], 999000.0)
 
     def test_n_limits_the_rows(self):
         self.assertEqual(len(top_utm_campaigns(self.orders, self.start, self.end, n=2)["rows"]), 2)
@@ -174,14 +189,24 @@ class MaleSalesPageTests(unittest.TestCase):
         self.assertIn("Ranked by number of male orders: 3", html)
         self.assertNotIn("New Customer", html.split("<!-- Main Content Block -->", 1)[1])
 
-    def test_top_campaigns_table_is_on_the_male_page_only(self):
+    def test_male_page_ranks_twenty_campaigns_female_ten(self):
+        from app.routes.monthly_by_kind import TOP_TABLES
+        self.assertEqual((TOP_TABLES["male"], TOP_TABLES["female"]), ({"utm_campaign": 20}, {"utm_campaign": 10}))
+        many = [campaign_order(f"{g}{i}", LAST, f"campaign {i}", gender=g, total=100000 + i)
+                for i in range(25) for g in ("male", "female")]
+        write_orders_csv(many, self.app.config["ALL_ORDERS_CSV"])
+        table = self.get("/male_sales_monthly").split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
+        self.assertEqual(table.count("<tr>") - 1, 20)
+        table = self.get("/female_sales_monthly").split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
+        self.assertEqual(table.count("<tr>") - 1, 10)
+
+    def test_top_campaigns_table_is_on_the_gender_pages_only(self):
         html = self.get("/male_sales_monthly")
-        self.assertIn('id="top-campaigns"', html)
-        self.assertIn("Top 10 Campaigns for Male Sales", html)
+        self.assertIn('id="top-utm_campaign"', html)
+        self.assertIn("Top 20 Campaigns for Male Sales", html)
         self.assertIn("<td>facebook campaign</td>", html.replace('<td style="word-break: break-all;">', "<td>"))
-        self.assertNotIn("wati campaign", html.split('id="top-campaigns"', 1)[1].split("</table>", 1)[0])
-        for url in ("/female_sales_monthly", "/new_customers_monthly"):
-            self.assertNotIn('id="top-campaigns"', self.get(url))
+        self.assertNotIn("wati campaign", html.split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0])
+        self.assertNotIn("Top 20 Campaigns for Male Sales", self.get("/new_customers_monthly"))
 
     def test_sales_menu_links_the_page(self):
         html = self.get("/male_sales_monthly")
