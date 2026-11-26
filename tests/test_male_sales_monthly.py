@@ -26,6 +26,8 @@ from app.models import User  # noqa: E402
 from app.routes.monthly_by_kind import KIND_TEXT  # noqa: E402
 from app.services.get_data import BOGOTA, write_orders_csv  # noqa: E402
 from app.services.monthly_repurchases import get_monthly_male_sales_trend  # noqa: E402
+from app.services.get_data import load_orders  # noqa: E402
+from app.services.top_campaigns import campaign_window, top_utm_campaigns  # noqa: E402
 
 CURRENT = pd.Timestamp.now(tz=BOGOTA).tz_localize(None).to_period("M")
 LAST = CURRENT - 1
@@ -75,6 +77,55 @@ class MaleSalesTrendTests(unittest.TestCase):
         self.assertEqual((last["Male Total Value"], last["Orders"]), ("250000", 2))
 
 
+def campaign_order(order_id, month, campaign, total=100000, purchase_number=1, gender="male"):
+    row = order(order_id, month, "facebook", gender, purchase_number=purchase_number, total=total)
+    row["utm_campaign"] = campaign
+    return row
+
+
+CAMPAIGN_ORDERS = [
+    campaign_order("c1", LAST, "BlackFriday", total=200000),
+    campaign_order("c2", LAST, "BlackFriday", total=100000, purchase_number=2),
+    campaign_order("c3", LAST - 1, "Retargeting", total=250000, purchase_number=3),
+    campaign_order("c4", LAST, "  wati  ", total=50000),
+    campaign_order("c5", LAST, "undefined", total=400000),   # no campaign: not ranked
+    campaign_order("c6", LAST, "N/A", total=100000),         # no campaign: not ranked
+    campaign_order("c7", LAST - 13, "OldCampaign", total=900000),  # before the 12 months
+    campaign_order("c8", CURRENT, "ThisMonth", total=900000),       # month not complete yet
+]
+
+
+class TopCampaignsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "all_orders.csv")
+        write_orders_csv(CAMPAIGN_ORDERS, self.path)
+        self.orders = load_orders(self.path)
+        self.start, self.end = campaign_window(pd.Timestamp.now(tz=BOGOTA).tz_localize(None))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def test_window_is_the_last_12_complete_months(self):
+        self.assertEqual(self.start.to_period("M"), CURRENT - 12)
+        self.assertEqual(self.end.to_period("M"), LAST)
+
+    def test_ranks_named_campaigns_by_sales(self):
+        top = top_utm_campaigns(self.orders, self.start, self.end, n=10)
+        self.assertEqual([r["campaign"] for r in top["rows"]], ["BlackFriday", "Retargeting", "wati"])
+        first = top["rows"][0]
+        self.assertEqual((first["sales"], first["orders"], first["avg_ticket"], first["new_customers"]),
+                         (300000.0, 2, 150000.0, 1))
+        self.assertEqual(first["last_order"], f"{LAST.start_time:%Y-%m}-10")
+        # Shares are of every male sale in the window, campaign or not (1,100,000).
+        self.assertAlmostEqual(first["share"], 300000 / 1100000 * 100)
+        self.assertEqual(top["no_campaign_sales"], 500000.0)
+        self.assertEqual(top["campaigns"], 3)
+
+    def test_n_limits_the_rows(self):
+        self.assertEqual(len(top_utm_campaigns(self.orders, self.start, self.end, n=2)["rows"]), 2)
+
+
 class KindTextTests(unittest.TestCase):
     def test_every_kind_text_has_spanish(self):
         missing = [v for t in KIND_TEXT.values() for k, v in t.items() if k != "chart_prefix" and v not in SPANISH]
@@ -122,6 +173,15 @@ class MaleSalesPageTests(unittest.TestCase):
         self.assertNotIn('id="maleSalesChart_wati"', html)  # the unknown-gender order
         self.assertIn("Ranked by number of male orders: 3", html)
         self.assertNotIn("New Customer", html.split("<!-- Main Content Block -->", 1)[1])
+
+    def test_top_campaigns_table_is_on_the_male_page_only(self):
+        html = self.get("/male_sales_monthly")
+        self.assertIn('id="top-campaigns"', html)
+        self.assertIn("Top 10 Campaigns for Male Sales", html)
+        self.assertIn("<td>facebook campaign</td>", html.replace('<td style="word-break: break-all;">', "<td>"))
+        self.assertNotIn("wati campaign", html.split('id="top-campaigns"', 1)[1].split("</table>", 1)[0])
+        for url in ("/female_sales_monthly", "/new_customers_monthly"):
+            self.assertNotIn('id="top-campaigns"', self.get(url))
 
     def test_sales_menu_links_the_page(self):
         html = self.get("/male_sales_monthly")
