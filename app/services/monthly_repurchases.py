@@ -224,19 +224,23 @@ def _weekday_weighted_projection(
     }
 
 
-# Which orders each monthly trend counts. Both are the store's own figures
+# Which orders each monthly trend counts. All are the store's own figures
 # (see get_data): a repurchase is is_repurchase, a new customer's order is the
-# first purchase (purchase_number 1). Unnumbered orders count as neither.
+# first purchase (purchase_number 1), a male order is gender "male". Unnumbered
+# orders count as neither repurchase nor first; "unknown" gender is never
+# counted as male (the app does not guess gender).
 ORDER_KINDS = {
     "repurchase": lambda data: data["is_repurchase"],
     "first": lambda data: data["purchase_number"].eq(1),
+    "male": lambda data: data["gender"].str.strip().str.lower().eq("male"),
 }
 
 # The keys each kind's rows carry, so the templates of /monthly_repurchases
 # and /new_customers_monthly keep reading the names they always have.
-_ROW_KEYS = {
+ROW_KEYS = {
     "repurchase": ("Repurchase Total Value", "Projected Repurchase Sales"),
     "first": ("New Customer Total Value", "Projected New Customer Sales"),
+    "male": ("Male Total Value", "Projected Male Sales"),
 }
 
 
@@ -276,8 +280,9 @@ def get_monthly_repurchases_trend(
       up to end of yesterday, and if include_current_month_for_forecast:
       current month value is replaced with a projected full-month (weekday_weighted).
 
-    kind picks the orders (ORDER_KINDS): "repurchase" (default) or "first",
-    a new customer's first purchase - see get_monthly_new_customers_trend.
+    kind picks the orders (ORDER_KINDS): "repurchase" (default), "first" (a
+    new customer's first purchase) or "male" (orders the store marks male).
+    Row keys per kind: ROW_KEYS.
 
     Returns:
       - (summary_rows, forecast_rows) or (summary_rows, forecast_rows, meta)
@@ -285,7 +290,7 @@ def get_monthly_repurchases_trend(
       (for "first", the number of new customers).
     """
     logger.info("Building monthly %s trend from %s", kind, orders_csv_path)
-    value_key, forecast_key = _ROW_KEYS[kind]
+    value_key, forecast_key = ROW_KEYS[kind]
 
     meta = {
         "forecast_includes_current_month_mtd": False,
@@ -422,3 +427,12 @@ def get_monthly_new_customers_trend(**kwargs):
     "Projected New Customer Sales".
     """
     return get_monthly_repurchases_trend(kind="first", **kwargs)
+
+
+def get_monthly_male_sales_trend(**kwargs):
+    """
+    get_monthly_repurchases_trend for the orders the store marks male (every
+    purchase, first or repeat). Rows carry "Male Total Value" and "Orders";
+    forecast rows carry "Projected Male Sales".
+    """
+    return get_monthly_repurchases_trend(kind="male", **kwargs)
