@@ -226,13 +226,14 @@ def _weekday_weighted_projection(
 
 # Which orders each monthly trend counts. All are the store's own figures
 # (see get_data): a repurchase is is_repurchase, a new customer's order is the
-# first purchase (purchase_number 1), a male order is gender "male". Unnumbered
-# orders count as neither repurchase nor first; "unknown" gender is never
-# counted as male (the app does not guess gender).
+# first purchase (purchase_number 1), a male or female order is gender "male"
+# or "female". Unnumbered orders count as neither repurchase nor first;
+# "unknown" gender is never counted as either (the app does not guess gender).
 ORDER_KINDS = {
     "repurchase": lambda data: data["is_repurchase"],
     "first": lambda data: data["purchase_number"].eq(1),
     "male": lambda data: data["gender"].str.strip().str.lower().eq("male"),
+    "female": lambda data: data["gender"].str.strip().str.lower().eq("female"),
 }
 
 # The keys each kind's rows carry, so the templates of /monthly_repurchases
@@ -241,6 +242,7 @@ ROW_KEYS = {
     "repurchase": ("Repurchase Total Value", "Projected Repurchase Sales"),
     "first": ("New Customer Total Value", "Projected New Customer Sales"),
     "male": ("Male Total Value", "Projected Male Sales"),
+    "female": ("Female Total Value", "Projected Female Sales"),
 }
 
 
@@ -281,7 +283,8 @@ def get_monthly_repurchases_trend(
       current month value is replaced with a projected full-month (weekday_weighted).
 
     kind picks the orders (ORDER_KINDS): "repurchase" (default), "first" (a
-    new customer's first purchase) or "male" (orders the store marks male).
+    new customer's first purchase), "male" or "female" (orders the store
+    marks with that gender).
     Row keys per kind: ROW_KEYS.
 
     Returns:
@@ -436,3 +439,12 @@ def get_monthly_male_sales_trend(**kwargs):
     forecast rows carry "Projected Male Sales".
     """
     return get_monthly_repurchases_trend(kind="male", **kwargs)
+
+
+def get_monthly_female_sales_trend(**kwargs):
+    """
+    get_monthly_repurchases_trend for the orders the store marks female (every
+    purchase, first or repeat). Rows carry "Female Total Value" and "Orders";
+    forecast rows carry "Projected Female Sales".
+    """
+    return get_monthly_repurchases_trend(kind="female", **kwargs)
