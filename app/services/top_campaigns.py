@@ -3,8 +3,8 @@
 The top values of a UTM field (utm_campaign, utm_content) of a set of orders
 by sales, for the "Top campaigns" / "Top ads" tables of the monthly pages:
 /male_sales_monthly (top 20 campaigns), /female_sales_monthly (top 10) and
-/new_customers_monthly (top 20 campaigns and top 20 utm_content), see
-routes/monthly_by_kind.py.
+/new_customers_monthly (top 20 campaigns and top 20 utm_content) and
+/link_in_bio_stats_monthly (top 20 campaigns), see routes/monthly_by_kind.py.
 
 The orders come in already chosen (e.g. the ones the store marks male, see
 ORDER_KINDS) and the window is the last WINDOW_MONTHS complete months, Bogota
