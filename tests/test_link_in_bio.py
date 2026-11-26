@@ -34,20 +34,20 @@ LAST = CURRENT - 1
 DAILY_FILE = "data/link_in_bio_daily_orders.csv"
 
 
-def order(order_id, when, content, source="ig", total=100000, purchase_number=1):
+def order(order_id, when, content, source="ig", total=100000, purchase_number=1, campaign="undefined"):
     """One order shaped like the API's JSON; when is a 'YYYY-MM-DD' day."""
     return {"order_id": order_id, "order_date": f"{when} 10:00:00", "email": f"c{order_id}@x.com",
             "gender": "female", "total_value": f"{total}.00", "city": "BOGOTA (C/MARCA)", "state": "Cundinamarca",
             "sku": "pack_favorito", "product": "Pack Favorito", "utm_source": source,
-            "utm_campaign": "undefined", "utm_content": content,
+            "utm_campaign": campaign, "utm_content": content,
             "purchase_number": purchase_number, "is_repurchase": purchase_number > 1}
 
 
 LAST_DAY = f"{LAST.start_time:%Y-%m}-10"
 ORDERS = [
     # Last month: three link-in-bio orders (one with odd spacing and case), two others.
-    order("1", LAST_DAY, "link_in_bio"),
-    order("2", LAST_DAY, " Link_In_Bio ", total=150000, purchase_number=2),
+    order("1", LAST_DAY, "link_in_bio", campaign="(organico)"),
+    order("2", LAST_DAY, " Link_In_Bio ", total=150000, purchase_number=2, campaign="Retargeting"),
     order("3", LAST_DAY, "link_in_bio", source="instagram", total=50000),
     order("4", LAST_DAY, "LuisaMalOlor", source="facebook"),
     order("5", LAST_DAY, "undefined", source="google"),
@@ -139,7 +139,17 @@ class LinkInBioPageTests(TempDirTestCase):
         self.assertIn('id="linkInBioCountChart"', content)
         self.assertIn('id="linkInBioChart_ig"', content)
         self.assertNotIn('id="linkInBioChart_facebook"', content)
-        self.assertNotIn('id="top-utm_campaign"', content)  # no top tables on this page
+        self.assertNotIn('id="top-utm_content"', content)  # campaigns only on this page
+
+    def test_monthly_top_campaigns(self):
+        content = self.get("/link_in_bio_stats_monthly").split("<!-- Main Content Block -->", 1)[1]
+        table = content.split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
+        self.assertIn("Top 20 Campaigns for Link in Bio Sales", content)
+        cells = [c.split("<", 1)[0].strip() for c in table.split('<td style="word-break: break-all;">')[1:]]
+        # Retargeting 150,000 then (organico) 100,000; the facebook order isn't link in bio.
+        self.assertEqual(cells, ["Retargeting", "(organico)"])
+        # The other link-in-bio orders have no campaign: 150,000 of 400,000.
+        self.assertIn("Link in bio orders without a campaign (undefined or N/A): 37.5% of link in bio sales", content)
 
     def test_daily_page(self):
         html = self.get("/link_in_bio_stats_daily")

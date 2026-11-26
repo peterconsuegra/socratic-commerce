@@ -16,7 +16,7 @@ The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases
 Kinds in TOP_TABLES also get tables of their top UTM values by sales over
 the last 12 complete months (services/top_campaigns.py): male the top 20
 utm_campaigns, female the top 10, new customers the top 20 utm_campaigns and
-the top 20 utm_content (ads).
+the top 20 utm_content (ads), link in bio the top 20 utm_campaigns.
 
 Which orders a kind counts is ORDER_KINDS in services/monthly_repurchases.py;
 its English texts are KIND_TEXT below (Spanish in app/i18n.py).
@@ -41,6 +41,7 @@ TOP_TABLES = {
     "male": {"utm_campaign": 20},
     "female": {"utm_campaign": 10},
     "first": {"utm_campaign": 20, "utm_content": 20},
+    "link_in_bio": {"utm_campaign": 20},
 }
 
 # Per kind: the canvas id prefix and the page's texts, in English.
@@ -137,6 +138,13 @@ KIND_TEXT = {
         "forecasted": "Forecasted Link in Bio Sales",
         "channel_historical": "Historical {channel} Link in Bio Sales",
         "channel_forecasted": "Forecasted {channel} Link in Bio Sales",
+        "top_sales": "Link in bio sales",
+        "top_orders": "Link in bio orders",
+        "top_utm_campaign_heading": "Top 20 Campaigns for Link in Bio Sales",
+        "top_utm_campaign_note": "Ranked by link in bio sales over the last 12 complete months ({start} to {end}, "
+                                 "Bogota time). Share is of all link in bio sales in those months.",
+        "top_utm_campaign_none": "Link in bio orders without a campaign (undefined or N/A): {share} of link in bio "
+                                 "sales, not ranked.",
     },
 }
 
