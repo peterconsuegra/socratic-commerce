@@ -1,8 +1,8 @@
 # app/routes/monthly_by_kind.py
 """
 The root view (/, Monthly Sales) for one kind of order, shared by
-/new_customers_monthly (first purchases) and /male_sales_monthly (orders the
-store marks male). Not a route itself: render_monthly_by_kind is called by
+/new_customers_monthly (first purchases), /male_sales_monthly and
+/female_sales_monthly (orders the store marks male or female). Not a route itself: render_monthly_by_kind is called by
 those routes.
 
 The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases:
@@ -65,6 +65,23 @@ KIND_TEXT = {
         "channel_historical": "Historical {channel} Male Sales",
         "channel_forecasted": "Forecasted {channel} Male Sales",
     },
+    "female": {
+        "chart_prefix": "femaleSales",
+        "title": "Female Sales by Month",
+        "heading": "Monthly Female Sales Trend & Forecast",
+        "pie": "Female Sales by Channel (utm_source) up to end of previous month",
+        "total": "Total Female Sales",
+        "count_heading": "Female Orders per Month",
+        "count_note": "Paid orders the store marks female (complete months, Bogota time).",
+        "count_label": "Female Orders",
+        "by_channel": "Female Sales by Channel (ranked by total sales)",
+        "channel_heading": "{channel} Female Sales",
+        "ranked": "Ranked by number of female orders: {count}",
+        "historical": "Historical Female Sales",
+        "forecasted": "Forecasted Female Sales",
+        "channel_historical": "Historical {channel} Female Sales",
+        "channel_forecasted": "Forecasted {channel} Female Sales",
+    },
 }
 
 
@@ -96,7 +113,7 @@ def _projection_fields(meta: dict) -> dict:
 
 
 def render_monthly_by_kind(kind: str):
-    """The monthly page for one ORDER_KINDS kind ("first" or "male")."""
+    """The monthly page for one ORDER_KINDS kind ("first", "male" or "female")."""
     text = KIND_TEXT[kind]
     value_key, forecast_key = ROW_KEYS[kind]
 

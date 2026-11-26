@@ -31,3 +31,4 @@ from . import mcp_settings  # noqa: E402,F401
 from . import wati_stats  # noqa: E402,F401
 from . import new_customers  # noqa: E402,F401
 from . import male_sales  # noqa: E402,F401
+from . import female_sales  # noqa: E402,F401
