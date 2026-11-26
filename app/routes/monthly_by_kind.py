@@ -2,7 +2,8 @@
 """
 The root view (/, Monthly Sales) for one kind of order, shared by
 /new_customers_monthly (first purchases), /male_sales_monthly and
-/female_sales_monthly (orders the store marks male or female). Not a route itself: render_monthly_by_kind is called by
+/female_sales_monthly (orders the store marks male or female) and
+/link_in_bio_stats_monthly (utm_content link_in_bio). Not a route itself: render_monthly_by_kind is called by
 those routes.
 
 The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases:
@@ -120,6 +121,23 @@ KIND_TEXT = {
         "top_sales": "Female sales",
         "top_orders": "Female orders",
     },
+    "link_in_bio": {
+        "chart_prefix": "linkInBio",
+        "title": "Link in Bio Stats by Month",
+        "heading": "Monthly Link in Bio Sales Trend & Forecast",
+        "pie": "Link in Bio Sales by Channel (utm_source) up to end of previous month",
+        "total": "Total Link in Bio Sales",
+        "count_heading": "Link in Bio Orders per Month",
+        "count_note": "Paid orders with utm_content link_in_bio, the Instagram link in bio (complete months, Bogota time).",
+        "count_label": "Link in Bio Orders",
+        "by_channel": "Link in Bio Sales by Channel (ranked by total sales)",
+        "channel_heading": "{channel} Link in Bio Sales",
+        "ranked": "Ranked by number of link in bio orders: {count}",
+        "historical": "Historical Link in Bio Sales",
+        "forecasted": "Forecasted Link in Bio Sales",
+        "channel_historical": "Historical {channel} Link in Bio Sales",
+        "channel_forecasted": "Forecasted {channel} Link in Bio Sales",
+    },
 }
 
 
@@ -151,7 +169,7 @@ def _projection_fields(meta: dict) -> dict:
 
 
 def render_monthly_by_kind(kind: str):
-    """The monthly page for one ORDER_KINDS kind ("first", "male" or "female")."""
+    """The monthly page for one ORDER_KINDS kind ("first", "male", "female" or "link_in_bio")."""
     text = KIND_TEXT[kind]
     value_key, forecast_key = ROW_KEYS[kind]
 

@@ -1,12 +1,16 @@
 # app/services/daily_sales.py
 """
-The /daily_sales dashboard (also /sales_by_location and /daily_new_customers):
-daily sales trend and forecast, pies by utm_source, gender, city and time of
-day, and the same per channel, over a page's own date-range orders file.
+The /daily_sales dashboard (also /sales_by_location, /daily_new_customers and
+/link_in_bio_stats_daily): daily sales trend and forecast, pies by
+utm_source, gender, city and time of day, and the same per channel, over a
+page's own date-range orders file.
 
-first_purchases_only limits everything to new customers: each customer's
-first paid order, the store's purchase_number 1 (see get_data). Orders the
-store has not numbered yet count as neither.
+only (a key of SUBSETS) limits everything to some orders:
+  - "first": new customers, each customer's first paid order, the store's
+    purchase_number 1 (see get_data); orders the store has not numbered yet
+    count as neither;
+  - "link_in_bio": orders with utm_content link_in_bio, the Instagram link in
+    bio (LINK_IN_BIO_CONTENT, trimmed, any case).
 """
 import os
 import logging
@@ -16,6 +20,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 from typing import Any
 
 from app.services.get_data import filter_by_location
+from app.services.monthly_repurchases import LINK_IN_BIO_CONTENT
 from app.services.periods import orders_cutoff
 
 
@@ -68,6 +73,16 @@ def first_purchases(df: pd.DataFrame) -> pd.DataFrame:
     return df[pd.to_numeric(df["purchase_number"], errors="coerce").eq(1)].copy()
 
 
+def link_in_bio_orders(df: pd.DataFrame) -> pd.DataFrame:
+    """The orders from the Instagram link in bio: utm_content link_in_bio."""
+    content = df["utm_content"] if "utm_content" in df.columns else pd.Series("", index=df.index)
+    return df[content.fillna("").astype(str).str.strip().str.lower().eq(LINK_IN_BIO_CONTENT)].copy()
+
+
+# The subsets a daily dashboard can be limited to (the only= argument).
+SUBSETS = {"first": first_purchases, "link_in_bio": link_in_bio_orders}
+
+
 def get_daily_sales_trend(
     forecast_periods: int = 14,
     return_forecast: bool = True,
@@ -76,7 +91,7 @@ def get_daily_sales_trend(
     state: str | None = None,
     city: str | None = None,
     include_today: bool = False,
-    first_purchases_only: bool = False,
+    only: str | None = None,
 ):
     logger = logging.getLogger(__name__)
     tz = "America/Bogota"
@@ -87,8 +102,8 @@ def get_daily_sales_trend(
         raise FileNotFoundError(f"Orders data file not found: {orders_csv_path}")
 
     data = filter_by_location(pd.read_csv(orders_csv_path), state, city)
-    if first_purchases_only:
-        data = first_purchases(data)
+    if only:
+        data = SUBSETS[only](data)
 
     required_cols = {"order_date", "total_value"}
     missing = required_cols - set(data.columns)
@@ -406,7 +421,7 @@ def build_daily_sales_dashboard_context(
     state: str | None = None,
     city: str | None = None,
     include_today: bool = False,
-    first_purchases_only: bool = False,
+    only: str | None = None,
 ) -> dict[str, Any]:
     """
     Builds the complete context needed by templates/daily_sales.html.
@@ -414,7 +429,7 @@ def build_daily_sales_dashboard_context(
     state and city, when given, limit every chart to the orders of that
     department and/or city (see get_data.filter_by_location). include_today
     counts today's orders so far in the trends (a range running through today).
-    first_purchases_only keeps only new customers' first orders.
+    only (a key of SUBSETS) keeps only those orders, e.g. new customers'.
 
     This keeps the Flask route focused on request orchestration only.
     """
@@ -436,15 +451,15 @@ def build_daily_sales_dashboard_context(
             state=state,
             city=city,
             include_today=include_today,
-            first_purchases_only=first_purchases_only,
+            only=only,
         )
 
         context["daily_sales_trend"] = daily_sales_trend
         context["forecast_data"] = forecast_data
 
         df = filter_by_location(pd.read_csv(input_file), state, city)
-        if first_purchases_only:
-            df = first_purchases(df)
+        if only:
+            df = SUBSETS[only](df)
         df = _normalize_sales_dataframe(df)
 
         # UTM source pie
@@ -516,7 +531,7 @@ def build_daily_sales_dashboard_context(
                 state=state,
                 city=city,
                 include_today=include_today,
-                first_purchases_only=first_purchases_only,
+                only=only,
             )
 
             if not trend_rows:

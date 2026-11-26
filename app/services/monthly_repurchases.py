@@ -229,11 +229,16 @@ def _weekday_weighted_projection(
 # first purchase (purchase_number 1), a male or female order is gender "male"
 # or "female". Unnumbered orders count as neither repurchase nor first;
 # "unknown" gender is never counted as either (the app does not guess gender).
+# A link-in-bio order came from Instagram's link in bio: utm_content
+# LINK_IN_BIO_CONTENT (trimmed, any case).
+LINK_IN_BIO_CONTENT = "link_in_bio"
+
 ORDER_KINDS = {
     "repurchase": lambda data: data["is_repurchase"],
     "first": lambda data: data["purchase_number"].eq(1),
     "male": lambda data: data["gender"].str.strip().str.lower().eq("male"),
     "female": lambda data: data["gender"].str.strip().str.lower().eq("female"),
+    "link_in_bio": lambda data: data["utm_content"].str.strip().str.lower().eq(LINK_IN_BIO_CONTENT),
 }
 
 # The keys each kind's rows carry, so the templates of /monthly_repurchases
@@ -243,6 +248,7 @@ ROW_KEYS = {
     "first": ("New Customer Total Value", "Projected New Customer Sales"),
     "male": ("Male Total Value", "Projected Male Sales"),
     "female": ("Female Total Value", "Projected Female Sales"),
+    "link_in_bio": ("Link in Bio Total Value", "Projected Link in Bio Sales"),
 }
 
 
@@ -284,7 +290,7 @@ def get_monthly_repurchases_trend(
 
     kind picks the orders (ORDER_KINDS): "repurchase" (default), "first" (a
     new customer's first purchase), "male" or "female" (orders the store
-    marks with that gender).
+    marks with that gender) or "link_in_bio" (utm_content link_in_bio).
     Row keys per kind: ROW_KEYS.
 
     Returns:
@@ -448,3 +454,12 @@ def get_monthly_female_sales_trend(**kwargs):
     forecast rows carry "Projected Female Sales".
     """
     return get_monthly_repurchases_trend(kind="female", **kwargs)
+
+
+def get_monthly_link_in_bio_trend(**kwargs):
+    """
+    get_monthly_repurchases_trend for the orders with utm_content link_in_bio
+    (the Instagram link in bio). Rows carry "Link in Bio Total Value" and
+    "Orders"; forecast rows carry "Projected Link in Bio Sales".
+    """
+    return get_monthly_repurchases_trend(kind="link_in_bio", **kwargs)
