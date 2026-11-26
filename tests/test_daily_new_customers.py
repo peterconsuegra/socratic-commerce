@@ -60,7 +60,7 @@ class TempOrdersTestCase(unittest.TestCase):
 
 class FirstPurchasesOnlyTests(TempOrdersTestCase):
     def test_trend_counts_first_purchases_only(self):
-        rows = get_daily_sales_trend(orders_csv_path=FILE, return_forecast=False, first_purchases_only=True)
+        rows = get_daily_sales_trend(orders_csv_path=FILE, return_forecast=False, only="first")
         self.assertEqual([(r["Date"], r["Total Orders"], r["Total Sales"]) for r in rows],
                          [("2026-09-01", 1, "100000"), ("2026-09-02", 2, "100000")])
 
@@ -69,7 +69,7 @@ class FirstPurchasesOnlyTests(TempOrdersTestCase):
         self.assertEqual(sum(r["Total Orders"] for r in rows), len(ORDERS))
 
     def test_dashboard_pies_and_channels_are_of_new_customers(self):
-        context = build_daily_sales_dashboard_context(FILE, forecast_periods=3, first_purchases_only=True)
+        context = build_daily_sales_dashboard_context(FILE, forecast_periods=3, only="first")
         self.assertIsNone(context["error"])
         self.assertEqual(dict(zip(context["pie_labels"], context["pie_values"])),
                          {"facebook": 130000.0, "google": 70000.0})
@@ -112,8 +112,8 @@ class DailyNewCustomersPageTests(TempOrdersTestCase):
         html = self.get()
         self.assertNotIn('<div class="alert alert-danger"', html)
         self.assertIn("Daily New Customer Sales Trend and Forecast", html)
-        self.assertIn('id="dailyNewCustomersChart"', html)
-        self.assertIn('id="dailyNewCustomersCountChart"', html)
+        self.assertIn('id="dailySubsetChart"', html)
+        self.assertIn('id="dailySubsetCountChart"', html)
         self.assertNotIn('id="dailySalesAndRepurchasesChart"', html)
         self.assertNotIn("buildCombinedSalesRepurchasesChart(\n    \"dailySalesAndRepurchasesChart\"", html)
         counts = re.search(r'label: "New Customers",\s*data: \[([^\]]*)\]', html).group(1)

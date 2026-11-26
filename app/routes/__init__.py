@@ -32,3 +32,4 @@ from . import wati_stats  # noqa: E402,F401
 from . import new_customers  # noqa: E402,F401
 from . import male_sales  # noqa: E402,F401
 from . import female_sales  # noqa: E402,F401
+from . import link_in_bio  # noqa: E402,F401
