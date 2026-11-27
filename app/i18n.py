@@ -823,7 +823,7 @@ SPANISH = {
     'Forecasted Female Sales': 'Ventas femeninas (pronóstico)',
     'Historical {channel} Female Sales': 'Ventas femeninas {channel} (histórico)',
     'Forecasted {channel} Female Sales': 'Ventas femeninas {channel} (pronóstico)',
-    'Top 10 Campaigns for Female Sales': 'Top 10 de campañas en ventas femeninas',
+    'Top 20 Campaigns for Female Sales': 'Top 20 de campañas en ventas femeninas',
     'Ranked by female sales over the last 12 complete months ({start} to {end}, Bogota time). Share is of all female sales in those months.': 'Ordenadas por ventas femeninas de los últimos 12 meses completos ({start} a {end}, hora de Bogotá). La participación es sobre todas las ventas femeninas de esos meses.',
     'Female orders without a campaign (undefined or N/A): {share} of female sales, not ranked.': 'Pedidos femeninos sin campaña (undefined o N/A): {share} de las ventas femeninas, sin clasificar.',
     'Female sales': 'Ventas femeninas',

@@ -119,7 +119,7 @@ class FemaleSalesPageTests(unittest.TestCase):
     def test_top_campaigns_rank_female_orders_only(self):
         html = self.get("/female_sales_monthly")
         table = html.split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
-        self.assertIn("Top 10 Campaigns for Female Sales", html)
+        self.assertIn("Top 20 Campaigns for Female Sales", html)
         cells = [c.split(">", 1)[1] for c in table.split('<td style="word-break: break-all;"')[1:]]
         # wati (3 orders, 350,000) then facebook (1, 50,000); the google orders are male or unknown.
         self.assertEqual([c.split("<", 1)[0] for c in cells], ["wati campaign", "facebook campaign"])
