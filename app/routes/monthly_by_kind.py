@@ -15,7 +15,7 @@ The page (templates/monthly_by_kind.html) shows, like / and /monthly_repurchases
 
 Kinds in TOP_TABLES also get tables of their top UTM values by sales over
 the last 12 complete months (services/top_campaigns.py): male the top 20
-utm_campaigns, female the top 10, new customers the top 20 utm_campaigns and
+utm_campaigns, female the top 20, new customers the top 20 utm_campaigns and
 the top 20 utm_content (ads), link in bio the top 20 utm_campaigns.
 
 Which orders a kind counts is ORDER_KINDS in services/monthly_repurchases.py;
@@ -39,7 +39,7 @@ MIN_CHANNEL_SHARE_PERCENT = 2.0
 # Per kind: the top-values tables its page shows, in order (UTM field -> rows).
 TOP_TABLES = {
     "male": {"utm_campaign": 20},
-    "female": {"utm_campaign": 10},
+    "female": {"utm_campaign": 20},
     "first": {"utm_campaign": 20, "utm_content": 20},
     "link_in_bio": {"utm_campaign": 20},
 }
@@ -115,7 +115,7 @@ KIND_TEXT = {
         "forecasted": "Forecasted Female Sales",
         "channel_historical": "Historical {channel} Female Sales",
         "channel_forecasted": "Forecasted {channel} Female Sales",
-        "top_utm_campaign_heading": "Top 10 Campaigns for Female Sales",
+        "top_utm_campaign_heading": "Top 20 Campaigns for Female Sales",
         "top_utm_campaign_note": "Ranked by female sales over the last 12 complete months ({start} to {end}, Bogota time). "
                               "Share is of all female sales in those months.",
         "top_utm_campaign_none": "Female orders without a campaign (undefined or N/A): {share} of female sales, not ranked.",

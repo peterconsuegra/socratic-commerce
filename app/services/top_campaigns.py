@@ -2,7 +2,7 @@
 """
 The top values of a UTM field (utm_campaign, utm_content) of a set of orders
 by sales, for the "Top campaigns" / "Top ads" tables of the monthly pages:
-/male_sales_monthly (top 20 campaigns), /female_sales_monthly (top 10) and
+/male_sales_monthly and /female_sales_monthly (top 20 campaigns each),
 /new_customers_monthly (top 20 campaigns and top 20 utm_content) and
 /link_in_bio_stats_monthly (top 20 campaigns), see routes/monthly_by_kind.py.
 

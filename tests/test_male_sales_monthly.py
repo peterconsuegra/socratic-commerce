@@ -189,16 +189,16 @@ class MaleSalesPageTests(unittest.TestCase):
         self.assertIn("Ranked by number of male orders: 3", html)
         self.assertNotIn("New Customer", html.split("<!-- Main Content Block -->", 1)[1])
 
-    def test_male_page_ranks_twenty_campaigns_female_ten(self):
+    def test_both_gender_pages_rank_twenty_campaigns(self):
         from app.routes.monthly_by_kind import TOP_TABLES
-        self.assertEqual((TOP_TABLES["male"], TOP_TABLES["female"]), ({"utm_campaign": 20}, {"utm_campaign": 10}))
+        self.assertEqual((TOP_TABLES["male"], TOP_TABLES["female"]), ({"utm_campaign": 20}, {"utm_campaign": 20}))
         many = [campaign_order(f"{g}{i}", LAST, f"campaign {i}", gender=g, total=100000 + i)
                 for i in range(25) for g in ("male", "female")]
         write_orders_csv(many, self.app.config["ALL_ORDERS_CSV"])
         table = self.get("/male_sales_monthly").split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
         self.assertEqual(table.count("<tr>") - 1, 20)
         table = self.get("/female_sales_monthly").split('id="top-utm_campaign"', 1)[1].split("</table>", 1)[0]
-        self.assertEqual(table.count("<tr>") - 1, 10)
+        self.assertEqual(table.count("<tr>") - 1, 20)
 
     def test_top_campaigns_table_is_on_the_gender_pages_only(self):
         html = self.get("/male_sales_monthly")
