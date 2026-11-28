@@ -52,6 +52,7 @@ SPANISH = {
     "Email Templates": "Plantillas de correo",
     "Channels": "Canales",
     "Facebook Insights": "Análisis de Facebook",
+    "Facebook Stats": "Estadísticas de Facebook",
     "Google Insights": "Análisis de Google",
     "WATI Insights": "Análisis de WATI",
     "WATI Stats": "Estadísticas de WATI",
@@ -1457,6 +1458,33 @@ SPANISH = {
     "That token is not a Claude connector token; manage it on API Tokens.":
         "Ese token no es de un conector de Claude; adminístralo en Tokens de API.",
     "Connector '{name}' revoked. Claude can no longer use it.": "Conector '{name}' revocado. Claude ya no puede usarlo.",
+    # Facebook Stats
+    "Daily sales of the orders tagged <code>utm_source=facebook</code>, all together and per <code>utm_campaign</code>, over complete days (Bogotá time).":
+        "Ventas diarias de los pedidos con <code>utm_source=facebook</code>, en total y por <code>utm_campaign</code>, en días completos (hora de Bogotá).",
+    "Days shown": "Días mostrados",
+    "Last {n} days": "Últimos {n} días",
+    "{start} to {end} · orders as of {as_of}": "{start} a {end} · pedidos al {as_of}",
+    "1 campaign has been falling for more than {days} days in a row":
+        "1 campaña lleva más de {days} días seguidos cayendo",
+    "{count} campaigns have been falling for more than {days} days in a row":
+        "{count} campañas llevan más de {days} días seguidos cayendo",
+    "Sales fell {days} days in a row: from {from_sales} on {from_date} to {to_sales} on {to_date}.":
+        "Las ventas cayeron {days} días seguidos: de {from_sales} el {from_date} a {to_sales} el {to_date}.",
+    "No campaign's sales have fallen for more than {days} days in a row.":
+        "Ninguna campaña lleva más de {days} días seguidos con ventas a la baja.",
+    "Falling {days} days in a row": "Cayendo {days} días seguidos",
+    "All Facebook sales": "Todas las ventas de Facebook",
+    "Sales per day and their 7-day average": "Ventas por día y su promedio de 7 días",
+    "7-day average": "Promedio de 7 días",
+    "Show the numbers": "Ver las cifras",
+    "Sales by campaign": "Ventas por campaña",
+    "Every utm_campaign with Facebook orders in these days, by sales. Each chart has its own scale: read the shape, not the height. Falling days are marked in amber.":
+        "Cada utm_campaign con pedidos de Facebook en estos días, por ventas. Cada gráfico tiene su propia escala: lee la forma, no la altura. Los días en caída se marcan en ámbar.",
+    "1 order": "1 pedido",
+    "{count} orders": "{count} pedidos",
+    "{share} of Facebook sales": "{share} de las ventas de Facebook",
+    "No Facebook orders in these days.": "No hay pedidos de Facebook en estos días.",
+    "Lower than the day before": "Menos que el día anterior",
 }
 
 
