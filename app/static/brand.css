@@ -386,6 +386,10 @@ thead.table-header-brand th {
 .alert-info    { --bs-alert-bg: var(--so-teal-tint); --bs-alert-border-color: var(--so-teal-tint-2); --bs-alert-color: var(--so-teal-dark); }
 
 .badge { font-weight: 600; letter-spacing: .02em; }
+/* A warning chip and card edge (a falling campaign on /facebook_stats): the alert-warning tones. */
+.badge-warn { background: #FBF3E3; color: #6E4A0F; border: 1px solid #EFD9A8; }
+.card-warn { border-color: var(--so-warn) !important; }
+.text-warn { color: #6E4A0F; }
 .bg-primary { background-color: var(--so-teal) !important; }
 .bg-light { background-color: var(--so-bg) !important; }
 .text-primary { color: var(--so-teal) !important; }

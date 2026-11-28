@@ -1,0 +1,263 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _("Facebook Stats") }}{% endblock %}
+
+{# "Sales fell 4 days in a row: from COP $X on <day> to COP $Y on <day>." #}
+{% macro decline_text(s) -%}
+  {{ _("Sales fell {days} days in a row: from {from_sales} on {from_date} to {to_sales} on {to_date}.").format(
+       days=s.decline_days, from_sales=s.decline_from.sales | cop, from_date=s.decline_from.date,
+       to_sales=s.decline_to.sales | cop, to_date=s.decline_to.date) }}
+{%- endmacro %}
+
+{% macro orders_text(n) -%}
+  {{ _("1 order") if n == 1 else _("{count} orders").format(count="{:,}".format(n)) }}
+{%- endmacro %}
+
+{% macro falling_badge(s) -%}
+  <span class="badge badge-warn d-inline-flex align-items-center gap-1 text-nowrap">
+    <span class="material-icons" style="font-size: 16px;" aria-hidden="true">trending_down</span>
+    {{ _("Falling {days} days in a row").format(days=s.decline_days) }}
+  </span>
+{%- endmacro %}
+
+{% block content %}
+<div class="container mt-2" style="max-width: 1200px;">
+
+  <h2 class="text-center mb-1">{{ _("Facebook Stats") }}</h2>
+  <p class="text-center text-muted mb-3">
+    {{ _("Daily sales of the orders tagged <code>utm_source=facebook</code>, all together and per <code>utm_campaign</code>, over complete days (Bogotá time).")|safe }}
+  </p>
+
+  <div class="d-flex justify-content-center mb-2">
+    <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="{{ _('Days shown') }}">
+      {% for n in window_choices %}
+        <a href="{{ url_for('main.facebook_stats', days=n) }}"
+           class="btn {% if n == days %}btn-primary{% else %}btn-outline-primary{% endif %}"
+           {% if n == days %}aria-current="page"{% endif %}>{{ _("Last {n} days").format(n=n) }}</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% elif stats %}
+    {% set t = stats.total %}
+    <p class="text-center text-muted small mb-4">
+      {{ _("{start} to {end} · orders as of {as_of}").format(start=stats.start_date, end=stats.end_date, as_of=(orders_as_of or "").replace("T", " ")) }}
+    </p>
+
+    {# ---- Campaigns falling day after day ---- #}
+    {% if stats.warnings %}
+      <div class="alert alert-warning mb-4" role="alert">
+        <div class="d-flex align-items-center gap-2 fw-semibold mb-2">
+          <span class="material-icons" aria-hidden="true">warning</span>
+          {% if stats.warnings|length == 1 %}
+            {{ _("1 campaign has been falling for more than {days} days in a row").format(days=stats.warning_days) }}
+          {% else %}
+            {{ _("{count} campaigns have been falling for more than {days} days in a row").format(count=stats.warnings|length, days=stats.warning_days) }}
+          {% endif %}
+        </div>
+        <ul class="mb-0 ps-3">
+          {% for w in stats.warnings %}
+            <li><a href="#{{ w.anchor }}" class="fw-semibold">{{ w.name }}</a>: {{ decline_text(w) }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <div class="alert alert-light border small d-flex align-items-center gap-2 mb-4">
+        <span class="material-icons text-muted" style="font-size: 18px;" aria-hidden="true">check_circle</span>
+        {{ _("No campaign's sales have fallen for more than {days} days in a row.").format(days=stats.warning_days) }}
+      </div>
+    {% endif %}
+
+    {# ---- All facebook orders ---- #}
+    <div class="card shadow-sm mb-4 {% if t.declining %}card-warn{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-2">
+          <div>
+            <h5 class="mb-0">{{ _("All Facebook sales") }}</h5>
+            <div class="text-muted small">{{ _("Sales per day and their 7-day average") }}</div>
+          </div>
+          <div class="d-flex gap-4 text-end">
+            <div><div class="text-muted small">{{ _("Sales") }}</div><div class="fw-bold text-nowrap">{{ t.total_sales | cop }}</div></div>
+            <div><div class="text-muted small">{{ _("Orders") }}</div><div class="fw-bold">{{ "{:,}".format(t.total_orders) }}</div></div>
+            <div><div class="text-muted small">{{ _("Campaigns") }}</div><div class="fw-bold">{{ stats.campaigns|length }}</div></div>
+          </div>
+        </div>
+        {% if t.declining %}
+          <div class="small text-warn d-flex align-items-center flex-wrap gap-2 mb-2">{{ falling_badge(t) }} {{ decline_text(t) }}</div>
+        {% endif %}
+        <div style="position: relative; height: 300px;">
+          <canvas id="totalChart" role="img" aria-label="{{ _('All Facebook sales') }}"></canvas>
+        </div>
+        <details class="mt-3">
+          <summary class="small text-muted">{{ _("Show the numbers") }}</summary>
+          <div class="table-responsive mt-2" style="max-height: 320px;">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr class="text-muted small">
+                  <th>{{ _("Day") }}</th>
+                  <th class="text-end">{{ _("Sales") }}</th>
+                  <th class="text-end">{{ _("Orders") }}</th>
+                  <th class="text-end">{{ _("7-day average") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for day in stats.days %}
+                  <tr>
+                    <td class="text-nowrap">{{ day }}</td>
+                    <td class="text-end">{{ t.sales[loop.index0] | cop }}</td>
+                    <td class="text-end">{{ t.orders[loop.index0] }}</td>
+                    <td class="text-end">{{ t.average[loop.index0] | cop }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    {# ---- One chart per campaign ---- #}
+    <h4 class="mb-1">{{ _("Sales by campaign") }}</h4>
+    <p class="text-muted small mb-3">
+      {{ _("Every utm_campaign with Facebook orders in these days, by sales. Each chart has its own scale: read the shape, not the height. Falling days are marked in amber.") }}
+    </p>
+    {% if stats.campaigns %}
+      <div class="row g-3">
+        {% for c in stats.campaigns %}
+          <div class="col-md-6" id="{{ c.anchor }}" style="scroll-margin-top: calc(var(--so-header-h) + 16px);">
+            <div class="card shadow-sm h-100 {% if c.declining %}card-warn{% endif %}">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                  <h6 class="mb-0 text-break">{{ c.name }}</h6>
+                  {% if c.declining %}{{ falling_badge(c) }}{% endif %}
+                </div>
+                <div class="text-muted small mb-2">
+                  {{ c.total_sales | cop }} · {{ orders_text(c.total_orders) }} ·
+                  {{ _("{share} of Facebook sales").format(share="%.1f%%"|format(c.share)) }}
+                </div>
+                {% if c.declining %}
+                  <div class="small text-warn mb-2">{{ decline_text(c) }}</div>
+                {% endif %}
+                <div style="position: relative; height: 170px;">
+                  <canvas class="campaign-chart" data-index="{{ loop.index0 }}" role="img" aria-label="{{ c.name }}"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted">{{ _("No Facebook orders in these days.") }}</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+{% if stats and not error %}
+<script>
+(function () {
+  var C = {{ colors | tojson }};
+  var DAYS = {{ stats.days | tojson }};
+  var TOTAL = {{ stats.total | tojson }};
+  var CAMPAIGNS = {{ stats.campaigns | tojson }};
+  var T = {{ {
+    "daily": _("Sales per day"), "average": _("7-day average"),
+    "order": _("1 order"), "orders": _("{count} orders"), "fell": _("Lower than the day before")
+  } | tojson }};
+  var INK = "#15181D", MUTED = "#6B7883", GRID = "#E5E9EC", SURFACE = "#FFFFFF";
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = MUTED;
+
+  function cop(v) { return "COP $" + Math.round(v).toLocaleString("es-CO"); }
+  function compact(v) {
+    if (v >= 1e6) return (v / 1e6).toLocaleString("es-CO", { maximumFractionDigits: 1 }) + " M";
+    if (v >= 1e3) return Math.round(v / 1e3).toLocaleString("es-CO") + " k";
+    return String(v);
+  }
+  function dayLabel(d) { return d.slice(8, 10) + "/" + d.slice(5, 7); }
+  function ordersText(n) { return n === 1 ? T.order : T.orders.replace("{count}", n.toLocaleString("es-CO")); }
+  // A point in the run of falling days: from the day the run starts from to the last day.
+  function inRun(s, i) { return s.declining && i >= s.decline_start_index; }
+
+  /* Sales per day, 2px; the run of falling days in amber, its points ringed. */
+  function salesDataset(s, label) {
+    return {
+      label: label, data: s.sales, borderColor: C.series, backgroundColor: C.series,
+      borderWidth: 2, tension: 0, fill: false,
+      pointRadius: s.sales.map(function (_, i) { return inRun(s, i) ? 4 : 0; }),
+      pointHoverRadius: 5, pointHitRadius: 10,
+      pointBackgroundColor: s.sales.map(function (_, i) { return inRun(s, i) ? C.warning : C.series; }),
+      pointBorderColor: SURFACE, pointBorderWidth: 2,
+      segment: { borderColor: function (ctx) { return inRun(s, ctx.p0DataIndex) ? C.warning : undefined; } }
+    };
+  }
+
+  function tooltip(s) {
+    return {
+      backgroundColor: INK, titleColor: "#fff", bodyColor: "#fff", footerColor: "#fff", padding: 10, cornerRadius: 4,
+      callbacks: {
+        title: function (items) { return items.length ? DAYS[items[0].dataIndex] : ""; },
+        label: function (c) { return " " + cop(c.parsed.y) + " · " + c.dataset.label; },
+        footer: function (items) {
+          if (!items.length) return "";
+          var i = items[0].dataIndex, lines = [ordersText(s.orders[i])];
+          if (inRun(s, i) && i > s.decline_start_index) lines.push("▼ " + T.fell);
+          return lines;
+        }
+      }
+    };
+  }
+
+  function scales(maxXTicks, maxYTicks) {
+    return {
+      x: { grid: { display: false }, ticks: { color: MUTED, maxRotation: 0, autoSkip: true, maxTicksLimit: maxXTicks,
+                                              callback: function (v) { return dayLabel(DAYS[v]); } } },
+      y: { beginAtZero: true, grid: { color: GRID }, border: { display: false },
+           ticks: { color: MUTED, maxTicksLimit: maxYTicks, callback: function (v) { return compact(v); } } }
+    };
+  }
+
+  /* All facebook orders: per day, and the 7-day average as a dashed context line. */
+  new Chart(document.getElementById("totalChart"), {
+    type: "line",
+    data: {
+      labels: DAYS,
+      datasets: [
+        salesDataset(TOTAL, T.daily),
+        { label: T.average, data: TOTAL.average, borderColor: C.average, backgroundColor: C.average,
+          borderWidth: 2, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 4, tension: 0.3, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", align: "start",
+                  labels: { color: INK, usePointStyle: true, pointStyle: "line", boxWidth: 24, padding: 16 } },
+        tooltip: tooltip(TOTAL)
+      },
+      scales: scales(10, 6)
+    }
+  });
+
+  /* One small chart per campaign, each on its own scale. */
+  document.querySelectorAll(".campaign-chart").forEach(function (el) {
+    var s = CAMPAIGNS[parseInt(el.dataset.index, 10)];
+    new Chart(el, {
+      type: "line",
+      data: { labels: DAYS, datasets: [salesDataset(s, T.daily)] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: false }, tooltip: tooltip(s) },
+        scales: scales(6, 4)
+      }
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}
